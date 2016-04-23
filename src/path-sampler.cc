@@ -27,6 +27,8 @@
 #include <sot/hpp/config.hh>
 #include "path-sampler.hh"
 #include "command.hh"
+#include <boost/assign/list_inserter.hpp> // for 'push_back()'
+#include <boost/assign/list_of.hpp>
 
 namespace dynamicgraph {
   namespace sot {
@@ -59,18 +61,37 @@ namespace dynamicgraph {
 	}
       }
 
+      void convert ( Vector& sotConfig)
+      {
+	Vector temp;
+	temp.resize(sotConfig.size ());
+	sotConfig.extract(0,36,temp);
+	sotConfig.resize(sotConfig.size()+3);
+	sotConfig(0) = temp(0);
+	sotConfig(1) = temp(1);
+	sotConfig(5) = temp(2);
+	sotConfig(2) = 0;
+	sotConfig(3) = 0;
+	sotConfig(4) = 0;
+	for (size_type i=6; i<sotConfig.size (); ++i) {
+	  sotConfig ((unsigned int)i) = temp ((unsigned int)(i-3));
+	}
+      }
+
       PathSampler::PathSampler (const std::string& name) :
 	Entity (name), configurationSOUT
 	("PathSampler("+name+")::output(vector)::configuration"),
 	jointPositionSIN(NULL,"PathSampler("+name+")::input(vector)::position"),
 	robot_ (), problem_ (), path_ (), steeringMethod_ (), timeStep_ (),
-	lastWaypoint_ (0), state_ (NOT_STARTED), startTime_ (0)
+	lastWaypoint_ (0), state_ (NOT_STARTED), rootJointType_("planar"),
+	startTime_ (0)
       {
 	using command::makeCommandVoid0;
 	using command::makeDirectSetter;
 	// Initialize input signal
 	signalRegistration(jointPositionSIN);
 	signalRegistration (configurationSOUT);
+
 	configurationSOUT.setFunction
 	  (boost::bind (&PathSampler::computeConfiguration, this, _1, _2));
 
@@ -156,6 +177,10 @@ namespace dynamicgraph {
 	  path_->appendPath ((*steeringMethod_) (lastWaypoint_, waypoint));
 	}
 	lastWaypoint_ = waypoint;
+	if (state_ == RESET) {
+          state_ = NOT_STARTED;
+        }
+
       }
 
       void PathSampler::start ()
@@ -210,6 +235,9 @@ namespace dynamicgraph {
 	    state_ = FINISHED;
 	  }
 	  convert ((*path_) (t), configuration);
+	}
+	if(rootJointType_ == "planar") {
+	  convert (configuration);
 	}
 	return configuration;
       }
