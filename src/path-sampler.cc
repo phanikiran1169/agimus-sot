@@ -62,12 +62,14 @@ namespace dynamicgraph {
       PathSampler::PathSampler (const std::string& name) :
 	Entity (name), configurationSOUT
 	("PathSampler("+name+")::output(vector)::configuration"),
-	robot_ (), path_ (), steeringMethod_ (), timeStep_ (0),
+	jointPositionSIN(NULL,"PathSampler("+name+")::input(vector)::position"),
+	robot_ (), problem_ (), path_ (), steeringMethod_ (), timeStep_ (),
 	lastWaypoint_ (0), state_ (NOT_STARTED), startTime_ (0)
       {
 	using command::makeCommandVoid0;
 	using command::makeDirectSetter;
 	// Initialize input signal
+	signalRegistration(jointPositionSIN);
 	signalRegistration (configurationSOUT);
 	configurationSOUT.setFunction
 	  (boost::bind (&PathSampler::computeConfiguration, this, _1, _2));
@@ -189,12 +191,14 @@ namespace dynamicgraph {
 	      ("Path length is 0 in entity PathSampler (" +
 	       getName () + ") and waypoint size does not fit robot size");
 	  }
-	  convert (lastWaypoint_, configuration);
+	  configuration = jointPositionSIN(time);
 	  return configuration;
 	}
 	configuration.resize (path_->outputSize ());
 	if (state_ == NOT_STARTED) {
-	  convert ((*path_) (0), configuration);
+
+	  //convert ((*path_) (0), configuration);
+	  configuration = jointPositionSIN(time);
 	}
 	else if (state_ == FINISHED) {
 	  convert ((*path_) (path_->length ()), configuration);

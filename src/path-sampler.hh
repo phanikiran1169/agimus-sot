@@ -21,6 +21,7 @@
 
 #include <dynamic-graph/entity.h>
 #include <dynamic-graph/signal.h>
+#include <dynamic-graph/signal-ptr.h>
 #include <hpp/core/fwd.hh>
 #include <sot/hpp/config.hh>
 
@@ -61,6 +62,7 @@ namespace dynamicgraph {
       private:
 	Vector& computeConfiguration (Vector& configuration, const int& time);
 	Signal <Vector, int> configurationSOUT;
+	SignalPtr<Vector,int> jointPositionSIN;
 	::hpp::model::DevicePtr_t robot_;
 	::hpp::core::PathVectorPtr_t path_;
 	::hpp::core::SteeringMethodPtr_t steeringMethod_;
