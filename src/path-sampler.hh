@@ -35,10 +35,12 @@ namespace dynamicgraph {
 	// State of the sampler
 	enum State {
 	  NOT_STARTED = 0,
+          RESET,
 	  SAMPLING,
 	  FINISHED
 	};
 	PathSampler (const std::string& name);
+	~PathSampler ();
 
 	/// Header documentation of the python class
 	virtual std::string getDocString () const
@@ -64,11 +66,13 @@ namespace dynamicgraph {
 	Signal <Vector, int> configurationSOUT;
 	SignalPtr<Vector,int> jointPositionSIN;
 	::hpp::model::DevicePtr_t robot_;
+	::hpp::core::ProblemPtr_t problem_;
 	::hpp::core::PathVectorPtr_t path_;
 	::hpp::core::SteeringMethodPtr_t steeringMethod_;
 	double timeStep_;
 	::hpp::model::Configuration_t lastWaypoint_;
 	State state_;
+	std::string rootJointType_;
 	int startTime_;
       };
     } // namespace hpp

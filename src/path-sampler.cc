@@ -39,6 +39,7 @@ namespace dynamicgraph {
       using ::hpp::core::PathVector;
       using ::hpp::core::SteeringMethodStraight;
       using ::hpp::core::SteeringMethodPtr_t;
+      using ::hpp::core::Problem;
       using ::hpp::model::ConfigurationIn_t;
       using ::hpp::model::ConfigurationOut_t;
       using ::hpp::model::Configuration_t;
@@ -48,7 +49,7 @@ namespace dynamicgraph {
       void convert (ConfigurationIn_t hppConfig, Vector& sotConfig)
       {
 	for (size_type i=0; i<hppConfig.size (); ++i) {
-	  sotConfig (i) = hppConfig [i];
+	  sotConfig ((unsigned int)i) = hppConfig [i];
 	}
       }
 
@@ -57,7 +58,7 @@ namespace dynamicgraph {
       void convert (const Vector& sotConfig, ConfigurationOut_t hppConfig)
       {
 	for (size_type i=0; i<hppConfig.size (); ++i) {
-	  hppConfig [i] = sotConfig (i);
+	  hppConfig [i] = sotConfig ((unsigned int)i);
 	}
       }
 
@@ -83,8 +84,8 @@ namespace dynamicgraph {
 	("PathSampler("+name+")::output(vector)::configuration"),
 	jointPositionSIN(NULL,"PathSampler("+name+")::input(vector)::position"),
 	robot_ (), problem_ (), path_ (), steeringMethod_ (), timeStep_ (),
-	lastWaypoint_ (0), state_ (NOT_STARTED), rootJointType_("planar"),
-	startTime_ (0)
+	lastWaypoint_ (), state_ (NOT_STARTED), rootJointType_("planar"),
+	startTime_ ()
       {
 	using command::makeCommandVoid0;
 	using command::makeDirectSetter;
@@ -146,17 +147,24 @@ namespace dynamicgraph {
 		    (*this, &PathSampler::loadRobotModel, docstring));
       }
 
+      PathSampler::~PathSampler ()
+      {
+	if (problem_) delete problem_;
+      }
+
       void PathSampler::loadRobotModel (const std::string& packageName,
 					const std::string& rootJointType,
 					const std::string& modelName)
       {
 	robot_ = Device::create ("modelName");
+	problem_ = new Problem (robot_);
 	::hpp::model::urdf::loadRobotModel (robot_, rootJointType, packageName,
 					    modelName, "", "");
 	// Create a new empty path
-	path_ = PathVector::create (robot_->configSize ());
-	steeringMethod_ = SteeringMethodPtr_t (new SteeringMethodStraight
-					       (robot_));
+	path_ = PathVector::create (robot_->configSize (),
+				    robot_->numberDof ());
+	steeringMethod_ = SteeringMethodPtr_t
+	  (SteeringMethodStraight::create (problem_));
       }
 
       void PathSampler::addWaypoint (const Vector& wp)
@@ -195,10 +203,12 @@ namespace dynamicgraph {
       void PathSampler::resetPath ()
       {
 	if (robot_) {
-	  path_ = PathVector::create (robot_->configSize ());
+	  path_ = PathVector::create (robot_->configSize (),
+				      robot_->numberDof ());
 	}
 	// Keep last waypoint
-	state_ = NOT_STARTED;
+        lastWaypoint_.resize(0);
+	state_ = RESET;
       }
 
 
@@ -219,14 +229,15 @@ namespace dynamicgraph {
 	  configuration = jointPositionSIN(time);
 	  return configuration;
 	}
-	configuration.resize (path_->outputSize ());
+	configuration.resize ((unsigned int)path_->outputSize ());
 	if (state_ == NOT_STARTED) {
 
 	  //convert ((*path_) (0), configuration);
 	  configuration = jointPositionSIN(time);
 	}
 	else if (state_ == FINISHED) {
-	  convert ((*path_) (path_->length ()), configuration);
+	  bool success;
+	  convert ((*path_) (path_->length (), success), configuration);
 	}
 	else if (state_ == SAMPLING) {
 	  double t = timeStep_ * (time - startTime_);
@@ -234,7 +245,8 @@ namespace dynamicgraph {
 	    t = path_->length ();
 	    state_ = FINISHED;
 	  }
-	  convert ((*path_) (t), configuration);
+	  bool success;
+	  convert ((*path_) (t, success), configuration);
 	}
 	if(rootJointType_ == "planar") {
 	  convert (configuration);
