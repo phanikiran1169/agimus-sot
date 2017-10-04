@@ -29,8 +29,7 @@ SET(PROJECT_URL "")
 
 SETUP_PROJECT()
 
-ADD_REQUIRED_DEPENDENCY ("hpp-core >= 3")
-ADD_REQUIRED_DEPENDENCY ("hpp-model-urdf >= 3")
+ADD_REQUIRED_DEPENDENCY ("hpp-corbaserver >= 3")
 ADD_REQUIRED_DEPENDENCY ("dynamic-graph-python >= 2")
 
 ADD_SUBDIRECTORY(src)

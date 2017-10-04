@@ -22,7 +22,7 @@
 #include <dynamic-graph/entity.h>
 #include <dynamic-graph/signal.h>
 #include <dynamic-graph/signal-ptr.h>
-#include <hpp/core/fwd.hh>
+#include <hpp/corbaserver/client.hh>
 #include <sot/hpp/config.hh>
 
 namespace dynamicgraph {
@@ -31,49 +31,45 @@ namespace dynamicgraph {
       /// Sample a path at a given time step
       class SOT_HPP_DLLAPI PathSampler : public dynamicgraph::Entity
       {
-	DYNAMIC_GRAPH_ENTITY_DECL();
-	// State of the sampler
-	enum State {
-	  NOT_STARTED = 0,
+        DYNAMIC_GRAPH_ENTITY_DECL();
+        // State of the sampler
+        enum State {
+          NOT_STARTED = 0,
           RESET,
-	  SAMPLING,
-	  FINISHED
-	};
-	PathSampler (const std::string& name);
-	~PathSampler ();
+          SAMPLING,
+          FINISHED
+        };
+        PathSampler (const std::string& name);
+        ~PathSampler ();
 
-	/// Header documentation of the python class
-	virtual std::string getDocString () const
-	{
-	  return
-	    "Sample a path at a given time step\n\n"
-	    "  Path is a list of straight interpolations in the robot "
-	    "configuration space.\n"
-	    "The robot kinematic chain is built from a urdf file.\n";
-	}
-	// Add a way point to the current path
-	void addWaypoint (const Vector& waypoint);
-	// Start sampling path
-	void start ();
-	// Reset path
-	void resetPath ();
-	// Load robot model from urdf file
-	void loadRobotModel (const std::string& packageName,
-			     const std::string& rootJointType,
-			     const std::string& modelName);
-      private:
-	Vector& computeConfiguration (Vector& configuration, const int& time);
-	Signal <Vector, int> configurationSOUT;
-	SignalPtr<Vector,int> jointPositionSIN;
-	::hpp::model::DevicePtr_t robot_;
-	::hpp::core::ProblemPtr_t problem_;
-	::hpp::core::PathVectorPtr_t path_;
-	::hpp::core::SteeringMethodPtr_t steeringMethod_;
-	double timeStep_;
-	::hpp::model::Configuration_t lastWaypoint_;
-	State state_;
-	std::string rootJointType_;
-	int startTime_;
+        /// Header documentation of the python class
+        virtual std::string getDocString () const
+        {
+          return
+            "Sample a path at a given time step\n\n"
+            "  Path is a list of straight interpolations in the robot "
+            "configuration space.\n"
+            "The robot kinematic chain is built from a urdf file.\n";
+        }
+        // Start sampling path
+        void start ();
+        // Reset path
+        void resetPath ();
+        // Set path
+        void setPathID (const int& id);
+        // Connect to the HPP server
+        void connect (const std::string& host, const int& port = 2809);
+        private:
+        Vector& computeConfiguration (Vector& configuration, const int& time);
+        Signal <Vector, int> configurationSOUT;
+        SignalPtr<Vector,int> jointPositionSIN;
+        ::hpp::corbaServer::Client hpp_;
+
+        double timeStep_, pathLength_;
+        int pathId_;
+        State state_;
+        std::string rootJointType_;
+        int startTime_;
       };
     } // namespace hpp
   } // namespace sot

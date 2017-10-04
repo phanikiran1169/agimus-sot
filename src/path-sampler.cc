@@ -20,13 +20,8 @@
 #include <dynamic-graph/factory.h>
 #include <dynamic-graph/command-bind.h>
 #include <dynamic-graph/command-direct-setter.h>
-#include <hpp/model/device.hh>
-#include <hpp/model/urdf/util.hh>
-#include <hpp/core/steering-method-straight.hh>
-#include <hpp/core/path-vector.hh>
 #include <sot/hpp/config.hh>
 #include "path-sampler.hh"
-#include "command.hh"
 #include <boost/assign/list_inserter.hpp> // for 'push_back()'
 #include <boost/assign/list_of.hpp>
 
@@ -34,60 +29,76 @@ namespace dynamicgraph {
   namespace sot {
     namespace hpp {
       using dynamicgraph::Entity;
-      using ::hpp::model::Device;
-      using ::hpp::model::DevicePtr_t;
-      using ::hpp::core::PathVector;
-      using ::hpp::core::SteeringMethodStraight;
-      using ::hpp::core::SteeringMethodPtr_t;
-      using ::hpp::core::Problem;
-      using ::hpp::model::ConfigurationIn_t;
-      using ::hpp::model::ConfigurationOut_t;
-      using ::hpp::model::Configuration_t;
-      using ::hpp::model::size_type;
-      // Convert configuration from hpp::model::Configuration_t to
+      using ::hpp::floatSeq;
+      using ::hpp::floatSeq_var;
+      using ::hpp::floatSeq_out;
+
+      // Convert configuration from floatSeq to
       // dynamicgraph::Vector
-      void convert (ConfigurationIn_t hppConfig, Vector& sotConfig)
+      void convert (const floatSeq& hppConfig, Vector& sotConfig)
       {
-	for (size_type i=0; i<hppConfig.size (); ++i) {
+	for (CORBA::ULong i=0; i<hppConfig.length (); ++i) {
 	  sotConfig ((unsigned int)i) = hppConfig [i];
 	}
       }
 
-      // Convert configuration from hpp::model::Configuration_t to
+      // Convert configuration from floatSeq to
       // dynamicgraph::Vector
-      void convert (const Vector& sotConfig, ConfigurationOut_t hppConfig)
+      void convert (const Vector& sotConfig, floatSeq_out hppConfig)
       {
-	for (size_type i=0; i<hppConfig.size (); ++i) {
+	for (int i=0; i<sotConfig.size (); ++i) {
 	  hppConfig [i] = sotConfig ((unsigned int)i);
 	}
       }
 
-      void convert ( Vector& sotConfig)
+      void convert_planar ( Vector& sotConfig)
       {
 	Vector temp;
 	temp.resize(sotConfig.size ());
-	sotConfig.extract(0,36,temp);
-	sotConfig.resize(sotConfig.size()+3);
-	sotConfig(0) = temp(0);
-	sotConfig(1) = temp(1);
-	sotConfig(5) = temp(2);
+        temp = sotConfig;
+	sotConfig.resize(sotConfig.size()+2);
+        sotConfig.tail(temp.size()) = temp;
+
+        // position
+	sotConfig.head<2>() = temp.head<2>();
 	sotConfig(2) = 0;
+
+        // Roll = Pitch = 0
+        // Yaw = atan( sin(theta) / cos(theta) )
 	sotConfig(3) = 0;
 	sotConfig(4) = 0;
-	for (size_type i=6; i<sotConfig.size (); ++i) {
-	  sotConfig ((unsigned int)i) = temp ((unsigned int)(i-3));
-	}
+	sotConfig(5) = std::atan2 (temp(3), temp(2));
+      }
+
+      void convert_freeflyer ( Vector& sotConfig)
+      {
+	Vector temp;
+	temp.resize(sotConfig.size ());
+        temp = sotConfig;
+	sotConfig.resize(sotConfig.size()-1);
+        sotConfig.tail(temp.size() - 7) = temp.tail(temp.size() - 7);
+
+        // position
+	sotConfig.head<3>() = temp.head<3>();
+
+        // TODO
+        // Compute RPY from quaternion in temp[3:7]
+        // for now Roll = Pitch = Yaw = 0
+        sotConfig.segment<3>(3).setZero();
       }
 
       PathSampler::PathSampler (const std::string& name) :
 	Entity (name), configurationSOUT
 	("PathSampler("+name+")::output(vector)::configuration"),
 	jointPositionSIN(NULL,"PathSampler("+name+")::input(vector)::position"),
-	robot_ (), problem_ (), path_ (), steeringMethod_ (), timeStep_ (),
-	lastWaypoint_ (), state_ (NOT_STARTED), rootJointType_("planar"),
+        hpp_ (0, NULL), timeStep_ (),
+        pathLength_(0), pathId_ (-1),
+	state_ (NOT_STARTED), rootJointType_("planar"),
 	startTime_ ()
       {
 	using command::makeCommandVoid0;
+	using command::makeCommandVoid1;
+	using command::makeCommandVoid2;
 	using command::makeDirectSetter;
 	// Initialize input signal
 	signalRegistration(jointPositionSIN);
@@ -97,98 +108,72 @@ namespace dynamicgraph {
 	  (boost::bind (&PathSampler::computeConfiguration, this, _1, _2));
 
 	std::string docstring;
-	// Add command AddWaypoint
-	docstring =
-	  "\n"
-	  "    Add a way point to the path\n"
-	  "      input (vector) the waypoint: should be of the same dimension as\n"
-	  "                     robot configuration\n"
-	  "\n"
-	  "      Path is a concatenation of straight interpolation paths as "
-	  "defined\n"
-	  "      in hpp::core::PathVector.\n";
-	addCommand (std::string ("addWaypoint"),
-		    new AddWaypoint (*this, docstring));
 
 	docstring =
 	  "\n"
 	  "    Start sampling path\n";
-	addCommand ("start", makeCommandVoid0(*this, &PathSampler::start,
-					     docstring));
+	addCommand ("start", makeCommandVoid0
+            (*this, &PathSampler::start, docstring));
 
 	docstring =
 	  "\n"
 	  "    Reset path\n";
-	addCommand ("resetPath", makeCommandVoid0 (*this,
-						   &PathSampler::resetPath,
-						   docstring));
+	addCommand ("resetPath", makeCommandVoid0
+            (*this, &PathSampler::resetPath, docstring));
+
+	docstring =
+	  "\n"
+	  "    Set path ID in HPP server\n";
+	addCommand ("setPathID", makeCommandVoid1
+            (*this, &PathSampler::setPathID, docstring));
 
 	docstring =
 	  "\n"
 	  "    Set timeStep\n"
 	  "      Input: float\n";
-	addCommand ("setTimeStep",
-		    makeDirectSetter (*this, &timeStep_, docstring));
+	addCommand ("setTimeStep", makeDirectSetter
+            (*this, &timeStep_, docstring));
 
 	docstring =
 	  "\n"
-	  "    Load urdf robot model\n"
-	  "      Input: string packageName: name of the ros package containing\n"
-	  "               the urdf file\n"
-	  "             string rootJointType: type of the root joint among "
-	  "['freeflyer',\n"
-	  "               'planar', 'anchor']\n"
-	  "             string modelName: name of the urdf file\n"
+	  "    Set the root joint type\n"
+	  "      Input: string root_joint_type: one of ['freeflyer', 'planar', 'anchor']\n";
+	addCommand ("setRootJointType", makeDirectSetter
+            (*this, &rootJointType_, docstring));
+
+	docstring =
 	  "\n"
-	  "     The url of the file is 'package://${packageName}/urdf/"
-	  "modelName.urdf'\n";
-	addCommand ("loadRobotModel",
-		    dynamicgraph::command::makeCommandVoid3
-		    (*this, &PathSampler::loadRobotModel, docstring));
+	  "    Connect to HPP corba server\n"
+	  "      Input: string host\n"
+	  "             int    port\n";
+        addCommand ("connect", makeCommandVoid2
+            (*this, &PathSampler::connect, docstring));
       }
 
       PathSampler::~PathSampler ()
       {
-	if (problem_) delete problem_;
       }
 
-      void PathSampler::loadRobotModel (const std::string& packageName,
-					const std::string& rootJointType,
-					const std::string& modelName)
+      void PathSampler::connect (const std::string& host, const int& port)
       {
-	robot_ = Device::create ("modelName");
-	problem_ = new Problem (robot_);
-	::hpp::model::urdf::loadRobotModel (robot_, rootJointType, packageName,
-					    modelName, "", "");
-	// Create a new empty path
-	path_ = PathVector::create (robot_->configSize (),
-				    robot_->numberDof ());
-	steeringMethod_ = SteeringMethodPtr_t
-	  (SteeringMethodStraight::create (problem_));
+        std::stringstream ss;
+        ss << "corbaloc:iiop:" << host << ':' << port << "/NameService";
+        hpp_.connect (ss.str().c_str());
       }
 
-      void PathSampler::addWaypoint (const Vector& wp)
+      void PathSampler::setPathID (const int& id)
       {
-	if (!robot_) {
-	  throw std::runtime_error ("Robot is not initialized");
+        const int limit = hpp_.problem()->numberPaths();
+	if (id >= limit) {
+          std::stringstream ss;
+          ss << "Path ID exceeds limit (" << limit << ").";
+	  throw std::runtime_error (ss.str());
 	}
-	if (robot_->configSize () != (size_type) wp.size ()) {
-	  std::ostringstream oss ("                     \n");
-	  oss << "Dimension of robot (" << robot_->configSize () <<
-	    ") and dimension of waypoint (" << wp.size () << ") differ.";
-	  throw std::runtime_error (oss.str ().c_str ());
-	}
-	Configuration_t waypoint (wp.size ());
-	convert (wp, waypoint);
-	if (lastWaypoint_.size () != 0) {
-	  // It is not the first way point, add a straight path
-	  path_->appendPath ((*steeringMethod_) (lastWaypoint_, waypoint));
-	}
-	lastWaypoint_ = waypoint;
+        pathId_ = id;
+        pathLength_ = hpp_.problem()->pathLength((CORBA::UShort)pathId_);
 	if (state_ == RESET) {
           state_ = NOT_STARTED;
         }
-
       }
 
       void PathSampler::start ()
@@ -202,54 +187,44 @@ namespace dynamicgraph {
 
       void PathSampler::resetPath ()
       {
-	if (robot_) {
-	  path_ = PathVector::create (robot_->configSize (),
-				      robot_->numberDof ());
-	}
-	// Keep last waypoint
-        lastWaypoint_.resize(0);
+        pathId_ = -1;
 	state_ = RESET;
       }
-
 
       Vector& PathSampler::computeConfiguration
       (Vector& configuration, const int& time)
       {
-	if (!path_) {
+	if (pathId_ < 0) {
 	  throw std::runtime_error
 	    ("Path is not initialized in entity PathSampler (" +
 	     getName () + ")");
 	}
-	if (path_->length () == 0) {
-	  if (lastWaypoint_.size () != robot_->configSize ()) {
-	    throw std::runtime_error
-	      ("Path length is 0 in entity PathSampler (" +
-	       getName () + ") and waypoint size does not fit robot size");
-	  }
+	if (pathLength_ == 0) {
 	  configuration = jointPositionSIN(time);
 	  return configuration;
 	}
-	configuration.resize ((unsigned int)path_->outputSize ());
+	configuration.resize (hpp_.robot()->getConfigSize());
 	if (state_ == NOT_STARTED) {
-
-	  //convert ((*path_) (0), configuration);
 	  configuration = jointPositionSIN(time);
+          return configuration;
 	}
 	else if (state_ == FINISHED) {
-	  bool success;
-	  convert ((*path_) (path_->length (), success), configuration);
+          floatSeq_var config = hpp_.problem()->configAtParam((CORBA::UShort)pathId_, pathLength_);
+	  convert (config.in(), configuration);
 	}
 	else if (state_ == SAMPLING) {
 	  double t = timeStep_ * (time - startTime_);
-	  if (t > path_->length ()) {
-	    t = path_->length ();
+	  if (t > pathLength_) {
+	    t = pathLength_;
 	    state_ = FINISHED;
 	  }
-	  bool success;
-	  convert ((*path_) (t, success), configuration);
+          floatSeq_var config = hpp_.problem()->configAtParam((CORBA::UShort)pathId_, t);
+          convert (config.in(), configuration);
 	}
 	if(rootJointType_ == "planar") {
-	  convert (configuration);
+	  convert_planar (configuration);
+	} else if(rootJointType_ == "freeflyer") {
+	  convert_freeflyer (configuration);
 	}
 	return configuration;
       }
