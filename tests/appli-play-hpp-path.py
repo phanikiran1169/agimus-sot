@@ -8,6 +8,47 @@ from dynamic_graph.sot.core.matrix_util import matrixToTuple
 from dynamic_graph.sot.hpp import PathSampler
 from numpy import identity, hstack, zeros
 
+# Create remapping of joints
+import hpp.corbaserver
+import sys
+
+if not hasattr(sys, "argv"):
+    sys.argv = []
+
+cl = hpp.corbaserver.Client(url = "corbaloc:iiop:ontake/NameService")
+# Classic case
+# prefix = ""
+# Manipulation case
+prefix = "talos/"
+hppjns = cl.robot.getJointNames()
+sotjns = list(robot.pinocchioModel.names)
+hpp_i = 0
+hpp_to_keep = []
+cfg_start = 0
+cfg_size = 0
+
+for jn in sotjns[1:]:
+    if hpp_i >= len(hppjns):
+        print "Stopped at", jn
+        break
+    if prefix + jn == hppjns[hpp_i]:
+        cfg_size += cl.robot.getJointConfigSize(hppjns[hpp_i])
+        hpp_i += 1
+        continue
+    hpp_to_keep.append ( (cfg_start, cfg_size) )
+    cfg_start += cfg_size
+    cfg_size = 0
+    while hpp_i < len(hppjns):
+        if prefix + jn == hppjns[hpp_i]:
+            cfg_size += cl.robot.getJointConfigSize(hppjns[hpp_i])
+            hpp_i += 1
+            break
+        cfg_start += cl.robot.getJointConfigSize(hppjns[hpp_i])
+        hpp_i += 1
+
+if cfg_size > 0:
+    hpp_to_keep.append ( (cfg_start, cfg_size) )
+
 # Create the posture task
 task_name = "posture_task"
 taskPosture = Task(task_name)
@@ -28,8 +69,10 @@ taskPosture.add(taskPosture.feature.name)
 aPlayHppPath = PathSampler('aPlayHppPath')
 aPlayHppPath.connect("ontake", 2809)
 aPlayHppPath.setRootJointType("freeflyer")
-aPlayHppPath.setPathID(0)
-aPlayHppPath.setTimeStep(0.01)
+aPlayHppPath.setPathID(1)
+aPlayHppPath.setTimeStep(0.001)
+for seg in hpp_to_keep:
+  aPlayHppPath.addParamSelection(seg[0], seg[1])
 
 # Connects the sequence player to the posture task
 from dynamic_graph.sot.core import Selec_of_vector
