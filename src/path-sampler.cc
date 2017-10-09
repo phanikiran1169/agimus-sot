@@ -92,8 +92,8 @@ namespace dynamicgraph {
 	("PathSampler("+name+")::output(vector)::configuration"),
 	jointPositionSIN(NULL,"PathSampler("+name+")::input(vector)::position"),
         hpp_ (0, NULL), timeStep_ (),
-        pathLength_(0), pathId_ (-1),
-	state_ (NOT_STARTED), rootJointType_("planar"),
+        pathLength_(0), pathId_ (-1), sizeOutput_(0),
+        state_ (NOT_STARTED), rootJointType_("anchor"),
 	startTime_ ()
       {
 	using command::makeCommandVoid0;
@@ -148,6 +148,12 @@ namespace dynamicgraph {
 	  "             int    port\n";
         addCommand ("connect", makeCommandVoid2
             (*this, &PathSampler::connect, docstring));
+
+	docstring =
+	  "\n"
+	  "    Add parameter selection in the HPP configuration\n";
+	addCommand ("addParamSelection", makeCommandVoid2
+            (*this, &PathSampler::addParamSelection, docstring));
       }
 
       PathSampler::~PathSampler ()
@@ -194,39 +200,59 @@ namespace dynamicgraph {
       Vector& PathSampler::computeConfiguration
       (Vector& configuration, const int& time)
       {
-	if (pathId_ < 0) {
-	  throw std::runtime_error
-	    ("Path is not initialized in entity PathSampler (" +
-	     getName () + ")");
-	}
-	if (pathLength_ == 0) {
-	  configuration = jointPositionSIN(time);
-	  return configuration;
-	}
-	configuration.resize (hpp_.robot()->getConfigSize());
-	if (state_ == NOT_STARTED) {
-	  configuration = jointPositionSIN(time);
+        if (pathId_ < 0) {
+          throw std::runtime_error
+            ("Path is not initialized in entity PathSampler (" +
+             getName () + ")");
+        }
+        if (pathLength_ == 0) {
+          configuration = jointPositionSIN(time);
           return configuration;
-	}
-	else if (state_ == FINISHED) {
+        }
+        Vector q (hpp_.robot()->getConfigSize());
+        if (state_ == NOT_STARTED) {
+          configuration = jointPositionSIN(time);
+          return configuration;
+        }
+        else if (state_ == FINISHED) {
           floatSeq_var config = hpp_.problem()->configAtParam((CORBA::UShort)pathId_, pathLength_);
-	  convert (config.in(), configuration);
-	}
-	else if (state_ == SAMPLING) {
-	  double t = timeStep_ * (time - startTime_);
-	  if (t > pathLength_) {
-	    t = pathLength_;
-	    state_ = FINISHED;
-	  }
+          convert (config.in(), q);
+        }
+        else if (state_ == SAMPLING) {
+          double t = timeStep_ * (time - startTime_);
+          if (t > pathLength_) {
+            t = pathLength_;
+            state_ = FINISHED;
+          }
           floatSeq_var config = hpp_.problem()->configAtParam((CORBA::UShort)pathId_, t);
-          convert (config.in(), configuration);
-	}
-	if(rootJointType_ == "planar") {
-	  convert_planar (configuration);
-	} else if(rootJointType_ == "freeflyer") {
-	  convert_freeflyer (configuration);
-	}
-	return configuration;
+          convert (config.in(), q);
+        }
+        // configuration.resize ();
+        applySelection(q, configuration);
+        if(rootJointType_ == "planar") {
+          convert_planar (configuration);
+        } else if(rootJointType_ == "freeflyer") {
+          convert_freeflyer (configuration);
+        }
+        return configuration;
+      }
+
+      void PathSampler::addParamSelection (const int& start, const int& length)
+      {
+        selection_.push_back (segment_t(start, length));
+        sizeOutput_ += length;
+      }
+
+      void PathSampler::applySelection (const Vector& in, Vector& out)
+      {
+        if (selection_.empty()) out = in;
+        out.resize(sizeOutput_);
+        int r = 0;
+        for (std::size_t i = 0; i < selection_.size(); ++i) {
+          out.segment(r, selection_[i].second)
+            = in.segment(selection_[i].first, selection_[i].second);
+          r += selection_[i].second;
+        }
       }
 
       DYNAMICGRAPH_FACTORY_ENTITY_PLUGIN (PathSampler, "PathSampler");

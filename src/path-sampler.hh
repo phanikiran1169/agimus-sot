@@ -57,16 +57,22 @@ namespace dynamicgraph {
         void resetPath ();
         // Set path
         void setPathID (const int& id);
+        // add selection of params
+        void addParamSelection (const int& start, const int& length);
         // Connect to the HPP server
         void connect (const std::string& host, const int& port = 2809);
         private:
         Vector& computeConfiguration (Vector& configuration, const int& time);
+        void applySelection (const Vector& in, Vector& out);
         Signal <Vector, int> configurationSOUT;
         SignalPtr<Vector,int> jointPositionSIN;
         ::hpp::corbaServer::Client hpp_;
 
         double timeStep_, pathLength_;
         int pathId_;
+        typedef std::pair<int,int> segment_t;
+        std::vector<segment_t> selection_;
+        int sizeOutput_;
         State state_;
         std::string rootJointType_;
         int startTime_;
