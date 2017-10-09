@@ -10,12 +10,28 @@ def launchScript(code,title,description = ""):
     raw_input(title+':   '+description)
     rospy.loginfo(title)
     rospy.loginfo(code)
+    indent = '  '
+    indenting = False
     for line in code:
+        if indenting:
+            if line == '' or line.startswith(indent):
+                codeblock += '\n' + line
+                continue
+            else:
+                print codeblock
+                answer = runCommandClient(str(codeblock))
+                rospy.logdebug(answer)
+                print answer
+                indenting = False
         if line != '' and line[0] != '#':
-            print line
-            answer = runCommandClient(str(line))
-            rospy.logdebug(answer)
-            print answer
+            if line.endswith(':'):
+                indenting = True
+                codeblock = line
+            else:
+                print line
+                answer = runCommandClient(str(line))
+                rospy.logdebug(answer)
+                print answer
     rospy.loginfo("...done with "+title)
 
 
