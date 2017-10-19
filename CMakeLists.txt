@@ -29,8 +29,19 @@ SET(PROJECT_URL "")
 
 SETUP_PROJECT()
 
+FINDPYTHON(REQUIRED 2.7 EXACT)
+
 ADD_REQUIRED_DEPENDENCY ("hpp-corbaserver >= 3")
 ADD_REQUIRED_DEPENDENCY ("dynamic-graph-python >= 2")
+
+SET(FILES
+  supervisor.py
+  tools.py
+  __init__.py)
+
+FOREACH(F ${FILES})
+    PYTHON_INSTALL_ON_SITE("sot_hpp" ${F})
+ENDFOREACH()
 
 ADD_SUBDIRECTORY(src)
 
