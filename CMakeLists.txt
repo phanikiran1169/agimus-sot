@@ -37,6 +37,7 @@ ADD_REQUIRED_DEPENDENCY ("dynamic-graph-python >= 2")
 SET(FILES
   supervisor.py
   tools.py
+  ros_interface.py
   __init__.py)
 
 FOREACH(F ${FILES})
