@@ -1,6 +1,6 @@
 import rospy
 from std_srvs.srv import Trigger, TriggerResponse
-from hpp_ros_interface.srv import PlugSot, PlugSotResponse, SetString
+from hpp_ros_interface.srv import PlugSot, PlugSotResponse, SetString, SetJointNames
 
 class RosInterface(object):
     def __init__ (self, supervisor):
@@ -26,6 +26,13 @@ class RosInterface(object):
             msg = str(e)
             rsp.success = False
         return rsp
+
+    def setupHppJoints(self, prefix = None):
+        names = [ prefix + n for n in self.supervisor.sotrobot.dynamic.model.names[2:] ]
+        setJoints = rospy.ServiceProxy ('/hpp/target/set_joint_names', SetJointNames)
+        ans = setJoints (names)
+        if not ans.success:
+            rospy.logerr("Could not set the joint list of hpp_ros_interface node")
 
     def requestHppTopics(self, req):
         handlers = {
