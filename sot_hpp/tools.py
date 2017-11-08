@@ -14,13 +14,15 @@ def transformToMatrix (T):
     return M
 
 class Manifold(object):
+    sep = "___"
+
     def __init__ (self, tasks = [], constraints = [], topics = {}):
         self.tasks = tasks
         self.constraints = constraints
         self.topics = topics
 
     def __add__ (self, other):
-        res = Manifold(self.tasks, self.constraints, self.topics)
+        res = Manifold(list(self.tasks), list(self.constraints), dict(self.topics))
         res += other
         return res
 
@@ -33,9 +35,10 @@ class Manifold(object):
                 assert a["type"] == v["type"]
                 if a.has_key('topic'): assert a["topic"] == v["topic"]
                 else: assert a["handler"] == v["handler"]
-                a["signalGetters"] += v["signalGetters"]
+                a["signalGetters"] += list(v["signalGetters"])
+                # print k, "has", len(a["signalGetters"]), "signals"
             else:
-                self.topics[k] = v
+                self.topics[k] = dict(v)
         return self
 
     def pushTo (self, sot):
@@ -45,17 +48,55 @@ class Manifold(object):
 class Posture(Manifold):
     def __init__ (self, name, sotrobot):
         super(Posture, self).__init__()
-        self.tp = MetaTaskKinePosture (sotrobot.dynamic, name)
-        self.tasks = [ self.tp.task ]
+        from dynamic_graph.sot.core import Task, FeatureGeneric, GainAdaptive, Selec_of_vector
+        from dynamic_graph.sot.core.meta_tasks import setGain
+        from dynamic_graph.sot.core.matrix_util import matrixToTuple
+        from dynamic_graph import plug
+        from numpy import identity, hstack, zeros
+
+        n = Posture.sep + name
+        self.tp = Task ('task' + n)
+        self.tp.dyn = sotrobot.dynamic
+        self.tp.feature = FeatureGeneric('feature_'+n)
+        self.tp.featureDes = FeatureGeneric('feature_des_'+n)
+        self.tp.gain = GainAdaptive("gain_"+n)
+        robotDim = sotrobot.dynamic.getDimension()
+        first_6 = zeros((robotDim-6,6))
+        other_dof = identity(robotDim-6)
+        jacobian_posture = hstack([first_6, other_dof])
+        self.tp.feature.jacobianIN.value = matrixToTuple( jacobian_posture )
+        self.tp.feature.setReference(self.tp.featureDes.name)
+        self.tp.add(self.tp.feature.name)
+
+        # Connects the dynamics to the current feature of the posture task
+        # plug(re.position, taskPosture.featureDes.errorIN)
+        # plug(re.velocity, taskPosture.featureDes.errordotIN)
+
+        getPostureValue = Selec_of_vector("current_posture")
+        getVelocityValue = Selec_of_vector("current_velovity")
+        getPostureValue.selec(6,robotDim)
+        getVelocityValue.selec(6,robotDim)
+
+        plug(sotrobot.dynamic.position, getPostureValue.sin)
+        plug(getPostureValue.sout, self.tp.feature.errorIN)
+        plug(sotrobot.dynamic.velocity, getVelocityValue.sin)
+        plug(getVelocityValue.sout, self.tp.feature.errordotIN)
+
+        # Set the gain of the posture task
+        setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
+        # setGain(taskPosture.gain,(9.8,1.8,0.02,1.8))
+        plug(self.tp.gain.gain, self.tp.controlGain)
+        plug(self.tp.error, self.tp.gain.error)
+        self.tasks = [ self.tp ]
         self.topics = {
                     name: {
                         "type": "vector",
-                        "topic": "position",
+                        "topic": "/hpp/target/position",
                         "signalGetters": [ self._signalPositionRef ] },
                     "vel_" + name: {
                         "type": "vector",
-                        "topic": "velocity",
-                        "signalGetters": [ self._signalPositionRef ] },
+                        "topic": "/hpp/target/velocity",
+                        "signalGetters": [ self._signalVelocityRef ] },
                 }
 
     def _signalPositionRef (self): return self.tp.featureDes.errorIN
@@ -88,8 +129,6 @@ class OpFrame(object):
             robotname, self.sotjoint = parseHppName (n)
 
 class Grasp (Manifold):
-    sep = "___"
-
     def __init__ (self, gripper, handle, otherGraspOnObject = None):
         super(Grasp, self).__init__()
         self.gripper = gripper
@@ -123,9 +162,9 @@ class Grasp (Manifold):
         if self.relative:
             # We define a MetaTaskKine6dRel
             self.graspTask = MetaTaskKine6dRel (
-                    self.gripper.name + Grasp.sep + self.handle.name +
+                    Grasp.sep + self.gripper.name + Grasp.sep + self.handle.name +
                     '(rel_to_' + self.otherGrasp.gripper.name + ')',
-                    sotRobot.dynamic,
+                    sotrobot.dynamic,
                     self.gripper.sotjoint,
                     self.gripper.sotjoint,
                     self.otherGrasp.gripper.sotjoint,
@@ -146,6 +185,7 @@ class Grasp (Manifold):
             # M = transformToMatrix(self.gripper.sotpose)
             # self.graspTask.opmodif = matrixToTuple(M)
         # self.graspTask.feature.frame("desired")
+        self.graspTask.task.controlGain.value = 5
         self.graspTask.feature.frame("current")
         self.tasks = [ self.graspTask.task ]
 
