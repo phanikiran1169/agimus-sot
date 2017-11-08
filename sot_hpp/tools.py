@@ -191,3 +191,55 @@ class Grasp (Manifold):
 
     def _signalPositionRef (self): return self.graspTask.featureDes.position
     def _signalVelocityRef (self): return self.graspTask.featureDes.velocity
+
+class Foot (Manifold):
+    def __init__ (self, footname, sotrobot):
+        robotname, sotjoint = parseHppName (footname)
+        self.taskFoot = MetaTaskKine6d(
+                Foot.sep + footname,
+                sotrobot.dynamic,sotjoint,sotjoint)
+        super(Foot, self).__init__(
+                tasks = [ self.taskFoot.task, ],
+                topics = {
+                    footname: {
+                        "velocity": False,
+                        "type": "matrixHomo",
+                        "handler": "hppjoint",
+                        "hppjoint": footname,
+                        "signalGetters": [ self._signalPositionRef ] },
+                    # "vel_" + self.gripper.name: {
+                    "vel_" + footname: {
+                        "velocity": True,
+                        "type": "vector",
+                        "handler": "hppjoint",
+                        "hppjoint": footname,
+                        "signalGetters": [ self._signalVelocityRef ] },
+                    })
+
+    def _signalPositionRef (self): return self.taskFoot.featureDes.position
+    def _signalVelocityRef (self): return self.taskFoot.featureDes.velocity
+
+class COM (Manifold):
+    def __init__ (self, comname, sotrobot):
+        self.taskCom = MetaTaskKineCom (sotrobot.dynamic,
+                name = COM.sep + comname)
+        super(COM, self).__init__(
+                tasks = [ self.taskCom.task, ],
+                topics = {
+                    comname: {
+                        "velocity": False,
+                        "type": "vector3",
+                        "handler": "hppcom",
+                        "hppcom": comname,
+                        "signalGetters": [ self._signalPositionRef ] },
+                    "vel_" + comname: {
+                        "velocity": True,
+                        "type": "vector3",
+                        "handler": "hppcom",
+                        "hppcom": comname,
+                        "signalGetters": [ self._signalVelocityRef ] },
+                    })
+        self.taskCom.task.controlGain.value = 5
+
+    def _signalPositionRef (self): return self.taskCom.featureDes.errorIN
+    def _signalVelocityRef (self): return self.taskCom.featureDes.errordotIN
