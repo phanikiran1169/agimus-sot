@@ -5,6 +5,11 @@ from dynamic_graph import plug
 def idx(l): return range(len(l))
 def idx_zip (l): return zip (idx(l), l)
 
+def _hpTasks (sotrobot):
+    return Manifold()
+def _lpTasks (sotrobot):
+    return Posture ("posture", sotrobot)
+
 class Supervisor(object):
     """
     Steps: P = placement, G = grasp, p = pre-P, g = pre-G
@@ -15,7 +20,7 @@ class Supervisor(object):
     4. GP <-> Gp
     5. Gp <-> G
     """
-    def __init__ (self, hppclient, sotrobot, grippers, objects, handlesPerObjects):
+    def __init__ (self, hppclient, sotrobot, grippers, objects, handlesPerObjects, lpTasks = _lpTasks(sotrobot), hpTasks = _hpTasks(sotrobot)):
         handles = [ h for i in idx(objects) for h in handlesPerObjects[i] ]
         self.hpp = hppclient
         self.sotrobot = sotrobot
@@ -30,9 +35,10 @@ class Supervisor(object):
         for g in self.grippers: g.setSotFrameFromHpp (self.sotrobot.dynamic.model)
         for h in self.handles : h.setSotFrameFromHpp (self.sotrobot.dynamic.model)
 
-        self.postureTask = Posture ("posture", sotrobot)
-        self.hpTasks = Manifold()
-        self.lpTasks = Posture ("posture", sotrobot)
+        self.hpTasks = hpTasks
+        self.lpTasks = lpTasks
+
+        self.currentSot = None
 
     def makeGrasps (self, transitions):
         """
@@ -88,12 +94,25 @@ class Supervisor(object):
 
             self.sots[t['id']] = sot
 
-    def plugTopics (self, rosexport):
+        # Create the initial sot (keep)
+        sot = SOT ('sot_keep')
+        sot.setSize(self.sotrobot.dynamic.getDimension())
+        posture = Posture ("posture_keep", self.sotrobot)
+        posture._signalPositionRef().value = self.sotrobot.dynamic.position.value [6:]
+        posture.pushTo(sot)
+        self.sots[-1] = sot
+
+    def topics (self):
         c = self.hpTasks + self.lpTasks
         for g in self.grasps.values():
             c += g
 
-        for n, t in c.topics.items():
+        return c.topics
+
+    def plugTopics (self, rosexport):
+        topics = self.topics()
+
+        for n, t in topics.items():
             if t.has_key('handler'):
                 topic = _handlers[t['handler']] (n, t)
             else:
@@ -101,13 +120,15 @@ class Supervisor(object):
             rosexport.add (t["type"], n, topic)
             for s in t['signalGetters']:
                 plug (rosexport.signal(n), s())
-            print topic, "plugged to", n
+            print topic, "plugged to", n, ', ', len(t['signalGetters']), 'times'
 
     def isSotConsistentWithCurrent(self, id, thr = 1e-3):
+        if self.currentSot is None:
+            return True
         csot = self.sots[self.currentSot]
         nsot = self.sots[id]
         t = csot.control.time
-        nsot.recompute (t)
+        csot.control.recompute(t)
         nsot.control.recompute(t)
         from numpy import array, linalg
         error = array(nsot.control.value) - array(csot.control.value)
@@ -143,8 +164,18 @@ def _handleHppJoint (n, t):
     type = t["type"]
     if t["velocity"]: topic = "velocity/op_frame"
     else:             topic = "op_frame"
-    return "hpp/target/" + topic + '/' + t['hppjoint']
+    return "/hpp/target/" + topic + '/' + t['hppjoint']
+
+def _handleHppCom (n, t):
+    type = t["type"]
+    if t["velocity"]: topic = "velocity/com"
+    else:             topic = "com"
+    if t['hppcom'] == "":
+        return "/hpp/target/" + topic
+    else:
+        return "/hpp/target/" + topic + '/' + t['hppcom']
 
 _handlers = {
         "hppjoint": _handleHppJoint,
+        "hppcom": _handleHppCom,
         }

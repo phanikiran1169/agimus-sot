@@ -1,5 +1,5 @@
 from hpp import Transform
-from dynamic_graph.sot.core.meta_tasks_kine import MetaTaskKine6d
+from dynamic_graph.sot.core.meta_tasks_kine import MetaTaskKine6d, MetaTaskKineCom
 from dynamic_graph.sot.core.meta_tasks_kine_relative import MetaTaskKine6dRel
 from dynamic_graph.sot.core.meta_task_posture import MetaTaskKinePosture
 
@@ -177,7 +177,7 @@ class Grasp (Manifold):
         else:
             # We define a MetaTaskKine6d
             self.graspTask = MetaTaskKine6d (
-                    self.gripper.name + Grasp.sep + self.handle.name,
+                    Grasp.sep + self.gripper.name + Grasp.sep + self.handle.name,
                     sotrobot.dynamic,
                     self.gripper.sotjoint,
                     self.gripper.sotjoint)
