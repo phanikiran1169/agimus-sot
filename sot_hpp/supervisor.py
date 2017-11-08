@@ -20,7 +20,7 @@ class Supervisor(object):
     4. GP <-> Gp
     5. Gp <-> G
     """
-    def __init__ (self, hppclient, sotrobot, grippers, objects, handlesPerObjects, lpTasks = _lpTasks(sotrobot), hpTasks = _hpTasks(sotrobot)):
+    def __init__ (self, hppclient, sotrobot, grippers, objects, handlesPerObjects, lpTasks = None, hpTasks = None):
         handles = [ h for i in idx(objects) for h in handlesPerObjects[i] ]
         self.hpp = hppclient
         self.sotrobot = sotrobot
@@ -35,8 +35,8 @@ class Supervisor(object):
         for g in self.grippers: g.setSotFrameFromHpp (self.sotrobot.dynamic.model)
         for h in self.handles : h.setSotFrameFromHpp (self.sotrobot.dynamic.model)
 
-        self.hpTasks = hpTasks
-        self.lpTasks = lpTasks
+        self.hpTasks = hpTasks if hpTasks is not None else _hpTasks(sotrobot)
+        self.lpTasks = lpTasks if lpTasks is not None else _lpTasks(sotrobot)
 
         self.currentSot = None
 
