@@ -16,6 +16,7 @@ class RosInterface(object):
             try:
                 self.supervisor.plugSot(req.transition_id, True)
             except Exception as e:
+                rospy.logerr(str(e))
                 rsp.success = False
                 rsp.msg = str(e)
                 return rsp
