@@ -40,6 +40,28 @@ class Supervisor(object):
 
         self.currentSot = None
 
+    def setupEvents (self):
+        from dynamic_graph_hpp.sot import Event, CompareDouble
+        from dynamic_graph.sot.core.operator import Norm_of_vector
+        from dynamic_graph.ros import RosImport
+        self.norm = Norm_of_vector ("control_norm")
+        plug (self.sotrobot.device.control, self.norm.sin)
+
+        self.norm_comparision = CompareDouble ("control_norm_comparison")
+        plug (self.norm.sout, self.norm_comparision.sin1)
+        self.norm_comparision.sin2.value = 1e-4
+
+        self.norm_event = Event ("control_norm_event")
+        plug (self.norm_comparision.sout, self.norm_event.condition)
+        # self.sotrobot.device.after.addSignal (self.norm_event.check.name)
+        self.sotrobot.device.after.addSignal ("control_norm_event.check")
+
+        self.norm_ri = RosImport ('ros_import_control_norm')
+        self.norm_ri.add ('double', 'event_control_norm', '/sot_hpp/control_norm_changed')
+        plug (self.norm.sout, self.norm_ri.event_control_norm)
+        # plug (self.norm_event.trigger, self.norm_ri.trigger)
+        self.norm_event.addSignal ("ros_import_control_norm.trigger")
+
     def makeGrasps (self, transitions):
         """
         @param transition: a list of dictionaries containing the following keys:
