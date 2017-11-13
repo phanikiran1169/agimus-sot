@@ -84,7 +84,7 @@ class Posture(Manifold):
 
         # Set the gain of the posture task
         setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
-        # setGain(taskPosture.gain,(9.8,1.8,0.02,1.8))
+        # setGain(self.tp.gain,(9.8,1.8,0.02,1.8))
         plug(self.tp.gain.gain, self.tp.controlGain)
         plug(self.tp.error, self.tp.gain.error)
         self.tasks = [ self.tp ]
