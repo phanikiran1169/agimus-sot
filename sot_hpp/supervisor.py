@@ -123,7 +123,7 @@ class Supervisor(object):
             print topic, "plugged to", n, ', ', len(t['signalGetters']), 'times'
 
     def isSotConsistentWithCurrent(self, id, thr = 1e-3):
-        if self.currentSot is None:
+        if self.currentSot is None or id == self.currentSot:
             return True
         csot = self.sots[self.currentSot]
         nsot = self.sots[id]
@@ -138,10 +138,16 @@ class Supervisor(object):
             return False
         return True
 
-    def plugSot(self, id):
+    def plugSot(self, id, check = False):
+        if check and not self.isSotConsistentWithCurrent (id):
+            # raise Exception ("Sot %d not consistent with sot %d" % (self.currentSot, id))
+            print "Sot %d not consistent with sot %d" % (self.currentSot, id)
         sot = self.sots[id]
         plug(sot.control, self.sotrobot.device.control)
         self.currentSot = id
+
+    def getJointList (self, prefix = ""):
+        return [ prefix + n for n in self.sotrobot.dynamic.model.names[2:] ]
 
     def _manifold (self, idxs):
         if self.grasps.has_key(idxs):
