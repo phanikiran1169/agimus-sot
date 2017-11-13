@@ -49,7 +49,7 @@ class Supervisor(object):
 
         self.norm_comparision = CompareDouble ("control_norm_comparison")
         plug (self.norm.sout, self.norm_comparision.sin1)
-        self.norm_comparision.sin2.value = 1e-4
+        self.norm_comparision.sin2.value = 1e-2
 
         self.norm_event = Event ("control_norm_event")
         plug (self.norm_comparision.sout, self.norm_event.condition)
@@ -119,9 +119,9 @@ class Supervisor(object):
         # Create the initial sot (keep)
         sot = SOT ('sot_keep')
         sot.setSize(self.sotrobot.dynamic.getDimension())
-        posture = Posture ("posture_keep", self.sotrobot)
-        posture._signalPositionRef().value = self.sotrobot.dynamic.position.value [6:]
-        posture.pushTo(sot)
+        self.keep_posture = Posture ("posture_keep", self.sotrobot)
+        self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value [6:]
+        self.keep_posture.pushTo(sot)
         self.sots[-1] = sot
 
     def topics (self):
@@ -164,6 +164,8 @@ class Supervisor(object):
         if check and not self.isSotConsistentWithCurrent (id):
             # raise Exception ("Sot %d not consistent with sot %d" % (self.currentSot, id))
             print "Sot %d not consistent with sot %d" % (self.currentSot, id)
+        if id == -1:
+            self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value [6:]
         sot = self.sots[id]
         plug(sot.control, self.sotrobot.device.control)
         self.currentSot = id
