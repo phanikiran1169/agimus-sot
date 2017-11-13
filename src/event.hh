@@ -37,12 +37,10 @@ namespace dynamicgraph {
         Event (const std::string& name) :
           Entity (name),
           checkSOUT ("Event("+name+")::output(bool)::check"),
-          triggerSIN  ("Event("+name+")::input(int)::trigger"),
           conditionSIN(NULL,"Event("+name+")::input(bool)::condition")
         {
           checkSOUT.setFunction
             (boost::bind (&Event::check, this, _1, _2));
-          signalRegistration (triggerSIN);
           signalRegistration (conditionSIN);
           signalRegistration (checkSOUT);
 
@@ -67,25 +65,29 @@ namespace dynamicgraph {
         void addSignal (const std::string& signal)
         {
           std::istringstream iss (signal);
-          triggerSIN.addDependency(PoolStorage::getInstance()->getSignal (iss));
+          triggers.push_back(&PoolStorage::getInstance()->getSignal (iss));
         }
 
         private:
+        typedef SignalBase<int>* Trigger_t;
+        typedef std::vector<Trigger_t> Triggers_t;
+
         bool& check (bool& ret, const int& time)
         {
           const bool& val = conditionSIN (time);
           ret = (val != lastVal_);
           if (ret) {
             lastVal_ = val;
-            triggerSIN (time);
-            std::cout << "trigger: " << val << std::endl;
+            for (Triggers_t::const_iterator _s = triggers.begin();
+                _s != triggers.end(); ++_s)
+              (*_s)->recompute (time);
           }
           return ret;
         }
 
         Signal <bool, int> checkSOUT;
 
-        SignalTimeDependent <int, int> triggerSIN;
+        Triggers_t triggers;
         SignalPtr <bool, int> conditionSIN;
 
         bool lastVal_;
