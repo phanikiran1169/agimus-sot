@@ -1,9 +1,6 @@
-from tools import Grasp, OpFrame, Manifold, Posture
+from tools import Grasp, OpFrame, Manifold, Posture, idx, idx_zip
 from dynamic_graph.sot.core import SOT
 from dynamic_graph import plug
-
-def idx(l): return range(len(l))
-def idx_zip (l): return zip (idx(l), l)
 
 def _hpTasks (sotrobot):
     return Manifold()

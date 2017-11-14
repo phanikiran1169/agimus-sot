@@ -3,6 +3,9 @@ from dynamic_graph.sot.core.meta_tasks_kine import MetaTaskKine6d, MetaTaskKineC
 from dynamic_graph.sot.core.meta_tasks_kine_relative import MetaTaskKine6dRel
 from dynamic_graph.sot.core.meta_task_posture import MetaTaskKinePosture
 
+def idx(l): return range(len(l))
+def idx_zip (l): return zip (idx(l), l)
+
 def parseHppName (hppjointname):
     return hppjointname.split('/', 1)
 
