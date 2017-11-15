@@ -39,6 +39,7 @@ SET(FILES
   supervisor.py
   tools.py
   ros_interface.py
+  factory.py
   __init__.py)
 
 FOREACH(F ${FILES})

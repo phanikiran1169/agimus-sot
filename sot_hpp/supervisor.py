@@ -17,10 +17,14 @@ class Supervisor(object):
     4. GP <-> Gp
     5. Gp <-> G
     """
-    def __init__ (self, hppclient, sotrobot, grippers, objects, handlesPerObjects, lpTasks = None, hpTasks = None):
-        handles = [ h for i in idx(objects) for h in handlesPerObjects[i] ]
-        self.hpp = hppclient
+    def __init__ (self, sotrobot, lpTasks = None, hpTasks = None):
         self.sotrobot = sotrobot
+        self.hpTasks = hpTasks if hpTasks is not None else _hpTasks(sotrobot)
+        self.lpTasks = lpTasks if lpTasks is not None else _lpTasks(sotrobot)
+        self.currentSot = None
+
+    def initForGrasps (self, hppclient, grippers, objects, handlesPerObjects):
+        handles = [ h for i in idx(objects) for h in handlesPerObjects[i] ]
         self.grippers = [ OpFrame(hppclient) for _ in idx(grippers)]
         self.handles  = [ OpFrame(hppclient) for _ in idx(handles )]
         self.grippersIdx = { grippers[i] : i for i in idx(grippers) }
@@ -31,11 +35,6 @@ class Supervisor(object):
 
         for g in self.grippers: g.setSotFrameFromHpp (self.sotrobot.dynamic.model)
         for h in self.handles : h.setSotFrameFromHpp (self.sotrobot.dynamic.model)
-
-        self.hpTasks = hpTasks if hpTasks is not None else _hpTasks(sotrobot)
-        self.lpTasks = lpTasks if lpTasks is not None else _lpTasks(sotrobot)
-
-        self.currentSot = None
 
     def setupEvents (self):
         from dynamic_graph_hpp.sot import Event, CompareDouble
@@ -113,6 +112,7 @@ class Supervisor(object):
 
             self.sots[t['id']] = sot
 
+    def makeInitialSot (self):
         # Create the initial sot (keep)
         sot = SOT ('sot_keep')
         sot.setSize(self.sotrobot.dynamic.getDimension())
@@ -153,7 +153,8 @@ class Supervisor(object):
         error = array(nsot.control.value) - array(csot.control.value)
         n = linalg.norm(error)
         if n > thr:
-            print "Control not consistent:", error
+            print "Control not consistent:", linalg.norm(error)
+            print error
             return False
         return True
 
