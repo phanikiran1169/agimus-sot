@@ -166,6 +166,8 @@ class Supervisor(object):
             self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value [6:]
         sot = self.sots[id]
         plug(sot.control, self.sotrobot.device.control)
+        print "Current sot:", id
+        print sot.display()
         self.currentSot = id
 
     def getJointList (self, prefix = ""):
