@@ -53,6 +53,7 @@ class Posture(Manifold):
         super(Posture, self).__init__()
         from dynamic_graph.sot.core import Task, FeatureGeneric, GainAdaptive, Selec_of_vector
         from dynamic_graph.sot.core.meta_tasks import setGain
+        from dynamic_graph.sot.core.operator import Multiply_double_vector
         from dynamic_graph.sot.core.matrix_util import matrixToTuple
         from dynamic_graph import plug
         from numpy import identity, hstack, zeros
@@ -71,6 +72,11 @@ class Posture(Manifold):
         self.tp.feature.setReference(self.tp.featureDes.name)
         self.tp.add(self.tp.feature.name)
 
+        self.inv_ref = Multiply_double_vector ("* -1 " +n)
+        # self.inv_ref.sin1.value = -0.5
+        self.inv_ref.sin1.value = 1
+        plug (self.inv_ref.sout, self.tp.featureDes.errordotIN)
+
         # Connects the dynamics to the current feature of the posture task
         # plug(re.position, taskPosture.featureDes.errorIN)
         # plug(re.velocity, taskPosture.featureDes.errordotIN)
@@ -85,8 +91,14 @@ class Posture(Manifold):
         plug(sotrobot.dynamic.velocity, getVelocityValue.sin)
         plug(getVelocityValue.sout, self.tp.feature.errordotIN)
 
+        self.tp.setWithDerivative (True)
+
         # Set the gain of the posture task
-        setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
+        setGain(self.tp.gain,0)
+        # setGain(self.tp.gain,1)
+        # setGain(self.tp.gain,10)
+        # setGain(self.tp.gain,200)
+        # setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
         # setGain(self.tp.gain,(9.8,1.8,0.02,1.8))
         plug(self.tp.gain.gain, self.tp.controlGain)
         plug(self.tp.error, self.tp.gain.error)
@@ -103,7 +115,8 @@ class Posture(Manifold):
                 }
 
     def _signalPositionRef (self): return self.tp.featureDes.errorIN
-    def _signalVelocityRef (self): return self.tp.featureDes.errordotIN
+    # def _signalVelocityRef (self): return self.tp.featureDes.errordotIN
+    def _signalVelocityRef (self): return self.inv_ref.sin2
 
 class OpFrame(object):
     def __init__ (self, hppclient):
