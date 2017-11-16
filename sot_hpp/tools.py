@@ -21,9 +21,9 @@ class Manifold(object):
     sep = "___"
 
     def __init__ (self, tasks = [], constraints = [], topics = {}):
-        self.tasks = tasks
-        self.constraints = constraints
-        self.topics = topics
+        self.tasks = list(tasks)
+        self.constraints = list(constraints)
+        self.topics = dict(topics)
 
     def __add__ (self, other):
         res = Manifold(list(self.tasks), list(self.constraints), dict(self.topics))
