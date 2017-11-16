@@ -75,7 +75,7 @@ class Posture(Manifold):
 
         self.inv_ref = Multiply_double_vector ("* -1 " +n)
         # self.inv_ref.sin1.value = -0.5
-        self.inv_ref.sin1.value = 1
+        self.inv_ref.sin1.value = -1
         plug (self.inv_ref.sout, self.tp.featureDes.errordotIN)
 
         # Connects the dynamics to the current feature of the posture task
