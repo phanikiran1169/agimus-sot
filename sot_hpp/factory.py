@@ -1,5 +1,5 @@
 from hpp.corbaserver.manipulation.constraint_graph_factory import ConstraintFactoryAbstract, GraphFactoryAbstract
-from tools import Manifold, Grasp, idx, idx_zip, OpFrame
+from tools import Manifold, Grasp, idx, idx_zip, OpFrame, EEPosture
 from dynamic_graph.sot.core import SOT
 
 class TaskFactory(ConstraintFactoryAbstract):
@@ -12,9 +12,9 @@ class TaskFactory(ConstraintFactoryAbstract):
     def buildGrasp (self, g, h):
         gf = self.graphfactory
         if h is None:
-            return { 'gripper_open': Manifold () }
+            return { 'gripper_open': EEPosture (gf.sotrobot, gf.gripperFrames [g], [0]) }
 
-        gripper_close  = Manifold ()
+        gripper_close  = EEPosture (gf.sotrobot, gf.gripperFrames [g], [-1])
         pregrasp = Grasp (gf.gripperFrames [g],
                           gf.handleFrames [h])
         pregrasp.makeTasks (gf.sotrobot)
@@ -127,6 +127,9 @@ class Factory(GraphFactoryAbstract):
                 s.setSize(self.sotrobot.dynamic.getDimension())
                 self.hpTasks.pushTo(s)
 
+                if pregrasp and i == 1:
+                    # Add pregrasp task
+                    self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp').pushTo (s)
                 if i < M: sf.manifold.pushTo(s)
                 else:     st.manifold.pushTo(s)
 
