@@ -16,15 +16,6 @@ namespace dynamicgraph
 {
   namespace internal
   {
-    template <typename T> void check (const T&, const T&) {}
-
-    template <>
-    void check<Vector> (const Vector& a, const Vector& b)
-    {
-      if (a.size() != b.size ())
-        std::cout << a.size() << " - " << b.size () << std::endl;
-    }
-
     template <typename T>
     struct Add
     {
@@ -71,16 +62,13 @@ namespace dynamicgraph
       T value;
       converter (value, data);
       qmutex.lock();
-      if (queue.empty())
-        // std::cout << signal->getName() << ": Start receiving (" << signal->getTime() << ')' << std::endl;
       queue.push (value);
       qmutex.unlock();
     }
 
     template <typename T>
-    T& BindedSignal<T>::reader (T& data, int time)
+    T& BindedSignal<T>::reader (T& data, int)
     {
-      // check<T> (data, last);
       qmutex.lock();
       if (queue.empty())
         data = last;
@@ -88,8 +76,6 @@ namespace dynamicgraph
         data = queue.front();
         queue.pop();
         last = data;
-        if (queue.empty())
-          std::cout << signal->getName() << ": Queue is empty (" << time << ')' << std::endl;
       }
       qmutex.unlock();
       return data;
