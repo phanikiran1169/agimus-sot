@@ -161,8 +161,9 @@ class Supervisor(object):
         return True
 
     def clearQueues(self):
-        for s in self.rosexport.signals():
-            self.rosexport.clearQueue(s.name.split(':')[-1])
+        exec ("tmp = " + self.rosexport.list())
+        for s in tmp:
+            self.rosexport.clearQueue(s)
 
     def plugSot(self, id, check = False):
         if check and not self.isSotConsistentWithCurrent (id):
