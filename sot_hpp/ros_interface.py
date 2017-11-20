@@ -6,10 +6,32 @@ from dynamic_graph_bridge_msgs.srv import RunCommand
 class RosInterface(object):
     def __init__ (self, supervisor = None):
         rospy.Service('/sot/plug_sot', PlugSot, self.plugSot)
+        rospy.Service('/sot/run_post_action', PlugSot, self.runPostAction)
+        rospy.Service('/sot/run_pre_action', PlugSot, self.runPreAction)
         rospy.Service('/sot/request_hpp_topics', Trigger, self.requestHppTopics)
         rospy.Service('/sot/clear_queues', Trigger, self.clearQueues)
         self.runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor
+
+    def runPreAction (self, req):
+        rsp = PlugSotResponse()
+        if self.supervisor is not None:
+            try:
+                self.supervisor.runPreAction(req.transition_id)
+            except Exception as e:
+                rospy.logerr(str(e))
+                rsp.success = False
+                rsp.msg = str(e)
+                return rsp
+        else:
+            answer = self.runCommand ("supervisor.runPreAction({})".format(req.transition_id))
+            if len(answer.standarderror) != 0:
+                rospy.logerr(answer.standarderror)
+                rsp.success = False
+                rsp.msg = answer.standarderror
+                return rsp
+        rsp.success = True
+        return rsp
 
     def plugSot (self, req):
         rsp = PlugSotResponse()
@@ -23,6 +45,26 @@ class RosInterface(object):
                 return rsp
         else:
             answer = self.runCommand ("supervisor.plugSot({}, True)".format(req.transition_id))
+            if len(answer.standarderror) != 0:
+                rospy.logerr(answer.standarderror)
+                rsp.success = False
+                rsp.msg = answer.standarderror
+                return rsp
+        rsp.success = True
+        return rsp
+
+    def runPostAction (self, req):
+        rsp = PlugSotResponse()
+        if self.supervisor is not None:
+            try:
+                self.supervisor.runPostAction(req.transition_id)
+            except Exception as e:
+                rospy.logerr(str(e))
+                rsp.success = False
+                rsp.msg = str(e)
+                return rsp
+        else:
+            answer = self.runCommand ("supervisor.runPostAction({})".format(req.transition_id))
             if len(answer.standarderror) != 0:
                 rospy.logerr(answer.standarderror)
                 rsp.success = False

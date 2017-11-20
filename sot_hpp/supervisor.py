@@ -69,6 +69,8 @@ class Supervisor(object):
         """
         self.grasps = dict()
         self.sots = dict()
+        self.postActions = dict()
+        self.preActions = dict()
         self.transitions = transitions
 
         for t in transitions:
@@ -176,6 +178,30 @@ class Supervisor(object):
         print "Current sot:", id
         print sot.display()
         self.currentSot = id
+
+    def runPreAction(self, idTransition):
+        if self.preActions.has_key(idTransition):
+            sot = self.preActions[idTransition]
+            print "Running pre action", idTransition
+            print sot.display()
+            t = self.sotrobot.device.control.time
+            sot.control.recompute(t-1)
+            plug(sot.control, self.sotrobot.device.control)
+            return
+        print "No pre action", idTransition
+
+    def runPostAction(self, idStateTarget):
+        if self.postActions.has_key(self.currentSot):
+            d = self.postActions[self.currentSot]
+            if d.has_key(idStateTarget):
+                sot = d[idStateTarget]
+                print "Running post action", self.currentSot, idStateTarget
+                print sot.display()
+                t = self.sotrobot.device.control.time
+                sot.control.recompute(t-1)
+                plug(sot.control, self.sotrobot.device.control)
+                return
+        print "No post action", self.currentSot, idStateTarget
 
     def getJointList (self, prefix = ""):
         return [ prefix + n for n in self.sotrobot.dynamic.model.names[2:] ]
