@@ -70,15 +70,18 @@ ADD_LIBRARY(${LIBRARY_NAME}
   path-sampler.cc
   event.cc
   boolean-reduction.cc
+  ros_subscribe.cpp
+  sot_to_ros.cpp
   )
 
 PKG_CONFIG_USE_DEPENDENCY (${LIBRARY_NAME} dynamic-graph-python)
+PKG_CONFIG_USE_DEPENDENCY (${LIBRARY_NAME} dynamic_graph_bridge)
 PKG_CONFIG_USE_DEPENDENCY (${LIBRARY_NAME} sot-core)
 PKG_CONFIG_USE_DEPENDENCY (${LIBRARY_NAME} hpp-corbaserver)
 INSTALL(TARGETS ${LIBRARY_NAME}
   DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
   )
 
-SET(NEW_ENTITY_CLASS "PathSampler" "Event" "CompareDouble")
+SET(NEW_ENTITY_CLASS "PathSampler" "Event" "CompareDouble" "RosQueuedSubscribe")
 
 DYNAMIC_GRAPH_HPP_PYTHON_MODULE("sot" ${LIBRARY_NAME} wrap)

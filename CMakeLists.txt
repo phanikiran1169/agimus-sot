@@ -31,6 +31,7 @@ SETUP_PROJECT()
 
 FINDPYTHON(REQUIRED 2.7 EXACT)
 
+ADD_REQUIRED_DEPENDENCY ("dynamic_graph_bridge >= 3")
 ADD_REQUIRED_DEPENDENCY ("hpp-corbaserver >= 3")
 ADD_REQUIRED_DEPENDENCY ("sot-core >= 3")
 ADD_REQUIRED_DEPENDENCY ("dynamic-graph-python >= 2")
