@@ -150,7 +150,7 @@ class Supervisor(object):
             return True
         csot = self.sots[self.currentSot]
         nsot = self.sots[id]
-        t = csot.control.time
+        t = self.sotrobot.device.control.time
         csot.control.recompute(t)
         nsot.control.recompute(t)
         from numpy import array, linalg
@@ -174,8 +174,10 @@ class Supervisor(object):
         if id == -1:
             self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value [6:]
         sot = self.sots[id]
-        plug(sot.control, self.sotrobot.device.control)
+        t = self.sotrobot.device.control.time
+        sot.control.recompute (t-1)
         print "Current sot:", id
+        plug(sot.control, self.sotrobot.device.control)
         print sot.display()
         self.currentSot = id
 
