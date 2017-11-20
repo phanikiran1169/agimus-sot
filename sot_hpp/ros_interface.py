@@ -7,6 +7,7 @@ class RosInterface(object):
     def __init__ (self, supervisor = None):
         rospy.Service('/sot/plug_sot', PlugSot, self.plugSot)
         rospy.Service('/sot/request_hpp_topics', Trigger, self.requestHppTopics)
+        rospy.Service('/sot/clear_queues', Trigger, self.clearQueues)
         self.runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor
 
@@ -41,6 +42,16 @@ class RosInterface(object):
         ans = setJoints (names)
         if not ans.success:
             rospy.logerr("Could not set the joint list of hpp_ros_interface node")
+
+    def clearQueues(self, req):
+        if self.supervisor is not None:
+            self.supervisor.clearQueues()
+        else:
+            cmd = "self.supervisor.clearQueues()"
+            answer = self.runCommand (cmd)
+            print cmd
+            print answer
+        return TriggerResponse (True, "ok")
 
     def requestHppTopics(self, req):
         handlers = {

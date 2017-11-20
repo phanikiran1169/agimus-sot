@@ -130,6 +130,7 @@ class Supervisor(object):
         return c.topics
 
     def plugTopics (self, rosexport):
+        self.rosexport = rosexport
         topics = self.topics()
 
         for n, t in topics.items():
@@ -158,6 +159,10 @@ class Supervisor(object):
             print error
             return False
         return True
+
+    def clearQueues(self):
+        for s in self.rosexport.signals():
+            self.rosexport.clearQueue(s.name.split(':')[-1])
 
     def plugSot(self, id, check = False):
         if check and not self.isSotConsistentWithCurrent (id):
