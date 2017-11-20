@@ -128,6 +128,25 @@ namespace dynamicgraph
 	entity.rm (signal);
 	return Value ();
       }
+
+      QueueSize::QueueSize
+      (RosQueuedSubscribe& entity, const std::string& docstring)
+	: Command
+	  (entity,
+	   boost::assign::list_of (Value::STRING),
+	   docstring)
+      {}
+
+      Value QueueSize::doExecute ()
+      {
+	RosQueuedSubscribe& entity =
+	  static_cast<RosQueuedSubscribe&> (owner ());
+
+	std::vector<Value> values = getParameterValues ();
+	const std::string& signal = values[0].value ();
+
+	return Value ((unsigned)entity.queueSize (signal));
+      }
     } // end of errorEstimator.
   } // end of namespace command.
 
@@ -186,11 +205,21 @@ namespace dynamicgraph
       "\n"
       "  Empty the queue of a given signal\n"
       "\n"
-      "  No input:\n"
+      "  Input is:\n"
       "    - name of the signal (see method list for the list of signals).\n"
       "\n";
     addCommand ("clearQueue",
 		new command::rosSubscribe::ClearQueue
+		(*this, docstring));
+    docstring =
+      "\n"
+      "  Return the queue size of a given signal\n"
+      "\n"
+      "  Input is:\n"
+      "    - name of the signal (see method list for the list of signals).\n"
+      "\n";
+    addCommand ("queueSize",
+		new command::rosSubscribe::QueueSize
 		(*this, docstring));
   }
 
@@ -245,6 +274,17 @@ namespace dynamicgraph
     {
        bindedSignal_[signal]->clear();
     }
+  }
+
+  std::size_t RosQueuedSubscribe::queueSize (const std::string& signal) const
+  {
+    std::map<std::string, bindedSignal_t>::const_iterator _bs =
+      bindedSignal_.find(signal);
+    if(_bs != bindedSignal_.end())
+    {
+       return _bs->second->size();
+    }
+    return -1;
   }
 
   std::string RosQueuedSubscribe::getDocString () const

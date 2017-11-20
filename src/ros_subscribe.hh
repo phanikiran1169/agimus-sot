@@ -42,6 +42,7 @@ namespace dynamicgraph
       ROS_SUBSCRIBE_MAKE_COMMAND(List);
       ROS_SUBSCRIBE_MAKE_COMMAND(Rm);
       ROS_SUBSCRIBE_MAKE_COMMAND(ClearQueue);
+      ROS_SUBSCRIBE_MAKE_COMMAND(QueueSize);
 
 #undef ROS_SUBSCRIBE_MAKE_COMMAND
 
@@ -61,6 +62,7 @@ namespace dynamicgraph
       virtual ~BindedSignalBase() {}
 
       virtual void clear () = 0;
+      virtual std::size_t size () const = 0;
 
       Subscriber_t subscriber;
     };
@@ -84,6 +86,11 @@ namespace dynamicgraph
         qmutex.lock();
         queue = Queue_t();
         qmutex.unlock();
+      }
+
+      std::size_t size () const
+      {
+        return queue.size();
       }
 
       SignalPtr_t signal;
@@ -116,6 +123,7 @@ namespace dynamicgraph
     std::string list ();
     void clear ();
     void clearQueue (const std::string& signal);
+    std::size_t queueSize (const std::string& signal) const;
 
     template <typename T>
     void add (const std::string& signal, const std::string& topic);
