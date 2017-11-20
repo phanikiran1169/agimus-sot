@@ -118,6 +118,7 @@ class Factory(GraphFactoryAbstract):
         transitions = names[:]
         assert nWaypoints > 0
         M = 1 + pregrasp
+        sots = [ ]
         for i in range(nTransitions):
             ns = ("{0}_{1}{2}".format(names[0], i, i+1),
                   "{0}_{2}{1}".format(names[1], i, i+1))
@@ -135,3 +136,35 @@ class Factory(GraphFactoryAbstract):
 
                 self.lpTasks.pushTo(s)
                 self.sots[n] = s
+                sots.append (n)
+
+        key = sots[2*(M-1)]
+        states = ( st.name, names[0] + "_intersec")
+
+        sot = SOT ("postAction_" + key)
+        sot.setSize(self.sotrobot.dynamic.getDimension())
+        self.hpTasks.pushTo (sot)
+        # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
+        st.manifold.pushTo (sot)
+        self.lpTasks.pushTo (sot)
+        # print sot
+
+        # TODO one post action is missing
+        if not self.postActions.has_key(key):
+            self.postActions[ key ] = dict()
+        for n in states:
+            self.postActions[ key ] [n] = sot
+
+        key = sots[2*(M-1) + 1]
+        states = ( st.name, names[0] + "_intersec")
+
+        sot = SOT ("preAction_" + key)
+        sot.setSize(self.sotrobot.dynamic.getDimension())
+        self.hpTasks.pushTo (sot)
+        # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
+        sf.manifold.pushTo (sot)
+        self.lpTasks.pushTo (sot)
+        # print sot
+
+        self.preActions[ key ] = sot
+        self.preActions[ sots[2*(M-1)] ] = sot
