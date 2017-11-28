@@ -145,6 +145,60 @@ class Supervisor(object):
                 plug (rosexport.signal(n), s())
             print topic, "plugged to", n, ', ', len(t['signalGetters']), 'times'
 
+    def setupReferences (self, gui, rosexport):
+        ret = dict()
+        gui.createGroup("references")
+        topics = self.topics()
+        for n, t in topics.items():
+            types = []
+            if t.has_key('handler'):
+                if t['handler'] == 'hppjoint':
+                    if t['velocity']:
+                        types = ['linvel', 'angvel']
+                    else:
+                        types = ['pose',]
+                elif t['handler'] == 'hppcom':
+                    if t['velocity']:
+                        types = ['linvel',]
+                    else:
+                        types = ['point',]
+            name = "ref_" + n
+            ret[n] = list()
+            for i,type in idx_zip(types):
+                nameref = name + str(i)
+                if type == 'pose':
+                    gui.addXYZaxis(nameref, (1,0,0,1), 0.005, 0.05)
+                    gui.setVisibility(nameref, 'ALWAYS_ON_TOP')
+                    gui.addToGroup(nameref, "references")
+                    ret[n].append(type)
+                # elif type == '':
+        return ret
+
+    def setReferenceValue (self, gui, rosexport, refs):
+        from dynamic_graph.sot.tools.quaternion import Quaternion
+        from dynamic_graph.sot.tools.se3 import SE3
+        idx = 0
+        for n, types in refs.items():
+            for i,type in idx_zip(types):
+                nameref = "ref_" + n + str(i)
+                sig = rosexport.signal(n)
+                # if sig.time != self.sotrobot.device.control.time or len(sig.value) == 0:
+                if len(sig.value) == 0:
+                    if gui.getIntProperty(nameref, "visibility") != 2:
+                        print "Hiding", nameref
+                        gui.setVisibility(nameref, 'OFF')
+                    continue
+                else:
+                    if gui.getIntProperty(nameref, "visibility") == 2:
+                        print "Showing", nameref
+                        # gui.setVisibility(nameref, 'ON')
+                        gui.setVisibility(nameref, 'ALWAYS_ON_TOP')
+                if type == 'pose':
+                    H = SE3(sig.value)
+                    q = Quaternion(sig.value)
+                    gui.applyConfiguration(nameref, list(H.translation.value) + list(q.array[1:]) + list(q.array[:1]) )
+        gui.refresh()
+
     def isSotConsistentWithCurrent(self, id, thr = 1e-3):
         if self.currentSot is None or id == self.currentSot:
             return True
