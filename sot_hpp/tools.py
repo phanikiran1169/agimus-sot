@@ -290,6 +290,7 @@ class COM (Manifold):
     def __init__ (self, comname, sotrobot):
         self.taskCom = MetaTaskKineCom (sotrobot.dynamic,
                 name = COM.sep + comname)
+        self.taskCom.task.setWithDerivative (True)
         super(COM, self).__init__(
                 tasks = [ self.taskCom.task, ],
                 topics = {
