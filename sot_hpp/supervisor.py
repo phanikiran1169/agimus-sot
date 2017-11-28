@@ -120,7 +120,7 @@ class Supervisor(object):
         sot.setSize(self.sotrobot.dynamic.getDimension())
         self.keep_posture = Posture ("posture_keep", self.sotrobot)
         self.keep_posture.tp.setWithDerivative (False)
-        self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value [6:]
+        self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         self.keep_posture.pushTo(sot)
         self.sots[-1] = sot
 
@@ -172,7 +172,7 @@ class Supervisor(object):
             # raise Exception ("Sot %d not consistent with sot %d" % (self.currentSot, id))
             print "Sot %d not consistent with sot %d" % (self.currentSot, id)
         if id == -1:
-            self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value [6:]
+            self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         sot = self.sots[id]
         t = self.sotrobot.device.control.time
         sot.control.recompute (t-1)
@@ -206,7 +206,7 @@ class Supervisor(object):
         print "No post action", self.currentSot, idStateTarget
 
     def getJointList (self, prefix = ""):
-        return [ prefix + n for n in self.sotrobot.dynamic.model.names[2:] ]
+        return [ prefix + n for n in self.sotrobot.dynamic.model.names[1:] ]
 
     def _manifold (self, idxs):
         if self.grasps.has_key(idxs):
