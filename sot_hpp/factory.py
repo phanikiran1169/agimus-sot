@@ -32,17 +32,18 @@ class TaskFactory(ConstraintFactoryAbstract):
 class Factory(GraphFactoryAbstract):
     class State:
         def __init__ (self, tasks, grasps, factory):
+            self.name = factory._stateName (grasps)
             self.grasps = grasps
             self.manifold = Manifold()
 
             for ig, ih in idx_zip (grasps):
                 if ih is not None:
-                    # Add task gripper_closed
+                    # Add task gripper_close
                     self.manifold += tasks.g (factory.grippers[ig], factory.handles[ih], 'gripper_close')
                     # TODO If an object is grasped by two grippers, then we should add a task
                     # of relative position of the two grippers.
                 else:
-                    # Add task gripper_opened
+                    # Add task gripper_open
                     self.manifold += tasks.g (factory.grippers[ig], None, 'gripper_open')
 
     def __init__ (self, supervisor):
