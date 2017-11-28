@@ -176,7 +176,8 @@ class Grasp (Manifold):
             # M = transformToMatrix(self.gripper.sotpose)
             # self.graspTask.opmodif = matrixToTuple(M)
         # self.graspTask.feature.frame("desired")
-        self.graspTask.task.controlGain.value = 5
+        self.graspTask.task.setWithDerivative (True)
+        setGain(self.graspTask.gain,(100,0.9,0.01,0.9))
         self.graspTask.feature.frame("current")
         self.tasks = [ self.graspTask.task ]
 
