@@ -66,31 +66,12 @@ class Posture(Manifold):
         self.tp.featureDes = FeatureGeneric('feature_des_'+n)
         self.tp.gain = GainAdaptive("gain_"+n)
         robotDim = sotrobot.dynamic.getDimension()
-        first_6 = zeros((robotDim-6,6))
-        other_dof = identity(robotDim-6)
-        jacobian_posture = hstack([first_6, other_dof])
-        self.tp.feature.jacobianIN.value = matrixToTuple( jacobian_posture )
+        self.tp.feature.jacobianIN.value = matrixToTuple( identity(robotDim) )
         self.tp.feature.setReference(self.tp.featureDes.name)
         self.tp.add(self.tp.feature.name)
 
-        self.inv_ref = Multiply_double_vector ("* -1 " +n)
-        # self.inv_ref.sin1.value = -0.5
-        self.inv_ref.sin1.value = -1
-        plug (self.inv_ref.sout, self.tp.featureDes.errordotIN)
-
         # Connects the dynamics to the current feature of the posture task
-        # plug(re.position, taskPosture.featureDes.errorIN)
-        # plug(re.velocity, taskPosture.featureDes.errordotIN)
-
-        getPostureValue = Selec_of_vector("current_posture")
-        getVelocityValue = Selec_of_vector("current_velovity")
-        getPostureValue.selec(6,robotDim)
-        getVelocityValue.selec(6,robotDim)
-
-        plug(sotrobot.dynamic.position, getPostureValue.sin)
-        plug(getPostureValue.sout, self.tp.feature.errorIN)
-        plug(sotrobot.dynamic.velocity, getVelocityValue.sin)
-        plug(getVelocityValue.sout, self.tp.feature.errordotIN)
+        plug(sotrobot.dynamic.position, self.tp.feature.errorIN)
 
         self.tp.setWithDerivative (True)
 
@@ -116,8 +97,7 @@ class Posture(Manifold):
                 }
 
     def _signalPositionRef (self): return self.tp.featureDes.errorIN
-    # def _signalVelocityRef (self): return self.tp.featureDes.errordotIN
-    def _signalVelocityRef (self): return self.inv_ref.sin2
+    def _signalVelocityRef (self): return self.tp.featureDes.errordotIN
 
 class OpFrame(object):
     def __init__ (self, hppclient):
