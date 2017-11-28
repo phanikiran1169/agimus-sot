@@ -215,42 +215,13 @@ class EEPosture (Manifold):
         q[idx_v:idx_v + 1] = position
         self.tp.feature.posture.value = q
 
-        # self.tp.feature = FeatureGeneric('feature_'+n)
-        # self.tp.featureDes = FeatureGeneric('feature_des_'+n)
         self.tp.gain = GainAdaptive("gain_"+n)
         robotDim = sotrobot.dynamic.getDimension()
         # for i in range (6, robotDim):
             # self.tp.feature.selectDof (i, False)
         # print idx_q, idx_v
         self.tp.feature.selectDof (idx_v, True)
-        # first_6 = zeros((robotDim-6,6))
-        # other_dof = zeros((robotDim-6,robotDim-6))
-        # other_dof[idx_v - 6, idx_v - 6] = 1
-        # jac = hstack([first_6, other_dof])
-        # print gripper.name, jac
-        # jac = zeros((robotDim, robotDim))
-        # jac[idx_v, idx_v] = 1
-        # self.tp.feature.jacobianIN.value = matrixToTuple( jac )
-        # self.tp.feature.setReference(self.tp.featureDes.name)
         self.tp.add(self.tp.feature.name)
-
-        # self.tp.featureDes.errorIN.value = position
-        # self.tp.featureDes.errordotIN.value = [ 0 ] * joint.nv
-
-        # Connects the dynamics to the current feature of the posture task
-        # plug(re.position, taskPosture.featureDes.errorIN)
-        # plug(re.velocity, taskPosture.featureDes.errordotIN)
-
-        # getPostureValue = Selec_of_vector("selec_posture" + n)
-        # getVelocityValue = Selec_of_vector("selec_velovity" + n)
-        # getPostureValue.selec(idx_q, idx_q + 1)
-        # getVelocityValue.selec(idx_v, idx_v + 1)
-
-        # plug(sotrobot.dynamic.position, self.tp.feature.errorIN)
-        # plug(sotrobot.dynamic.position, getPostureValue.sin)
-        # plug(getPostureValue.sout, self.tp.feature.errorIN)
-        # plug(sotrobot.dynamic.velocity, getVelocityValue.sin)
-        # plug(getVelocityValue.sout, self.tp.feature.errordotIN)
 
         # Set the gain of the posture task
         setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
