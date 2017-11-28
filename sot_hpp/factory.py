@@ -52,17 +52,26 @@ class Factory(GraphFactoryAbstract):
         self.hpTasks = supervisor.hpTasks
         self.lpTasks = supervisor.lpTasks
         self.sots = dict()
+        self.postActions = dict()
+        self.preActions = dict()
 
         self.supervisor = supervisor
 
     def finalize (self, hppclient):
         graph, elmts = hppclient.manipulation.graph.getGraph()
         ids = { n.name: n.id for n in elmts.edges }
+        nids = { n.name: n.id for n in elmts.nodes }
 
         self.supervisor.sots = { ids[n]: sot for n, sot in self.sots.items() }
         self.supervisor.grasps = { (gh, w): t for gh, ts in self.tasks._grasp.items() for w, t in ts.items() }
         self.supervisor.hpTasks = self.hpTasks
         self.supervisor.lpTasks = self.lpTasks
+        self.supervisor.postActions = {
+                ids[trans] : {
+                    nids[state]: sot for state, sot in values.items() if nids.has_key(state)
+                    } for trans, values in self.postActions.items()
+                }
+        self.supervisor.preActions = { ids[trans] : sot for trans, sot in self.preActions.items() }
 
     def setupFrames (self, hppclient, sotrobot):
         self.sotrobot = sotrobot
