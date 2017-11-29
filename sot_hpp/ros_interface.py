@@ -1,5 +1,5 @@
 import rospy
-from std_srvs.srv import Trigger, TriggerResponse
+from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse
 from hpp_ros_interface.srv import PlugSot, PlugSotResponse, SetString, SetJointNames
 from dynamic_graph_bridge_msgs.srv import RunCommand
 
@@ -10,6 +10,7 @@ class RosInterface(object):
         rospy.Service('/sot/run_pre_action', PlugSot, self.runPreAction)
         rospy.Service('/sot/request_hpp_topics', Trigger, self.requestHppTopics)
         rospy.Service('/sot/clear_queues', Trigger, self.clearQueues)
+        rospy.Service('/sot/read_queue', SetBool, self.readQueue)
         self.runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor
 
@@ -94,6 +95,16 @@ class RosInterface(object):
             print cmd
             print answer
         return TriggerResponse (True, "ok")
+
+    def readQueue(self, req):
+        if self.supervisor is not None:
+            self.supervisor.readQueue(req.data)
+        else:
+            cmd = "self.supervisor.readQueue(" + str(req.data) + ")"
+            answer = self.runCommand (cmd)
+            print cmd
+            print answer
+        return SetBoolResponse (True, "ok")
 
     def requestHppTopics(self, req):
         handlers = {

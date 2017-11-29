@@ -221,6 +221,10 @@ class Supervisor(object):
         for s in tmp:
             self.rosexport.clearQueue(s)
 
+    def readQueue(self, read):
+        print "Read queues:", read
+        self.rosexport.readQueue (read)
+
     def plugSot(self, id, check = False):
         if check and not self.isSotConsistentWithCurrent (id):
             # raise Exception ("Sot %d not consistent with sot %d" % (self.currentSot, id))
