@@ -43,12 +43,14 @@ namespace dynamicgraph
       ROS_SUBSCRIBE_MAKE_COMMAND(Rm);
       ROS_SUBSCRIBE_MAKE_COMMAND(ClearQueue);
       ROS_SUBSCRIBE_MAKE_COMMAND(QueueSize);
+      ROS_SUBSCRIBE_MAKE_COMMAND(ReadQueue);
 
 #undef ROS_SUBSCRIBE_MAKE_COMMAND
 
     } // end of namespace errorEstimator.
   } // end of namespace command.
 
+  class RosQueuedSubscribe;
 
   namespace internal
   {
@@ -58,13 +60,14 @@ namespace dynamicgraph
     struct BindedSignalBase {
       typedef boost::shared_ptr<ros::Subscriber> Subscriber_t;
 
-      BindedSignalBase() {}
+      BindedSignalBase(RosQueuedSubscribe* e) : entity(e) {}
       virtual ~BindedSignalBase() {}
 
       virtual void clear () = 0;
       virtual std::size_t size () const = 0;
 
       Subscriber_t subscriber;
+      RosQueuedSubscribe* entity;
     };
 
     template <typename T>
@@ -73,7 +76,7 @@ namespace dynamicgraph
       typedef boost::shared_ptr<Signal_t> SignalPtr_t;
       typedef std::queue<T> Queue_t;
 
-      BindedSignal() : BindedSignalBase () {}
+      BindedSignal(RosQueuedSubscribe* e) : BindedSignalBase (e), init(false) {}
       ~BindedSignal()
       {
         std::cout << signal->getName() << ": Delete" << std::endl;
@@ -97,6 +100,7 @@ namespace dynamicgraph
       Queue_t queue;
       boost::mutex qmutex;
       T last;
+      bool init;
 
       template <typename R> void writer (const R& data);
       T& reader (T& val, int time);
@@ -123,6 +127,7 @@ namespace dynamicgraph
     std::string list ();
     void clear ();
     void clearQueue (const std::string& signal);
+    void readQueue (bool read);
     std::size_t queueSize (const std::string& signal) const;
 
     template <typename T>
@@ -155,6 +160,12 @@ namespace dynamicgraph
     static const std::string docstring_;
     ros::NodeHandle& nh_;
     std::map<std::string, bindedSignal_t> bindedSignal_;
+
+    bool readQueue_;
+    // Signal<bool, int> readQueue_;
+
+    template <typename T>
+    friend class internal::BindedSignal;
   };
 } // end of namespace dynamicgraph.
 

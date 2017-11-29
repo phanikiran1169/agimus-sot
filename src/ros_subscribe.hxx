@@ -29,7 +29,7 @@ namespace dynamicgraph
 	typedef typename BindedSignal_t::Signal_t Signal_t;
 
 	// Initialize the bindedSignal object.
-        BindedSignal_t* bs = new BindedSignal_t();
+        BindedSignal_t* bs = new BindedSignal_t(&rosSubscribe);
         SotToRos<T>::setDefault (bs->last);
 
 	// Initialize the signal.
@@ -61,6 +61,10 @@ namespace dynamicgraph
     {
       T value;
       converter (value, data);
+      if (!init) {
+        last = value;
+        init = true;
+      }
       qmutex.lock();
       queue.push (value);
       qmutex.unlock();
@@ -69,15 +73,19 @@ namespace dynamicgraph
     template <typename T>
     T& BindedSignal<T>::reader (T& data, int)
     {
-      qmutex.lock();
-      if (queue.empty())
+      if (!entity->readQueue_) {
         data = last;
-      else {
-        data = queue.front();
-        queue.pop();
-        last = data;
+      } else {
+        qmutex.lock();
+        if (queue.empty())
+          data = last;
+        else {
+          data = queue.front();
+          queue.pop();
+          last = data;
+        }
+        qmutex.unlock();
       }
-      qmutex.unlock();
       return data;
     }
   } // end of namespace internal.
