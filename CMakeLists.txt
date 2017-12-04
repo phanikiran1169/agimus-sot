@@ -35,6 +35,7 @@ ADD_REQUIRED_DEPENDENCY ("dynamic_graph_bridge >= 3")
 ADD_REQUIRED_DEPENDENCY ("hpp-corbaserver >= 3")
 ADD_REQUIRED_DEPENDENCY ("sot-core >= 3")
 ADD_REQUIRED_DEPENDENCY ("dynamic-graph-python >= 2")
+ADD_REQUIRED_DEPENDENCY ("sot_hpp_msgs")
 
 SET(FILES
   supervisor.py

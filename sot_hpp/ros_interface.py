@@ -1,6 +1,6 @@
 import rospy
 from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse
-from hpp_ros_interface.srv import PlugSot, PlugSotResponse, SetString, SetJointNames
+from sot_hpp_msgs.srv import PlugSot, PlugSotResponse, SetString, SetJointNames
 from dynamic_graph_bridge_msgs.srv import RunCommand
 
 class RosInterface(object):
