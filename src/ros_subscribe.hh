@@ -87,6 +87,7 @@ namespace dynamicgraph
       void clear ()
       {
         qmutex.lock();
+        if (!queue.empty()) last = queue.back();
         queue = Queue_t();
         qmutex.unlock();
       }
