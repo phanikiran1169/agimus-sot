@@ -71,7 +71,7 @@ namespace dynamicgraph
     }
 
     template <typename T>
-    T& BindedSignal<T>::reader (T& data, int)
+    T& BindedSignal<T>::reader (T& data, int time)
     {
       if (!entity->readQueue_) {
         data = last;
@@ -82,6 +82,10 @@ namespace dynamicgraph
         else {
           data = queue.front();
           queue.pop();
+          if (queue.size() < 10) {
+            std::cout << signal->getName() << ": queue size is " << queue.size()
+              << " at time " << time << std::endl;
+          }
           last = data;
         }
         qmutex.unlock();

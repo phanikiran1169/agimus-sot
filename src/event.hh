@@ -81,6 +81,7 @@ namespace dynamicgraph {
             for (Triggers_t::const_iterator _s = triggers.begin();
                 _s != triggers.end(); ++_s)
               (*_s)->recompute (time);
+            std::cout << "trigger: " << val << std::endl;
           }
           return ret;
         }
