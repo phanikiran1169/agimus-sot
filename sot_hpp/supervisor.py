@@ -232,10 +232,10 @@ class Supervisor(object):
         if id == -1:
             self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         sot = self.sots[id]
-        t = self.sotrobot.device.control.time
-        sot.control.recompute (t-1)
-        print "Current sot:", id
+        # Start reading queues
+        self.readQueue(True)
         plug(sot.control, self.sotrobot.device.control)
+        print "Current sot:", id
         print sot.display()
         self.currentSot = id
 
