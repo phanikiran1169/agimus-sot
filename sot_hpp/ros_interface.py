@@ -90,7 +90,7 @@ class RosInterface(object):
         if self.supervisor is not None:
             self.supervisor.clearQueues()
         else:
-            cmd = "self.supervisor.clearQueues()"
+            cmd = "supervisor.clearQueues()"
             answer = self.runCommand (cmd)
             print cmd
             print answer
@@ -100,7 +100,7 @@ class RosInterface(object):
         if self.supervisor is not None:
             self.supervisor.readQueue(req.data)
         else:
-            cmd = "self.supervisor.readQueue(" + str(req.data) + ")"
+            cmd = "supervisor.readQueue(" + str(req.data) + ")"
             answer = self.runCommand (cmd)
             print cmd
             print answer
