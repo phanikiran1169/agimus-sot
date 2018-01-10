@@ -19,7 +19,7 @@ namespace dynamicgraph
 
   namespace command
   {
-    namespace rosSubscribe
+    namespace rosQueuedSubscribe
     {
       Clear::Clear
       (RosQueuedSubscribe& entity, const std::string& docstring)
@@ -192,7 +192,7 @@ namespace dynamicgraph
       "    - topic:  the topic name in ROS.\n"
       "\n";
     addCommand ("add",
-		new command::rosSubscribe::Add
+		new command::rosQueuedSubscribe::Add
 		(*this, docstring));
     docstring =
       "\n"
@@ -202,7 +202,7 @@ namespace dynamicgraph
       "    - name of the signal to remove (see method list for the list of signals).\n"
       "\n";
     addCommand ("rm",
-		new command::rosSubscribe::Rm
+		new command::rosQueuedSubscribe::Rm
 		(*this, docstring));
     docstring =
       "\n"
@@ -211,7 +211,7 @@ namespace dynamicgraph
       "  No input:\n"
       "\n";
     addCommand ("clear",
-		new command::rosSubscribe::Clear
+		new command::rosQueuedSubscribe::Clear
 		(*this, docstring));
     docstring =
       "\n"
@@ -220,7 +220,7 @@ namespace dynamicgraph
       "  No input:\n"
       "\n";
     addCommand ("list",
-		new command::rosSubscribe::List
+		new command::rosQueuedSubscribe::List
 		(*this, docstring));
     docstring =
       "\n"
@@ -230,7 +230,7 @@ namespace dynamicgraph
       "    - name of the signal (see method list for the list of signals).\n"
       "\n";
     addCommand ("clearQueue",
-		new command::rosSubscribe::ClearQueue
+		new command::rosQueuedSubscribe::ClearQueue
 		(*this, docstring));
     docstring =
       "\n"
@@ -240,7 +240,7 @@ namespace dynamicgraph
       "    - name of the signal (see method list for the list of signals).\n"
       "\n";
     addCommand ("queueSize",
-		new command::rosSubscribe::QueueSize
+		new command::rosQueuedSubscribe::QueueSize
 		(*this, docstring));
     docstring =
       "\n"
@@ -250,7 +250,7 @@ namespace dynamicgraph
       "    - boolean.\n"
       "\n";
     addCommand ("readQueue",
-		new command::rosSubscribe::ReadQueue
+		new command::rosQueuedSubscribe::ReadQueue
 		(*this, docstring));
   }
 
