@@ -152,7 +152,7 @@ namespace dynamicgraph
       (RosQueuedSubscribe& entity, const std::string& docstring)
 	: Command
 	  (entity,
-	   boost::assign::list_of (Value::BOOL),
+	   boost::assign::list_of (Value::INT),
 	   docstring)
       {}
 
@@ -162,7 +162,7 @@ namespace dynamicgraph
 	  static_cast<RosQueuedSubscribe&> (owner ());
 
 	std::vector<Value> values = getParameterValues ();
-        bool read = values[0].value ();
+        int read = values[0].value ();
         entity.readQueue (read);
 
         return Value ();
@@ -179,7 +179,7 @@ namespace dynamicgraph
     : dynamicgraph::Entity(n),
       nh_ (rosInit (true)),
       bindedSignal_ (),
-      readQueue_ (false)
+      readQueue_ (-1)
   {
     std::string docstring =
       "\n"
@@ -244,10 +244,10 @@ namespace dynamicgraph
 		(*this, docstring));
     docstring =
       "\n"
-      "  Whether signals should read values from the queues.\n"
+      "  Whether signals should read values from the queues, and when.\n"
       "\n"
       "  Input is:\n"
-      "    - boolean.\n"
+      "    - int (dynamic graph time at which the reading begin).\n"
       "\n";
     addCommand ("readQueue",
 		new command::rosQueuedSubscribe::ReadQueue
@@ -318,15 +318,14 @@ namespace dynamicgraph
     return -1;
   }
 
-  void RosQueuedSubscribe::readQueue (bool read)
+  void RosQueuedSubscribe::readQueue (int beginReadingAt)
   {
-    for (std::map<std::string, bindedSignal_t>::const_iterator it =
+    // Prints signal queues sizes
+    /*for (std::map<std::string, bindedSignal_t>::const_iterator it =
 	   bindedSignal_.begin (); it != bindedSignal_.end (); it++) {
       std::cout << it->first << " : " << it->second->size() << '\n';
-    }
-    std::cout << std::endl;
-    // TODO ensure that the signal are synchronised
-    readQueue_ = read;
+    }*/
+    readQueue_ = beginReadingAt;
   }
 
   std::string RosQueuedSubscribe::getDocString () const

@@ -128,7 +128,7 @@ namespace dynamicgraph
     std::string list ();
     void clear ();
     void clearQueue (const std::string& signal);
-    void readQueue (bool read);
+    void readQueue (int beginReadingAt);
     std::size_t queueSize (const std::string& signal) const;
 
     template <typename T>
@@ -162,7 +162,7 @@ namespace dynamicgraph
     ros::NodeHandle& nh_;
     std::map<std::string, bindedSignal_t> bindedSignal_;
 
-    bool readQueue_;
+    int readQueue_;
     // Signal<bool, int> readQueue_;
 
     template <typename T>
