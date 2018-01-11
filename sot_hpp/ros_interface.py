@@ -11,7 +11,6 @@ class RosInterface(object):
         rospy.Service('/sot/request_hpp_topics', Trigger, self.requestHppTopics)
         rospy.Service('/sot/clear_queues', Trigger, self.clearQueues)
         rospy.Service('/sot/read_queue', SetInt, self.readQueue)
-        rospy.Service('/sot/get_sot_time', GetInt, self.getSoTTime)
         self.runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor
 
@@ -99,23 +98,19 @@ class RosInterface(object):
 
     def readQueue(self, req):
         if self.supervisor is not None:
-            self.supervisor.readQueue(req.data)
-        else:
-            cmd = "supervisor.readQueue(" + str(req.data) + ")"
-            answer = self.runCommand (cmd)
-            print cmd
-            print answer
-        return SetIntResponse ()
-
-    def getSoTTime(self, req):
-        if self.supervisor is not None:
-            return GetIntResponse (self.supervisor.sotrobot.device.control.time)
+            SoTTime = self.supervisor.sotrobot.device.control.time
+            self.supervisor.readQueue( SoTTime + req.data)
         else:
             cmd = "supervisor.sotrobot.device.control.time"
             answer = self.runCommand (cmd)
             print cmd
             print answer
-            return GetIntResponse (int(answer.result))
+            SoTTime = int(answer.result)
+            cmd = "supervisor.readQueue(" + str(SoTTime + req.data) + ")"
+            answer = self.runCommand (cmd)
+            print cmd
+            print answer
+        return SetIntResponse ()
 
     def requestHppTopics(self, req):
         handlers = {
