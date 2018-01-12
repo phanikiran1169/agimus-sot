@@ -19,7 +19,7 @@ namespace dynamicgraph
 
   namespace command
   {
-    namespace rosSubscribe
+    namespace rosQueuedSubscribe
     {
       Clear::Clear
       (RosQueuedSubscribe& entity, const std::string& docstring)
@@ -152,7 +152,7 @@ namespace dynamicgraph
       (RosQueuedSubscribe& entity, const std::string& docstring)
 	: Command
 	  (entity,
-	   boost::assign::list_of (Value::BOOL),
+	   boost::assign::list_of (Value::INT),
 	   docstring)
       {}
 
@@ -162,7 +162,7 @@ namespace dynamicgraph
 	  static_cast<RosQueuedSubscribe&> (owner ());
 
 	std::vector<Value> values = getParameterValues ();
-        bool read = values[0].value ();
+        int read = values[0].value ();
         entity.readQueue (read);
 
         return Value ();
@@ -179,7 +179,7 @@ namespace dynamicgraph
     : dynamicgraph::Entity(n),
       nh_ (rosInit (true)),
       bindedSignal_ (),
-      readQueue_ (false)
+      readQueue_ (-1)
   {
     std::string docstring =
       "\n"
@@ -192,7 +192,7 @@ namespace dynamicgraph
       "    - topic:  the topic name in ROS.\n"
       "\n";
     addCommand ("add",
-		new command::rosSubscribe::Add
+		new command::rosQueuedSubscribe::Add
 		(*this, docstring));
     docstring =
       "\n"
@@ -202,7 +202,7 @@ namespace dynamicgraph
       "    - name of the signal to remove (see method list for the list of signals).\n"
       "\n";
     addCommand ("rm",
-		new command::rosSubscribe::Rm
+		new command::rosQueuedSubscribe::Rm
 		(*this, docstring));
     docstring =
       "\n"
@@ -211,7 +211,7 @@ namespace dynamicgraph
       "  No input:\n"
       "\n";
     addCommand ("clear",
-		new command::rosSubscribe::Clear
+		new command::rosQueuedSubscribe::Clear
 		(*this, docstring));
     docstring =
       "\n"
@@ -220,7 +220,7 @@ namespace dynamicgraph
       "  No input:\n"
       "\n";
     addCommand ("list",
-		new command::rosSubscribe::List
+		new command::rosQueuedSubscribe::List
 		(*this, docstring));
     docstring =
       "\n"
@@ -230,7 +230,7 @@ namespace dynamicgraph
       "    - name of the signal (see method list for the list of signals).\n"
       "\n";
     addCommand ("clearQueue",
-		new command::rosSubscribe::ClearQueue
+		new command::rosQueuedSubscribe::ClearQueue
 		(*this, docstring));
     docstring =
       "\n"
@@ -240,17 +240,17 @@ namespace dynamicgraph
       "    - name of the signal (see method list for the list of signals).\n"
       "\n";
     addCommand ("queueSize",
-		new command::rosSubscribe::QueueSize
+		new command::rosQueuedSubscribe::QueueSize
 		(*this, docstring));
     docstring =
       "\n"
-      "  Whether signals should read values from the queues.\n"
+      "  Whether signals should read values from the queues, and when.\n"
       "\n"
       "  Input is:\n"
-      "    - boolean.\n"
+      "    - int (dynamic graph time at which the reading begin).\n"
       "\n";
     addCommand ("readQueue",
-		new command::rosSubscribe::ReadQueue
+		new command::rosQueuedSubscribe::ReadQueue
 		(*this, docstring));
   }
 
@@ -318,15 +318,14 @@ namespace dynamicgraph
     return -1;
   }
 
-  void RosQueuedSubscribe::readQueue (bool read)
+  void RosQueuedSubscribe::readQueue (int beginReadingAt)
   {
-    for (std::map<std::string, bindedSignal_t>::const_iterator it =
+    // Prints signal queues sizes
+    /*for (std::map<std::string, bindedSignal_t>::const_iterator it =
 	   bindedSignal_.begin (); it != bindedSignal_.end (); it++) {
       std::cout << it->first << " : " << it->second->size() << '\n';
-    }
-    std::cout << std::endl;
-    // TODO ensure that the signal are synchronised
-    readQueue_ = read;
+    }*/
+    readQueue_ = beginReadingAt;
   }
 
   std::string RosQueuedSubscribe::getDocString () const

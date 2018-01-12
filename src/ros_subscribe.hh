@@ -23,12 +23,12 @@ namespace dynamicgraph
 
   namespace command
   {
-    namespace rosSubscribe
+    namespace rosQueuedSubscribe
     {
       using ::dynamicgraph::command::Command;
       using ::dynamicgraph::command::Value;
 
-# define ROS_SUBSCRIBE_MAKE_COMMAND(CMD)			\
+# define ROS_QUEUED_SUBSCRIBE_MAKE_COMMAND(CMD)			\
       class CMD : public Command			\
       {							\
       public:						\
@@ -37,17 +37,17 @@ namespace dynamicgraph
 	virtual Value doExecute ();			\
       }
 
-      ROS_SUBSCRIBE_MAKE_COMMAND(Add);
-      ROS_SUBSCRIBE_MAKE_COMMAND(Clear);
-      ROS_SUBSCRIBE_MAKE_COMMAND(List);
-      ROS_SUBSCRIBE_MAKE_COMMAND(Rm);
-      ROS_SUBSCRIBE_MAKE_COMMAND(ClearQueue);
-      ROS_SUBSCRIBE_MAKE_COMMAND(QueueSize);
-      ROS_SUBSCRIBE_MAKE_COMMAND(ReadQueue);
+      ROS_QUEUED_SUBSCRIBE_MAKE_COMMAND(Add);
+      ROS_QUEUED_SUBSCRIBE_MAKE_COMMAND(Clear);
+      ROS_QUEUED_SUBSCRIBE_MAKE_COMMAND(List);
+      ROS_QUEUED_SUBSCRIBE_MAKE_COMMAND(Rm);
+      ROS_QUEUED_SUBSCRIBE_MAKE_COMMAND(ClearQueue);
+      ROS_QUEUED_SUBSCRIBE_MAKE_COMMAND(QueueSize);
+      ROS_QUEUED_SUBSCRIBE_MAKE_COMMAND(ReadQueue);
 
-#undef ROS_SUBSCRIBE_MAKE_COMMAND
+#undef ROS_QUEUED_SUBSCRIBE_MAKE_COMMAND
 
-    } // end of namespace errorEstimator.
+    } // end of namespace rosQueuedSubscribe.
   } // end of namespace command.
 
   class RosQueuedSubscribe;
@@ -128,7 +128,7 @@ namespace dynamicgraph
     std::string list ();
     void clear ();
     void clearQueue (const std::string& signal);
-    void readQueue (bool read);
+    void readQueue (int beginReadingAt);
     std::size_t queueSize (const std::string& signal) const;
 
     template <typename T>
@@ -162,7 +162,7 @@ namespace dynamicgraph
     ros::NodeHandle& nh_;
     std::map<std::string, bindedSignal_t> bindedSignal_;
 
-    bool readQueue_;
+    int readQueue_;
     // Signal<bool, int> readQueue_;
 
     template <typename T>

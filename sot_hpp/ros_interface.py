@@ -1,6 +1,6 @@
 import rospy
-from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse
-from sot_hpp_msgs.srv import PlugSot, PlugSotResponse, SetString, SetJointNames
+from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse, Empty, EmptyResponse
+from sot_hpp_msgs.srv import PlugSot, PlugSotResponse, SetString, SetJointNames, GetInt, GetIntResponse, SetInt, SetIntRequest, SetIntResponse
 from dynamic_graph_bridge_msgs.srv import RunCommand
 
 class RosInterface(object):
@@ -10,7 +10,8 @@ class RosInterface(object):
         rospy.Service('/sot/run_pre_action', PlugSot, self.runPreAction)
         rospy.Service('/sot/request_hpp_topics', Trigger, self.requestHppTopics)
         rospy.Service('/sot/clear_queues', Trigger, self.clearQueues)
-        rospy.Service('/sot/read_queue', SetBool, self.readQueue)
+        rospy.Service('/sot/read_queue', SetInt, self.readQueue)
+        rospy.Service('/sot/stop_reading_queue', Empty, self.stopReadingQueue)
         self.runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor
 
@@ -98,13 +99,23 @@ class RosInterface(object):
 
     def readQueue(self, req):
         if self.supervisor is not None:
-            self.supervisor.readQueue(req.data)
+            self.supervisor.readQueue( req.data)
         else:
             cmd = "supervisor.readQueue(" + str(req.data) + ")"
             answer = self.runCommand (cmd)
             print cmd
             print answer
-        return SetBoolResponse (True, "ok")
+        return SetIntResponse ()
+
+    def stopReadingQueue(self, req):
+        if self.supervisor is not None:
+            self.supervisor.stopReadingQueue ()
+        else:
+            cmd = "supervisor.stopReadingQueue()"
+            answer = self.runCommand (cmd)
+            print cmd
+            print answer
+        return EmptyResponse ()
 
     def requestHppTopics(self, req):
         handlers = {
