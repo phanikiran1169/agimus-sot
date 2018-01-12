@@ -99,15 +99,9 @@ class RosInterface(object):
 
     def readQueue(self, req):
         if self.supervisor is not None:
-            SoTTime = self.supervisor.sotrobot.device.control.time
-            self.supervisor.readQueue( SoTTime + req.data)
+            self.supervisor.readQueue( req.data)
         else:
-            cmd = "supervisor.sotrobot.device.control.time"
-            answer = self.runCommand (cmd)
-            print cmd
-            print answer
-            SoTTime = int(answer.result)
-            cmd = "supervisor.readQueue(" + str(SoTTime + req.data) + ")"
+            cmd = "supervisor.readQueue(" + str(req.data) + ")"
             answer = self.runCommand (cmd)
             print cmd
             print answer
@@ -115,9 +109,9 @@ class RosInterface(object):
 
     def stopReadingQueue(self, req):
         if self.supervisor is not None:
-            self.supervisor.readQueue( -1 )
+            self.supervisor.stopReadingQueue ()
         else:
-            cmd = "supervisor.readQueue(" + str(-1) + ")"
+            cmd = "supervisor.stopReadingQueue()"
             answer = self.runCommand (cmd)
             print cmd
             print answer

@@ -222,8 +222,14 @@ class Supervisor(object):
             self.rosexport.clearQueue(s)
 
     def readQueue(self, read):
-        print "Read queues:", read
-        self.rosexport.readQueue (read)
+        if read < 0:
+            print "ReadQueue argument should be >= 0"
+            return
+        t = self.sotrobot.device.control.time
+        self.rosexport.readQueue (t + read)
+
+    def stopReadingQueue(self):
+        self.rosexport.readQueue (-1)
 
     def plugSot(self, id, check = False):
         if check and not self.isSotConsistentWithCurrent (id):
