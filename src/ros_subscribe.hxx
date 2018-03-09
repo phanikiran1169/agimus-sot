@@ -45,9 +45,11 @@ namespace dynamicgraph
 	callback_t callback = boost::bind
 	  (&BindedSignal_t::template writer<ros_const_ptr_t>, bs, _1);
 
+  // Keep 50 messages in queue, but only 20 are sent every 100ms
+  // -> No message should be lost because of a full buffer
 	bs->subscriber =
 	  boost::make_shared<ros::Subscriber>
-	  (rosSubscribe.nh ().subscribe (topic, 50, callback)); // Keep 50 messages in queue, but only 20 are sent every 100ms
+	  (rosSubscribe.nh ().subscribe (topic, 50, callback)); 
 
 	RosQueuedSubscribe::bindedSignal_t bindedSignal (bs);
 	rosSubscribe.bindedSignal ()[signal] = bindedSignal;
@@ -82,10 +84,6 @@ namespace dynamicgraph
         else {
           data = queue.front();
           queue.pop();
-          if (queue.size() < 10) {
-            std::cout << signal->getName() << ": queue size is " << queue.size()
-              << " at time " << time << std::endl;
-          }
           last = data;
         }
         qmutex.unlock();

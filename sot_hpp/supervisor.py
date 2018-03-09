@@ -73,6 +73,10 @@ class Supervisor(object):
         self.preActions = dict()
         self.transitions = transitions
 
+        print "Transitions:\n"
+        print transitions
+        print "\n"
+
         for t in transitions:
             # Create SOT solver
             # sot = SOT ('sot_' + str(t['id']) + '-' + t['name'])
@@ -120,7 +124,19 @@ class Supervisor(object):
         sot.setSize(self.sotrobot.dynamic.getDimension())
         self.keep_posture = Posture ("posture_keep", self.sotrobot)
         self.keep_posture.tp.setWithDerivative (False)
-        self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
+        
+        # TODO : I do agree that this is a dirty hack.
+        # The COM of the robot in the HPP frame is at those coordinates (approx.).
+        # But the keep_posture task is « internally » (there is no actuator able to directly move the COM, 
+        # but the controller in the task is computing controls anyway, and integrating them) 
+        # moving the computed COM to its reference value which is (0, 0, 0).
+        # So, when we send the goal coordinates of the feet from HPP to the SoT, there is an offset of 0,74m
+        # between the goal and the current position of the feet. This was the cause of the strange feet
+        # movements at the beginning of the demo.
+        # Maybe we can get the COM position and orientation from HPP at the beginning of the trajectory
+        # to initialize self.sotrobot.dynamic.position.value
+        self.keep_posture._signalPositionRef().value = tuple([-0.74, 0.0, 1.0, 0.0, 0.0, 0.0] + list(self.sotrobot.dynamic.position.value)[6:])
+        
         self.keep_posture.pushTo(sot)
         self.sots[-1] = sot
 
@@ -236,10 +252,14 @@ class Supervisor(object):
             # raise Exception ("Sot %d not consistent with sot %d" % (self.currentSot, id))
             print "Sot %d not consistent with sot %d" % (self.currentSot, id)
         if id == -1:
-            self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
+            # TODO : Explanation and linked TODO in the function makeInitialSot
+            if self.sotrobot.dynamic.position.value[0] > -0.5:
+                self.keep_posture._signalPositionRef().value = tuple([-0.74, 0.0, 1.0, 0.0, 0.0, 0.0] + list(self.sotrobot.dynamic.position.value)[6:])
+            else:
+                self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         sot = self.sots[id]
         # Start reading queues
-        self.readQueue(True)
+        self.readQueue(10)
         plug(sot.control, self.sotrobot.device.control)
         print "Current sot:", id
         print sot.display()
