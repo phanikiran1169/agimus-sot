@@ -84,10 +84,6 @@ namespace dynamicgraph
         else {
           data = queue.front();
           queue.pop();
-          //if (queue.size() < 10) {
-          //  std::cout << signal->getName() << ": queue size is " << queue.size()
-          //    << " at time " << time << std::endl;
-          //}
           last = data;
         }
         qmutex.unlock();
