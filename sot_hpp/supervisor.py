@@ -73,6 +73,10 @@ class Supervisor(object):
         self.preActions = dict()
         self.transitions = transitions
 
+        print "Transitions:\n"
+        print transitions
+        print "\n"
+
         for t in transitions:
             # Create SOT solver
             # sot = SOT ('sot_' + str(t['id']) + '-' + t['name'])
@@ -120,7 +124,7 @@ class Supervisor(object):
         sot.setSize(self.sotrobot.dynamic.getDimension())
         self.keep_posture = Posture ("posture_keep", self.sotrobot)
         self.keep_posture.tp.setWithDerivative (False)
-        self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
+        self.keep_posture._signalPositionRef().value = tuple([-0.74, 0.0, 1.0, 0.0, 0.0, 0.0] + list(self.sotrobot.dynamic.position.value)[6:])
         self.keep_posture.pushTo(sot)
         self.sots[-1] = sot
 
@@ -236,10 +240,13 @@ class Supervisor(object):
             # raise Exception ("Sot %d not consistent with sot %d" % (self.currentSot, id))
             print "Sot %d not consistent with sot %d" % (self.currentSot, id)
         if id == -1:
-            self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
+            if self.sotrobot.dynamic.position.value[0] > -0.5:
+                self.keep_posture._signalPositionRef().value = tuple([-0.74, 0.0, 1.0, 0.0, 0.0, 0.0] + list(self.sotrobot.dynamic.position.value)[6:])
+            else:
+                self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         sot = self.sots[id]
         # Start reading queues
-        self.readQueue(True)
+        self.readQueue(10)
         plug(sot.control, self.sotrobot.device.control)
         print "Current sot:", id
         print sot.display()

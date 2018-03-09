@@ -120,72 +120,143 @@ class OpFrame(object):
             robotname, self.sotjoint = parseHppName (n)
 
 class Grasp (Manifold):
-    def __init__ (self, gripper, handle, otherGraspOnObject = None):
+    def __init__ (self, gripper, handle, otherGraspOnObject = None, closeGripper = False):
         super(Grasp, self).__init__()
         self.gripper = gripper
         self.handle = handle
-        self.otherGrasp = otherGraspOnObject
+        self.closeGripper = closeGripper
+
         self.relative = self.otherGrasp is not None \
                 and self.otherGrasp.handle.hppjoint == self.handle.hppjoint
         if self.relative:
-            self.topics = dict()
-        else:
-            self.topics = {
-                    # self.gripper.name: {
-                    self.gripper.hppjoint: {
-                        "velocity": False,
-                        "type": "matrixHomo",
-                        "handler": "hppjoint",
-                        "hppjoint": self.gripper.hppjoint,
-                        "signalGetters": [ self._signalPositionRef ] },
-                    # "vel_" + self.gripper.name: {
-                    "vel_" + self.gripper.hppjoint: {
-                        "velocity": True,
-                        "type": "vector",
-                        "handler": "hppjoint",
-                        "hppjoint": self.gripper.hppjoint,
-                        "signalGetters": [ self._signalVelocityRef ] },
-                    }
+            self.otherGripper = otherGrasp.gripper
 
     def makeTasks(self, sotrobot):
         from dynamic_graph.sot.core.matrix_util import matrixToTuple
-        from dynamic_graph.sot.core import Multiply_of_matrixHomo, OpPointModifier
+        from dynamic_graph.sot.core import Multiply_of_matrix, Multiply_of_matrixHomo, OpPointModifier
+        from dynamic_graph import plug
         if self.relative:
-            # We define a MetaTaskKine6dRel
-            self.graspTask = MetaTaskKine6dRel (
-                    Grasp.sep + self.gripper.name + Grasp.sep + self.handle.name +
-                    '(rel_to_' + self.otherGrasp.gripper.name + ')',
-                    sotrobot.dynamic,
-                    self.gripper.sotjoint,
-                    self.gripper.sotjoint,
-                    self.otherGrasp.gripper.sotjoint,
-                    self.otherGrasp.gripper.sotjoint)
-
-            M = transformToMatrix(self.gripper.sotpose * self.handle.sotpose.inverse())
-            self.graspTask.opmodif = matrixToTuple(M)
-            M = transformToMatrix(self.otherGrasp.handle.sotpose * self.otherGrasp.gripper.sotpose.inverse())
-            self.graspTask.opmodifBase = matrixToTuple(M)
-        else:
-            # We define a MetaTaskKine6d
             self.graspTask = MetaTaskKine6d (
-                    Grasp.sep + self.gripper.name + Grasp.sep + self.handle.name,
+                    Grasp.sep + self.gripper.name + Grasp.sep + self.otherGrasp.gripper.name,
                     sotrobot.dynamic,
                     self.gripper.sotjoint,
                     self.gripper.sotjoint)
-            # TODO At the moment, the reference is the joint frame, not the gripper frame.
-            # M = transformToMatrix(self.gripper.sotpose)
-            # self.graspTask.opmodif = matrixToTuple(M)
-        # self.graspTask.feature.frame("desired")
-        self.graspTask.task.setWithDerivative (True)
-        setGain(self.graspTask.gain,(100,0.9,0.01,0.9))
-        self.graspTask.feature.frame("current")
-        self.tasks = [ self.graspTask.task ]
+            
+            # Creates the matrix transforming the goal gripper's position into the desired moving gripper's position:
+            #     on the other handle of the object
+            #M = ((-1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0), (0.0, 0.0, -1.0, -0.55), (0.0, 0.0, 0.0, 1.0))
+            M = transformToMatrix(self.otherGrasp.gripper.sotpose * self.otherGrasp.handle.sotpose.inverse() * self.handle.sotpose * self.gripper.sotpose.inverse())
+            self.graspTask.opmodif = matrixToTuple(M)
+            self.graspTask.feature.frame("current")
+            setGain(self.graspTask.gain,(4.9,0.9,0.01,0.9))
+            self.graspTask.task.setWithDerivative (False)
 
-    def _signalPositionRef (self): return self.graspTask.featureDes.position
-    def _signalVelocityRef (self): return self.graspTask.featureDes.velocity
+            # Sets the position and velocity of the other gripper as the goal of the first gripper pose
+            if not self.opPointExist(sotrobot.dynamic, self.otherGrasp.gripper.sotjoint):
+                sotrobot.dynamic.createOpPoint(self.otherGripper.sotjoint, self.otherGripper.sotjoint)
+                sotrobot.dynamic.createVelocity("vel_"+self.otherGripper.sotjoint, self.otherGrasp.gripper.sotjoint)
+            plug(sotrobot.dynamic.signal(self.otherGripper.sotjoint), self.graspTask.featureDes.position)
+            plug(sotrobot.dynamic.signal("vel_"+self.otherGripper.sotjoint), self.graspTask.featureDes.velocity)
+            #plug(sotrobot.dynamic.signal("J"+self.otherGrasp.gripper.sotjoint), self.graspTask.featureDes.Jq)
+            
+            # We will need a less barbaric method to do this...
+            # Zeroes the jacobian for the joints we don't want to use.
+            
+            #  - Create the selection matrix for the desired joints
+            mat = ()
+            for i in range(38):
+                mat += ((0,)*i + (1 if i in range(29, 36) else 0,) + (0,)*(37-i),)
+            
+            # - Multiplies it with the computed jacobian matrix of the gripper
+            mult = Multiply_of_matrix('mult')
+            mult.sin2.value = mat
+            plug(self.graspTask.opPointModif.jacobian, mult.sin1)
+            plug(mult.sout, self.graspTask.feature.Jq)
+
+            self.tasks = [ self.graspTask.task ]
+            #self.tasks = []
+        self += EEPosture (sotrobot, self.gripper, [-0.2 if self.closeGripper else 0])
+
+    def opPointExist(self,dyn,opPoint):
+        sigsP = filter(lambda x: x.getName().split(':')[-1] == opPoint,
+                       dyn.signals())
+        sigsJ = filter(lambda x: x.getName().split(':')[-1] == 'J'+opPoint,
+                       dyn.signals())
+        return len(sigsP)==1 & len(sigsJ)==1
+
+#class Grasp_old (Manifold):
+#    def __init__ (self, gripper, handle, otherGraspOnObject = None):
+#        super(Grasp, self).__init__()
+#        self.gripper = gripper
+#        self.handle = handle
+#        self.otherGrasp = otherGraspOnObject
+#        self.relative = self.otherGrasp is not None \
+#                and self.otherGrasp.handle.hppjoint == self.handle.hppjoint
+#        if self.relative:
+#            self.topics = dict()
+#        else:
+#            self.topics = {
+#                    # self.gripper.name: {
+#                    self.gripper.hppjoint: {
+#                        "velocity": False,
+#                        "type": "matrixHomo",
+#                        "handler": "hppjoint",
+#                        "hppjoint": self.gripper.hppjoint,
+#                        "signalGetters": [ self._signalPositionRef ] },
+#                    # "vel_" + self.gripper.name: {
+#                    "vel_" + self.gripper.hppjoint: {
+#                        "velocity": True,
+#                        "type": "vector",
+#                        "handler": "hppjoint",
+#                        "hppjoint": self.gripper.hppjoint,
+#                        "signalGetters": [ self._signalVelocityRef ] },
+#                    }
+#
+#    def makeTasks(self, sotrobot):
+#        from dynamic_graph.sot.core.matrix_util import matrixToTuple
+#        from dynamic_graph.sot.core import Multiply_of_matrixHomo, OpPointModifier
+#        if self.relative:
+#            # We define a MetaTaskKine6dRel
+#            self.graspTask = MetaTaskKine6dRel (
+#                    Grasp.sep + self.gripper.name + Grasp.sep + self.handle.name +
+#                    '(rel_to_' + self.otherGrasp.gripper.name + ')',
+#                    sotrobot.dynamic,
+#                    self.gripper.sotjoint,
+#                    self.gripper.sotjoint,
+#                    self.otherGrasp.gripper.sotjoint,
+#                    self.otherGrasp.gripper.sotjoint)
+#
+#            M = transformToMatrix(self.gripper.sotpose * self.handle.sotpose.inverse())
+#            self.graspTask.opmodif = matrixToTuple(M)
+#            # M = transformToMatrix(self.otherGrasp.handle.sotpose * self.otherGrasp.gripper.sotpose.inverse())
+#            M = transformToMatrix(self.otherGrasp.gripper.sotpose * self.otherGrasp.handle.sotpose.inverse())
+#            self.graspTask.opmodifBase = matrixToTuple(M)
+#        else:
+#            # We define a MetaTaskKine6d
+#            self.graspTask = MetaTaskKine6d (
+#                    Grasp.sep + self.gripper.name + Grasp.sep + self.handle.name,
+#                    sotrobot.dynamic,
+#                    self.gripper.sotjoint,
+#                    self.gripper.sotjoint)
+#            # TODO At the moment, the reference is the joint frame, not the gripper frame.
+#            # M = transformToMatrix(self.gripper.sotpose)
+#            # self.graspTask.opmodif = matrixToTuple(M)
+#        # self.graspTask.feature.frame("desired")
+#        self.graspTask.task.setWithDerivative (True)
+#        # setGain(self.graspTask.gain,(100,0.9,0.01,0.9))
+#        setGain(self.graspTask.gain,(4.9,0.9,0.01,0.9))
+#        self.graspTask.feature.frame("current")
+#        self.tasks = [ self.graspTask.task ]
+#
+#    def _signalPositionRef (self): return self.graspTask.featureDes.position
+#    def _signalVelocityRef (self): return self.graspTask.featureDes.velocity
 
 class EEPosture (Manifold):
     def __init__ (self, sotrobot, gripper, position):
+        # Alexis : I think this function only work when len(position) == 1
+        # Adaptation for a longer list are necessary, e.g. line 219
+        # Else, if it should only work when len(pos) == 1, why not add an assert ?
+        # and why the line 206
         from dynamic_graph.sot.core import Task, FeatureGeneric, GainAdaptive, Selec_of_vector
         from dynamic_graph.sot.core.matrix_util import matrixToTuple
         from dynamic_graph import plug
@@ -230,11 +301,12 @@ class EEPosture (Manifold):
         self.tasks = [ self.tp ]
 
 class Foot (Manifold):
-    def __init__ (self, footname, sotrobot):
+    def __init__ (self, footname, sotrobot, selec='111111'):
         robotname, sotjoint = parseHppName (footname)
         self.taskFoot = MetaTaskKine6d(
                 Foot.sep + footname,
                 sotrobot.dynamic,sotjoint,sotjoint)
+        self.taskFoot.feature.selec.value = selec
         super(Foot, self).__init__(
                 tasks = [ self.taskFoot.task, ],
                 topics = {

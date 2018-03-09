@@ -9,21 +9,46 @@ class TaskFactory(ConstraintFactoryAbstract):
     def __init__ (self, graphfactory):
         super(TaskFactory, self).__init__ (graphfactory)
 
-    def buildGrasp (self, g, h):
+    def buildGrasp (self, g, h, otherGrasp=None):
         gf = self.graphfactory
         if h is None:
             return { 'gripper_open': EEPosture (gf.sotrobot, gf.gripperFrames [g], [0]) }
 
-        gripper_close  = EEPosture (gf.sotrobot, gf.gripperFrames [g], [-1])
+        gripper_close  = EEPosture (gf.sotrobot, gf.gripperFrames [g], [-0.2])
         pregrasp = Grasp (gf.gripperFrames [g],
-                          gf.handleFrames [h])
+                          gf.handleFrames [h],
+                          otherGrasp,
+                          False)
         pregrasp.makeTasks (gf.sotrobot)
         grasp = Grasp (gf.gripperFrames [g],
-                       gf.handleFrames [h])
+                       gf.handleFrames [h],
+                       otherGrasp,
+                       True)
         grasp.makeTasks (gf.sotrobot)
         return { 'grasp': grasp,
                  'pregrasp': pregrasp,
                  'gripper_close': gripper_close }
+    
+    ## \name Accessors to the different elementary constraints
+    # \{
+    def getGrasp(self, gripper, handle, otherGrasp=None):
+        if isinstance(gripper, str): ig = self.graphfactory.grippers.index(gripper)
+        else: ig = gripper
+        if isinstance(handle, str): ih = self.graphfactory.handles.index(handle)
+        else: ih = handle
+        if otherGrasp is not None:
+            otherIg = self.graphfactory.grippers.index(otherGrasp.gripper.name)
+            otherIh = self.graphfactory.handles.index(otherGrasp.handle.name)
+            k = (ig, ih, otherIg, otherIh)
+        else:
+            k = (ig, ih)
+        if not self._grasp.has_key(k):
+            self._grasp[k] = self.buildGrasp(self.graphfactory.grippers[ig], None if ih is None else self.graphfactory.handles[ih], otherGrasp)
+            assert isinstance (self._grasp[k], dict)
+        return self._grasp[k]
+
+    def g (self, gripper, handle, what, otherGrasp=None):
+        return self.getGrasp(gripper, handle, otherGrasp)[what]
 
     def buildPlacement (self, o):
         # Nothing to do
@@ -36,12 +61,14 @@ class Factory(GraphFactoryAbstract):
             self.grasps = grasps
             self.manifold = Manifold()
 
+            objectsAlreadyGrasped = {}
+            
             for ig, ih in idx_zip (grasps):
                 if ih is not None:
                     # Add task gripper_close
-                    self.manifold += tasks.g (factory.grippers[ig], factory.handles[ih], 'gripper_close')
-                    # TODO If an object is grasped by two grippers, then we should add a task
-                    # of relative position of the two grippers.
+                    otherGrasp = objectsAlreadyGrasped.get(factory.objectFromHandle[ih])
+                    self.manifold += tasks.g (factory.grippers[ig], factory.handles[ih], 'grasp', otherGrasp)
+                    objectsAlreadyGrasped[factory.objectFromHandle[ih]] = tasks.g (factory.grippers[ig], factory.handles[ih], 'grasp', otherGrasp)
                 else:
                     # Add task gripper_open
                     self.manifold += tasks.g (factory.grippers[ig], None, 'gripper_open')
@@ -93,7 +120,7 @@ class Factory(GraphFactoryAbstract):
         return Factory.State(self.tasks, grasps, self)
 
     def makeLoopTransition (self, state):
-        n = self._loopTransitionName(state.grasps)
+        n = self._loopTransitionName(state.grasps, True)
         sot = SOT ('sot_' + n)
         sot.setSize(self.sotrobot.dynamic.getDimension())
 
@@ -108,12 +135,13 @@ class Factory(GraphFactoryAbstract):
         st = stateTo
         names = self._transitionNames(sf, st, ig)
 
-        # TODO Add the notion of pre/post actions
-        # to open and close the gripper
+        print "names: {}".format(names)
 
         iobj = self.objectFromHandle [st.grasps[ig]]
         obj = self.objects[iobj]
         noPlace = self._isObjectGrasped (sf.grasps, iobj)
+
+        print "iobj, obj, noPlace: {}, {}, {}".format(iobj, obj, noPlace)
 
         # The different cases:
         pregrasp = True
@@ -138,9 +166,9 @@ class Factory(GraphFactoryAbstract):
                 s.setSize(self.sotrobot.dynamic.getDimension())
                 self.hpTasks.pushTo(s)
 
-                if pregrasp and i == 1:
+                #if pregrasp and i == 1:
                     # Add pregrasp task
-                    self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp').pushTo (s)
+                    #self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp').pushTo (s)
                 if i < M: sf.manifold.pushTo(s)
                 else:     st.manifold.pushTo(s)
 
