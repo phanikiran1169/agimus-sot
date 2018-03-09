@@ -186,10 +186,6 @@ class Grasp (Manifold):
 
 class EEPosture (Manifold):
     def __init__ (self, sotrobot, gripper, position):
-        # Alexis : I think this function only work when len(position) == 1
-        # Adaptation for a longer list are necessary, e.g. line 219
-        # Else, if it should only work when len(pos) == 1, why not add an assert ?
-        # and why the line 206
         from dynamic_graph.sot.core import Task, FeatureGeneric, GainAdaptive, Selec_of_vector
         from dynamic_graph.sot.core.matrix_util import matrixToTuple
         from dynamic_graph import plug
@@ -216,7 +212,7 @@ class EEPosture (Manifold):
 
         plug(sotrobot.dynamic.position, self.tp.feature.state)
         q = list(sotrobot.dynamic.position.value)
-        q[idx_v:idx_v + 1] = position
+        q[idx_v:idx_v + joint.nv] = position
         self.tp.feature.posture.value = q
 
         self.tp.gain = GainAdaptive("gain_"+n)
@@ -224,7 +220,8 @@ class EEPosture (Manifold):
         # for i in range (6, robotDim):
             # self.tp.feature.selectDof (i, False)
         # print idx_q, idx_v
-        self.tp.feature.selectDof (idx_v, True)
+        for i in range(joint.nv):
+            self.tp.feature.selectDof (idx_v + i, True)
         self.tp.add(self.tp.feature.name)
 
         # Set the gain of the posture task
