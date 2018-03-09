@@ -126,10 +126,11 @@ class Grasp (Manifold):
         self.handle = handle
         self.closeGripper = closeGripper
 
-        self.relative = self.otherGrasp is not None \
-                and self.otherGrasp.handle.hppjoint == self.handle.hppjoint
+        self.relative = otherGraspOnObject is not None \
+                and otherGraspOnObject.handle.hppjoint == self.handle.hppjoint
         if self.relative:
-            self.otherGripper = otherGrasp.gripper
+            self.otherGripper = otherGraspOnObject.gripper
+            self.otherHandle = otherGraspOnObject.handle
 
     def makeTasks(self, sotrobot):
         from dynamic_graph.sot.core.matrix_util import matrixToTuple
@@ -137,7 +138,7 @@ class Grasp (Manifold):
         from dynamic_graph import plug
         if self.relative:
             self.graspTask = MetaTaskKine6d (
-                    Grasp.sep + self.gripper.name + Grasp.sep + self.otherGrasp.gripper.name,
+                    Grasp.sep + self.gripper.name + Grasp.sep + self.otherGripper.name,
                     sotrobot.dynamic,
                     self.gripper.sotjoint,
                     self.gripper.sotjoint)
@@ -145,19 +146,19 @@ class Grasp (Manifold):
             # Creates the matrix transforming the goal gripper's position into the desired moving gripper's position:
             #     on the other handle of the object
             #M = ((-1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0), (0.0, 0.0, -1.0, -0.55), (0.0, 0.0, 0.0, 1.0))
-            M = transformToMatrix(self.otherGrasp.gripper.sotpose * self.otherGrasp.handle.sotpose.inverse() * self.handle.sotpose * self.gripper.sotpose.inverse())
+            M = transformToMatrix(self.otherGripper.sotpose * self.otherHandle.sotpose.inverse() * self.handle.sotpose * self.gripper.sotpose.inverse())
             self.graspTask.opmodif = matrixToTuple(M)
             self.graspTask.feature.frame("current")
-            setGain(self.graspTask.gain,(4.9,0.9,0.01,0.9))
+            setGain(self.graspTask.gain,(100,0.9,0.01,0.9))
             self.graspTask.task.setWithDerivative (False)
 
             # Sets the position and velocity of the other gripper as the goal of the first gripper pose
-            if not self.opPointExist(sotrobot.dynamic, self.otherGrasp.gripper.sotjoint):
+            if not self.opPointExist(sotrobot.dynamic, self.otherGripper.sotjoint):
                 sotrobot.dynamic.createOpPoint(self.otherGripper.sotjoint, self.otherGripper.sotjoint)
-                sotrobot.dynamic.createVelocity("vel_"+self.otherGripper.sotjoint, self.otherGrasp.gripper.sotjoint)
+                sotrobot.dynamic.createVelocity("vel_"+self.otherGripper.sotjoint, self.otherGripper.sotjoint)
             plug(sotrobot.dynamic.signal(self.otherGripper.sotjoint), self.graspTask.featureDes.position)
             plug(sotrobot.dynamic.signal("vel_"+self.otherGripper.sotjoint), self.graspTask.featureDes.velocity)
-            #plug(sotrobot.dynamic.signal("J"+self.otherGrasp.gripper.sotjoint), self.graspTask.featureDes.Jq)
+            #plug(sotrobot.dynamic.signal("J"+self.otherGripper.sotjoint), self.graspTask.featureDes.Jq)
             
             # We will need a less barbaric method to do this...
             # Zeroes the jacobian for the joints we don't want to use.
