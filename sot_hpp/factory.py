@@ -120,7 +120,7 @@ class Factory(GraphFactoryAbstract):
         return Factory.State(self.tasks, grasps, self)
 
     def makeLoopTransition (self, state):
-        n = self._loopTransitionName(state.grasps, True)
+        n = self._loopTransitionName(state.grasps)
         sot = SOT ('sot_' + n)
         sot.setSize(self.sotrobot.dynamic.getDimension())
 
