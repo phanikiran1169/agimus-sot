@@ -96,4 +96,4 @@ namespace dynamicgraph {
     } // namespace hpp
   } // namespace sot
 } // namespace dynamicgraph
-#endif // SOT_HPP_PATH_SAMPLER_HH
+#endif // SOT_HPP_EVENT_HH
