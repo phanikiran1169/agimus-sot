@@ -103,8 +103,9 @@ namespace dynamicgraph {
 
       Matrix& HolonomicConstraint::computeProjector (Matrix& projector, const int& )
       {
-        projector.resize(6, dim_ - 6);
-        projector.setZero();
+        projector.resize(6, dim_);
+        projector.leftCols<6>().setIdentity();
+        projector.rightCols(dim_-6).setZero();
         return projector;
       }
 
