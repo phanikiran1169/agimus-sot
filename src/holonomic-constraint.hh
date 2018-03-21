@@ -23,6 +23,8 @@
 #include <dynamic-graph/pool.h>
 #include <dynamic-graph/linear-algebra.h>
 
+#include <sot/core/matrix-geometry.hh>
+
 #include <sot/hpp/config.hh>
 
 namespace dynamicgraph {
@@ -59,8 +61,8 @@ namespace dynamicgraph {
         SignalPtr <double, int> g2SIN;
         SignalPtr <double, int> g3SIN;
 
-        SignalPtr <Vector, int> positionSIN;
-        SignalPtr <Vector, int> positionRefSIN;
+        SignalPtr <MatrixHomogeneous, int> positionSIN;
+        SignalPtr <MatrixHomogeneous, int> positionRefSIN;
         SignalPtr <Vector, int> velocityRefSIN;
 
         Signal <Vector, int> errorSOUT;

@@ -39,8 +39,8 @@ namespace dynamicgraph {
         g1SIN(NULL, "HolonomicConstraint("+name+")::input(double)::g1"),
         g2SIN(NULL, "HolonomicConstraint("+name+")::input(double)::g2"),
         g3SIN(NULL, "HolonomicConstraint("+name+")::input(double)::g3"),
-        positionSIN   (NULL, "HolonomicConstraint("+name+")::input(vector)::position"),
-        positionRefSIN(NULL, "HolonomicConstraint("+name+")::input(vector)::positionRef"),
+        positionSIN   (NULL, "HolonomicConstraint("+name+")::input(matrixHomo)::position"),
+        positionRefSIN(NULL, "HolonomicConstraint("+name+")::input(matrixHomo)::positionRef"),
         velocityRefSIN(NULL, "HolonomicConstraint("+name+")::input(vector)::velocityRef"),
         errorSOUT    ("HolonomicConstraint("+name+")::output(vector)::error"),
         controlSOUT  ("HolonomicConstraint("+name+")::output(vector)::control"),
@@ -71,26 +71,33 @@ namespace dynamicgraph {
 
       Vector& HolonomicConstraint::computeError (Vector& error, const int& time)
       {
-        const Vector& p  = positionSIN   .access (time);
-        const Vector& p0 = positionRefSIN.access (time);
+        const MatrixHomogeneous& oMp  = positionSIN   .access (time);
+        const MatrixHomogeneous& oMpr = positionRefSIN.access (time);
 
-        error = p0.head<6>() - p.head<6>();
+        MatrixHomogeneous pMpr = oMp.inverse() * oMpr;
+        Eigen::AngleAxisd aa (pMpr.linear());
+
+        error.resize(6);
+        error.head<3>() = pMpr.translation();
+        error.tail<3>() = aa.angle() * aa.axis();
+
         return error;
       }
 
       Vector& HolonomicConstraint::computeControl   (Vector& control  , const int& time)
       {
-        const Vector& v0 = velocityRefSIN.access (time);
+        const Vector& vr = velocityRefSIN.access (time);
+        const MatrixHomogeneous& oMp  = positionSIN   .access (time);
         const Vector& error = errorSOUT.  access (time);
         const double& g1 = g1SIN.access(time);
         const double& g2 = g2SIN.access(time);
         const double& g3 = g3SIN.access(time);
 
         control.resize (6);
-        control.segment<4> (1).setZero();
-        control[0] = v0[0] * cos (error[5]) + g1 * error[0];
-        control[5] = v0[5] + g3 * error[5] + g2 * v0[0] * sinc(error[5]) * error[1];
+        control.head<3>() = oMp.linear().row(0) * (vr[0] * cos (error[5]) + g1 * error[0]);
+        control.tail<3>() = oMp.linear().row(2) * (vr[5] + g3 * error[5] + g2 * vr[0] * sinc(error[5]) * error[1]);
 
+        assert (!control.hasNaN());
         return control;
       }
 
