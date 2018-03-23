@@ -23,19 +23,6 @@ class Supervisor(object):
         self.lpTasks = lpTasks if lpTasks is not None else _lpTasks(sotrobot)
         self.currentSot = None
 
-    def initForGrasps (self, hppclient, grippers, objects, handlesPerObjects):
-        handles = [ h for i in idx(objects) for h in handlesPerObjects[i] ]
-        self.grippers = [ OpFrame(hppclient) for _ in idx(grippers)]
-        self.handles  = [ OpFrame(hppclient) for _ in idx(handles )]
-        self.grippersIdx = { grippers[i] : i for i in idx(grippers) }
-        self.handlesIdx  = {  handles[i] : i for i in idx(handles) }
-
-        for ig, g in idx_zip(grippers): self.grippers[ig].setHppGripper (g)
-        for ih, h in idx_zip(handles ): self.handles [ih].setHppHandle  (h)
-
-        for g in self.grippers: g.setSotFrameFromHpp (self.sotrobot.dynamic.model)
-        for h in self.handles : h.setSotFrameFromHpp (self.sotrobot.dynamic.model)
-
     def setupEvents (self):
         from dynamic_graph_hpp.sot import Event, CompareDouble
         from dynamic_graph.sot.core.operator import Norm_of_vector
@@ -57,66 +44,6 @@ class Supervisor(object):
         plug (self.norm.sout, self.norm_ri.event_control_norm)
         # plug (self.norm_event.trigger, self.norm_ri.trigger)
         self.norm_event.addSignal ("ros_import_control_norm.trigger")
-
-    def makeGrasps (self, transitions):
-        """
-        @param transition: a list of dictionaries containing the following keys:
-                        - "id", "name": the id and name of the transition in hpp.
-                        - "manifold": a tuple of (gripper_index, handle_index) defining the submanifold into which the transition takes place.
-                        - "grasp" (optional) : (gripper_index, handle_index) corresponding to the added/removed grasp.
-                        - "forward" (required if "grasp") : True if added, False if removed.
-                        - "step" (required if "grasp") : integer [ 0, 5 ].
-        """
-        self.grasps = dict()
-        self.sots = dict()
-        self.postActions = dict()
-        self.preActions = dict()
-        self.transitions = transitions
-
-        print "Transitions:\n"
-        print transitions
-        print "\n"
-
-        for t in transitions:
-            # Create SOT solver
-            # sot = SOT ('sot_' + str(t['id']) + '-' + t['name'])
-            sot = SOT ('sot_' + str(t['id']))
-            sot.setSize(self.sotrobot.dynamic.getDimension())
-
-            # Push high priority tasks (Equilibrium for instance)
-            self.hpTasks.pushTo(sot)
-
-            # Create (or get) the tasks
-            M = self._manifold(t["manifold"])
-            if t.has_key("grasp"):
-                grasp = self._manifold(t["manifold"] + (t["grasp"],))
-                forward = bool(t["forward"])
-                step = int(t["step"])
-                assert step >= 0 and step <= 5, "'step' must be an integer within [0, 5]"
-                # TODO Events should be set up here for each step.
-                # For instance, adding some events based on force feedback to say
-                # when the object is grasped.
-                if forward:
-                    if step == 1:
-                        M.pushTo(sot)
-                    elif step == 0 or step == 2:
-                        grasp.pushTo(sot)
-                    else:
-                        grasp.pushTo(sot)
-                else:
-                    if step == 1:
-                        M.pushTo(sot)
-                    elif step == 0 or step == 2:
-                        grasp.pushTo(sot)
-                    else:
-                        grasp.pushTo(sot)
-            else:
-                M.pushTo(sot)
-
-            # Put low priority tasks
-            self.lpTasks.pushTo(sot)
-
-            self.sots[t['id']] = sot
 
     def makeInitialSot (self):
         # Create the initial sot (keep)
@@ -160,60 +87,6 @@ class Supervisor(object):
             for s in t['signalGetters']:
                 plug (rosexport.signal(n), s())
             print topic, "plugged to", n, ', ', len(t['signalGetters']), 'times'
-
-    def setupReferences (self, gui, rosexport):
-        ret = dict()
-        gui.createGroup("references")
-        topics = self.topics()
-        for n, t in topics.items():
-            types = []
-            if t.has_key('handler'):
-                if t['handler'] == 'hppjoint':
-                    if t['velocity']:
-                        types = ['linvel', 'angvel']
-                    else:
-                        types = ['pose',]
-                elif t['handler'] == 'hppcom':
-                    if t['velocity']:
-                        types = ['linvel',]
-                    else:
-                        types = ['point',]
-            name = "ref_" + n
-            ret[n] = list()
-            for i,type in idx_zip(types):
-                nameref = name + str(i)
-                if type == 'pose':
-                    gui.addXYZaxis(nameref, (1,0,0,1), 0.005, 0.05)
-                    gui.setVisibility(nameref, 'ALWAYS_ON_TOP')
-                    gui.addToGroup(nameref, "references")
-                    ret[n].append(type)
-                # elif type == '':
-        return ret
-
-    def setReferenceValue (self, gui, rosexport, refs):
-        from dynamic_graph.sot.tools.quaternion import Quaternion
-        from dynamic_graph.sot.tools.se3 import SE3
-        idx = 0
-        for n, types in refs.items():
-            for i,type in idx_zip(types):
-                nameref = "ref_" + n + str(i)
-                sig = rosexport.signal(n)
-                # if sig.time != self.sotrobot.device.control.time or len(sig.value) == 0:
-                if len(sig.value) == 0:
-                    if gui.getIntProperty(nameref, "visibility") != 2:
-                        print "Hiding", nameref
-                        gui.setVisibility(nameref, 'OFF')
-                    continue
-                else:
-                    if gui.getIntProperty(nameref, "visibility") == 2:
-                        print "Showing", nameref
-                        # gui.setVisibility(nameref, 'ON')
-                        gui.setVisibility(nameref, 'ALWAYS_ON_TOP')
-                if type == 'pose':
-                    H = SE3(sig.value)
-                    q = Quaternion(sig.value)
-                    gui.applyConfiguration(nameref, list(H.translation.value) + list(q.array[1:]) + list(q.array[:1]) )
-        gui.refresh()
 
     def isSotConsistentWithCurrent(self, id, thr = 1e-3):
         if self.currentSot is None or id == self.currentSot:
@@ -291,23 +164,6 @@ class Supervisor(object):
 
     def getJointList (self, prefix = ""):
         return [ prefix + n for n in self.sotrobot.dynamic.model.names[1:] ]
-
-    def _manifold (self, idxs):
-        if self.grasps.has_key(idxs):
-            return self.grasps[idxs]
-        if len(idxs) == 1:
-            m = Grasp(self.grippers[idxs[0][0]], self.handles[idxs[0][1]])
-            m.makeTasks(self.sotrobot)
-        elif len(idxs) == 0:
-            m = Manifold()
-        else:
-            subm = self._manifold(idxs[:-1])
-            # TODO Find relative
-            m = Grasp(self.grippers[idxs[-1][0]], self.handles[idxs[-1][1]])
-            m.makeTasks(self.sotrobot)
-            m += subm
-        self.grasps[idxs] = m
-        return m
 
 def _handleHppJoint (n, t):
     type = t["type"]
