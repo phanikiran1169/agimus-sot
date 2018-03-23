@@ -89,16 +89,16 @@ class Factory(GraphFactoryAbstract):
         ids = { n.name: n.id for n in elmts.edges }
         nids = { n.name: n.id for n in elmts.nodes }
 
-        self.supervisor.sots = { ids[n]: sot for n, sot in self.sots.items() }
+        self.supervisor.sots = { ids[n]: sot for n, sot in self.sots.items() if ids.has_key(n) }
         self.supervisor.grasps = { (gh, w): t for gh, ts in self.tasks._grasp.items() for w, t in ts.items() }
         self.supervisor.hpTasks = self.hpTasks
         self.supervisor.lpTasks = self.lpTasks
         self.supervisor.postActions = {
                 ids[trans] : {
                     nids[state]: sot for state, sot in values.items() if nids.has_key(state)
-                    } for trans, values in self.postActions.items()
+                    } for trans, values in self.postActions.items() if ids.has_key(trans)
                 }
-        self.supervisor.preActions = { ids[trans] : sot for trans, sot in self.preActions.items() }
+        self.supervisor.preActions = { ids[trans] : sot for trans, sot in self.preActions.items() if ids.has_key(trans) }
 
     def setupFrames (self, hppclient, sotrobot):
         self.sotrobot = sotrobot
