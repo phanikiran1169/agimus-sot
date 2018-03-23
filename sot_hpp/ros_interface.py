@@ -3,6 +3,13 @@ from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse, Emp
 from sot_hpp_msgs.srv import PlugSot, PlugSotResponse, SetString, SetJointNames, GetInt, GetIntResponse, SetInt, SetIntRequest, SetIntResponse
 from dynamic_graph_bridge_msgs.srv import RunCommand
 
+def wait_for_service (srv, time = 0.2):
+    try:
+        rospy.wait_for_service(srv, time)
+    except rospy.ROSException:
+        print("Waiting for service: " + srv)
+        rospy.wait_for_service(srv)
+
 class RosInterface(object):
     def __init__ (self, supervisor = None):
         rospy.Service('/sot/plug_sot', PlugSot, self.plugSot)
@@ -12,6 +19,7 @@ class RosInterface(object):
         rospy.Service('/sot/clear_queues', Trigger, self.clearQueues)
         rospy.Service('/sot/read_queue', SetInt, self.readQueue)
         rospy.Service('/sot/stop_reading_queue', Empty, self.stopReadingQueue)
+        wait_for_service ("/run_command")
         self.runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor
 
@@ -82,6 +90,7 @@ class RosInterface(object):
             answer = self.runCommand ("supervisor.getJointList(prefix = '{}')".format(prefix))
             print answer
             exec ("names = " + answer.result)
+        wait_for_service ("/hpp/target/set_joint_names")
         setJoints = rospy.ServiceProxy ('/hpp/target/set_joint_names', SetJointNames)
         ans = setJoints (names)
         if not ans.success:
@@ -118,6 +127,8 @@ class RosInterface(object):
         return EmptyResponse ()
 
     def requestHppTopics(self, req):
+        for srv in ['add_center_of_mass', 'add_center_of_mass_velocity', 'add_operational_frame', 'add_operational_frame_velocity',]:
+            wait_for_service("/hpp/target/" + srv)
         handlers = {
                 'hppcom': rospy.ServiceProxy ('/hpp/target/add_center_of_mass', SetString),
                 'vel_hppcom': rospy.ServiceProxy ('/hpp/target/add_center_of_mass_velocity', SetString),
