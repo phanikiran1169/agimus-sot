@@ -9,6 +9,7 @@ def idx(l): return range(len(l))
 def idx_zip (l): return zip (idx(l), l)
 
 def parseHppName (hppjointname):
+    if hppjointname == "universe": return "", "universe"
     return hppjointname.split('/', 1)
 
 def transformToMatrix (T):
