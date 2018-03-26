@@ -177,7 +177,6 @@ class Grasp (Manifold):
 
             self.tasks = [ self.graspTask.task ]
             #self.tasks = []
-        self += EEPosture (sotrobot, self.gripper, [-0.2 if self.closeGripper else 0])
 
     def opPointExist(self,dyn,opPoint):
         sigsP = filter(lambda x: x.getName().split(':')[-1] == opPoint,
@@ -195,16 +194,9 @@ class EEPosture (Manifold):
 
         super(EEPosture, self).__init__()
         self.gripper = gripper
-
-        # Get joint position in posture
+        robotName, gripperName = parseHppName (gripper.name)
+        self.jointNames = sotrobot.grippers[gripperName]
         pinmodel = sotrobot.dynamic.model
-        idJ = pinmodel.getJointId(gripper.sotjoint)
-        assert idJ < pinmodel.njoints
-        joint = sotrobot.dynamic.model.joints[idJ]
-        assert joint.nq == len(position)
-
-        idx_q = joint.idx_q + 1
-        idx_v = joint.idx_v + 1
 
         n = "eeposture" + Posture.sep + gripper.name + Posture.sep + str(position)
 
@@ -214,23 +206,34 @@ class EEPosture (Manifold):
 
         plug(sotrobot.dynamic.position, self.tp.feature.state)
         q = list(sotrobot.dynamic.position.value)
-        q[idx_v:idx_v + joint.nv] = position
+        # Define the reference and the selected DoF
+        rank = 0
+        ranks = []
+        for name in self.jointNames:
+            idJ = pinmodel.getJointId(name)
+            assert idJ < pinmodel.njoints
+            joint = pinmodel.joints[idJ]
+            idx_v = joint.idx_v
+            nv = joint.nv
+            ranks += range(idx_v, idx_v + nv)
+            q[idx_v:idx_v+nv] = position[rank: rank + nv]
+            rank += nv
+        assert rank == len(position)
+
         self.tp.feature.posture.value = q
+        for i in ranks:
+            self.tp.feature.selectDof (i, True)
 
         self.tp.gain = GainAdaptive("gain_"+n)
         robotDim = sotrobot.dynamic.getDimension()
-        # for i in range (6, robotDim):
-            # self.tp.feature.selectDof (i, False)
-        # print idx_q, idx_v
-        for i in range(joint.nv):
-            self.tp.feature.selectDof (idx_v + i, True)
         self.tp.add(self.tp.feature.name)
 
         # Set the gain of the posture task
         setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
         plug(self.tp.gain.gain, self.tp.controlGain)
         plug(self.tp.error, self.tp.gain.error)
-        self.tasks = [ self.tp ]
+        if len(self.jointNames) > 0:
+            self.tasks = [ self.tp ]
 
 class Foot (Manifold):
     def __init__ (self, footname, sotrobot, selec='111111'):

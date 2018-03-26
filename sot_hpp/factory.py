@@ -2,6 +2,23 @@ from hpp.corbaserver.manipulation.constraint_graph_factory import ConstraintFact
 from tools import Manifold, Grasp, idx, idx_zip, OpFrame, EEPosture
 from dynamic_graph.sot.core import SOT
 
+class Affordance(object):
+    def __init__ (self, gripper, handle, **kwargs):
+        self.gripper = gripper
+        self.handle  = handle
+        self.setControl (**kwargs)
+    def setControl (self, refOpen, refClose, openType = "position", closeType="position"):
+        if openType != "position" or closeType != "position":
+            raise NotImplementedError ("Only position control is implemented for gripper opening/closure.")
+        self.controlType = {
+                "open": openType,
+                "close": closeType,
+                }
+        self.ref = {
+                "open": refOpen,
+                "close": refClose,
+                }
+
 class TaskFactory(ConstraintFactoryAbstract):
     gfields = ('grasp', 'pregrasp', 'gripper_open', 'gripper_close')
     pfields = ()
@@ -9,12 +26,26 @@ class TaskFactory(ConstraintFactoryAbstract):
     def __init__ (self, graphfactory):
         super(TaskFactory, self).__init__ (graphfactory)
 
+    def _buildGripper (self, type, gripper, handle):
+        try:
+            aff = self.graphfactory.affordances[(gripper, handle)]
+        except KeyError:
+            # If there are no affordance, do not add a task.
+            return Manifold()
+        gf = self.graphfactory
+        robot = gf.sotrobot
+        if aff.controlType[type] == "position":
+            return EEPosture (robot, gf.gripperFrames[gripper], aff.ref[type])
+        else:
+            raise NotImplementedError ("Only position control is implemented for gripper closure.")
+
     def buildGrasp (self, g, h, otherGrasp=None):
         gf = self.graphfactory
         if h is None:
-            return { 'gripper_open': EEPosture (gf.sotrobot, gf.gripperFrames [g], [0]) }
+            gripper_open = self._buildGripper ("open", g, h)
+            return { 'gripper_open': gripper_open }
 
-        gripper_close  = EEPosture (gf.sotrobot, gf.gripperFrames [g], [-0.2])
+        gripper_close  = self._buildGripper ("close", g, h)
         pregrasp = Grasp (gf.gripperFrames [g],
                           gf.handleFrames [h],
                           otherGrasp,
@@ -66,6 +97,7 @@ class Factory(GraphFactoryAbstract):
             for ig, ih in idx_zip (grasps):
                 if ih is not None:
                     # Add task gripper_close
+                    self.manifold += tasks.g (factory.grippers[ig], factory.handles[ih], 'gripper_close')
                     otherGrasp = objectsAlreadyGrasped.get(factory.objectFromHandle[ih])
                     self.manifold += tasks.g (factory.grippers[ig], factory.handles[ih], 'grasp', otherGrasp)
                     objectsAlreadyGrasped[factory.objectFromHandle[ih]] = tasks.g (factory.grippers[ig], factory.handles[ih], 'grasp', otherGrasp)
@@ -78,11 +110,16 @@ class Factory(GraphFactoryAbstract):
         self.tasks = TaskFactory (self)
         self.hpTasks = supervisor.hpTasks
         self.lpTasks = supervisor.lpTasks
+        self.affordances = dict()
         self.sots = dict()
         self.postActions = dict()
         self.preActions = dict()
 
         self.supervisor = supervisor
+
+    def addAffordance (self, aff):
+        assert isinstance(aff, Affordance)
+        self.affordances [(aff.gripper, aff.handle)] = aff
 
     def finalize (self, hppclient):
         graph, elmts = hppclient.manipulation.graph.getGraph()
