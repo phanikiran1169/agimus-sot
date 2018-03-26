@@ -7,8 +7,9 @@ def wait_for_service (srv, time = 0.2):
     try:
         rospy.wait_for_service(srv, time)
     except rospy.ROSException:
-        print("Waiting for service: " + srv)
+        rospy.logwarn("Waiting for service: {0}".format(srv))
         rospy.wait_for_service(srv)
+    rospy.loginfo("Service {0} found.".format(srv))
 
 class RosInterface(object):
     def __init__ (self, supervisor = None):
