@@ -198,7 +198,7 @@ class EEPosture (Manifold):
         self.jointNames = sotrobot.grippers[gripperName]
         pinmodel = sotrobot.dynamic.model
 
-        n = "eeposture" + Posture.sep + gripper.name + Posture.sep + str(position)
+        n = "eeposture" + Posture.sep + gripper.name + Posture.sep + str(list(position))
 
         self.tp = Task ('task' + n)
         self.tp.dyn = sotrobot.dynamic
