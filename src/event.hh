@@ -23,6 +23,7 @@
 #include <dynamic-graph/signal-time-dependent.h>
 #include <dynamic-graph/pool.h>
 #include <dynamic-graph/command-bind.h>
+#include <dynamic-graph/command-getter.h>
 
 #include <sot/hpp/config.hh>
 
@@ -50,6 +51,12 @@ namespace dynamicgraph {
             "    Add a signal\n";
           addCommand ("addSignal", makeCommandVoid1
               (*this, &Event::addSignal, docstring));
+
+          docstring =
+            "\n"
+            "    Get list of signals\n";
+          addCommand ("list", new command::Getter<Event, std::string>
+              (*this, &Event::getSignalsByName, docstring));
         }
 
         ~Event () {}
@@ -66,6 +73,18 @@ namespace dynamicgraph {
         {
           std::istringstream iss (signal);
           triggers.push_back(&PoolStorage::getInstance()->getSignal (iss));
+        }
+
+        // Returns the Python string representation of the list of signal names.
+        std::string getSignalsByName () const
+        {
+          std::ostringstream oss;
+          oss << "(";
+          for (Triggers_t::const_iterator _sig = triggers.begin();
+              _sig != triggers.end(); ++_sig)
+            oss << '\'' << (*_sig)->getName() << "\', ";
+          oss << ")";
+          return oss.str();
         }
 
         private:
