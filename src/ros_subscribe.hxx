@@ -20,6 +20,7 @@ namespace dynamicgraph
     struct Add
     {
       void operator () (RosQueuedSubscribe& rosSubscribe,
+			const std::string& type,
 			const std::string& signal,
 			const std::string& topic)
       {
@@ -33,8 +34,8 @@ namespace dynamicgraph
         SotToRos<T>::setDefault (bs->last);
 
 	// Initialize the signal.
-	boost::format signalName ("RosQueuedSubscribe(%1%)::%2%");
-	signalName % rosSubscribe.getName () % signal;
+	boost::format signalName ("RosQueuedSubscribe(%1%)::output(%2%)::%3%");
+	signalName % rosSubscribe.getName () % type % signal;
 
 	bs->signal.reset (new Signal_t (signalName.str ()));
         bs->signal->setFunction (boost::bind(&BindedSignal_t::reader, bs, _1, _2));
@@ -93,9 +94,9 @@ namespace dynamicgraph
   } // end of namespace internal.
 
   template <typename T>
-  void RosQueuedSubscribe::add (const std::string& signal, const std::string& topic)
+  void RosQueuedSubscribe::add (const std::string& type, const std::string& signal, const std::string& topic)
   {
-    internal::Add<T> () (*this, signal, topic);
+    internal::Add<T> () (*this, type, signal, topic);
   }
 } // end of namespace dynamicgraph.
 

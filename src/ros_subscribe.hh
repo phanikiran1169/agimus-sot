@@ -123,7 +123,6 @@ namespace dynamicgraph
     virtual std::string getDocString () const;
     void display (std::ostream& os) const;
 
-    void add (const std::string& signal, const std::string& topic);
     void rm (const std::string& signal);
     std::string list ();
     void clear ();
@@ -132,7 +131,7 @@ namespace dynamicgraph
     std::size_t queueSize (const std::string& signal) const;
 
     template <typename T>
-    void add (const std::string& signal, const std::string& topic);
+    void add (const std::string& type, const std::string& signal, const std::string& topic);
 
     std::map<std::string, bindedSignal_t>&
     bindedSignal ()
