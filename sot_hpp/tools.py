@@ -5,9 +5,6 @@ from dynamic_graph.sot.core.meta_task_posture import MetaTaskKinePosture
 from dynamic_graph.sot.core.meta_tasks import setGain
 from dynamic_graph.sot.core import FeaturePosture
 
-def idx(l): return range(len(l))
-def idx_zip (l): return zip (idx(l), l)
-
 def parseHppName (hppjointname):
     if hppjointname == "universe": return "", "universe"
     return hppjointname.split('/', 1)

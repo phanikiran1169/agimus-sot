@@ -1,5 +1,5 @@
 from hpp.corbaserver.manipulation.constraint_graph_factory import ConstraintFactoryAbstract, GraphFactoryAbstract
-from tools import Manifold, Grasp, idx, idx_zip, OpFrame, EEPosture
+from tools import Manifold, Grasp, OpFrame, EEPosture
 from dynamic_graph.sot.core import SOT
 
 class Affordance(object):
@@ -94,7 +94,7 @@ class Factory(GraphFactoryAbstract):
 
             objectsAlreadyGrasped = {}
             
-            for ig, ih in idx_zip (grasps):
+            for ig, ih in enumerate(grasps):
                 if ih is not None:
                     # Add task gripper_close
                     self.manifold += tasks.g (factory.grippers[ig], factory.handles[ih], 'gripper_close')
@@ -140,8 +140,8 @@ class Factory(GraphFactoryAbstract):
     def setupFrames (self, hppclient, sotrobot):
         self.sotrobot = sotrobot
 
-        self.grippersIdx = { self.grippers[i] : i for i in idx(self.grippers) }
-        self.handlesIdx  = {  self.handles[i] : i for i in idx(self.handles) }
+        self.grippersIdx = { g: i for i,g in enumerate(self.grippers) }
+        self.handlesIdx  = { h: i for i,h in enumerate(self.handles) }
 
         self.gripperFrames = { g: OpFrame(hppclient) for g in self.grippers }
         self.handleFrames  = { h: OpFrame(hppclient) for h in self.handles  }

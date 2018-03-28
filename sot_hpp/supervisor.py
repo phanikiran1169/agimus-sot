@@ -1,4 +1,4 @@
-from tools import Grasp, OpFrame, Manifold, Posture, idx, idx_zip
+from tools import Manifold, Posture
 from dynamic_graph.sot.core import SOT
 from dynamic_graph import plug
 
