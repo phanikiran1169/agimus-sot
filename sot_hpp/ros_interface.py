@@ -28,14 +28,14 @@ class RosInterface(object):
         rsp = PlugSotResponse()
         if self.supervisor is not None:
             try:
-                self.supervisor.runPreAction(req.transition_id)
+                self.supervisor.runPreAction(req.transition_name)
             except Exception as e:
                 rospy.logerr(str(e))
                 rsp.success = False
                 rsp.msg = str(e)
                 return rsp
         else:
-            answer = self.runCommand ("supervisor.runPreAction({})".format(req.transition_id))
+            answer = self.runCommand ("supervisor.runPreAction({})".format(req.transition_name))
             if len(answer.standarderror) != 0:
                 rospy.logerr(answer.standarderror)
                 rsp.success = False
@@ -48,14 +48,14 @@ class RosInterface(object):
         rsp = PlugSotResponse()
         if self.supervisor is not None:
             try:
-                self.supervisor.plugSot(req.transition_id, False)
+                self.supervisor.plugSot(req.transition_name, False)
             except Exception as e:
                 rospy.logerr(str(e))
                 rsp.success = False
                 rsp.msg = str(e)
                 return rsp
         else:
-            answer = self.runCommand ("supervisor.plugSot({}, False)".format(req.transition_id))
+            answer = self.runCommand ("supervisor.plugSot({}, False)".format(req.
             if len(answer.standarderror) != 0:
                 rospy.logerr(answer.standarderror)
                 rsp.success = False
@@ -68,14 +68,14 @@ class RosInterface(object):
         rsp = PlugSotResponse()
         if self.supervisor is not None:
             try:
-                self.supervisor.runPostAction(req.transition_id)
+                self.supervisor.runPostAction(req.transition_name)
             except Exception as e:
                 rospy.logerr(str(e))
                 rsp.success = False
                 rsp.msg = str(e)
                 return rsp
         else:
-            answer = self.runCommand ("supervisor.runPostAction({})".format(req.transition_id))
+            answer = self.runCommand ("supervisor.runPostAction({})".format(req.transition_name))
             if len(answer.standarderror) != 0:
                 rospy.logerr(answer.standarderror)
                 rsp.success = False
