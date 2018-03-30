@@ -35,7 +35,7 @@ class RosInterface(object):
                 rsp.msg = str(e)
                 return rsp
         else:
-            answer = self.runCommand ("supervisor.runPreAction({})".format(req.transition_name))
+            answer = self.runCommand ("supervisor.runPreAction('{}')".format(req.transition_name))
             if len(answer.standarderror) != 0:
                 rospy.logerr(answer.standarderror)
                 rsp.success = False
@@ -55,7 +55,7 @@ class RosInterface(object):
                 rsp.msg = str(e)
                 return rsp
         else:
-            answer = self.runCommand ("supervisor.plugSot({}, False)".format(req.
+            answer = self.runCommand ("supervisor.plugSot('{}', False)".format(req.transition_name))
             if len(answer.standarderror) != 0:
                 rospy.logerr(answer.standarderror)
                 rsp.success = False
@@ -75,7 +75,7 @@ class RosInterface(object):
                 rsp.msg = str(e)
                 return rsp
         else:
-            answer = self.runCommand ("supervisor.runPostAction({})".format(req.transition_name))
+            answer = self.runCommand ("supervisor.runPostAction('{}')".format(req.transition_name))
             if len(answer.standarderror) != 0:
                 rospy.logerr(answer.standarderror)
                 rsp.success = False

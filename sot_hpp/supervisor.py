@@ -65,7 +65,7 @@ class Supervisor(object):
         self.keep_posture._signalPositionRef().value = tuple([-0.74, 0.0, 1.0, 0.0, 0.0, 0.0] + list(self.sotrobot.dynamic.position.value)[6:])
         
         self.keep_posture.pushTo(sot)
-        self.sots[-1] = sot
+        self.sots[""] = sot
 
     def topics (self):
         c = self.hpTasks + self.lpTasks
