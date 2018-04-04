@@ -75,7 +75,7 @@ namespace dynamicgraph
       typedef dynamicgraph::Signal<T, int> Signal_t;
       typedef boost::shared_ptr<Signal_t> SignalPtr_t;
       typedef std::vector<T> buffer_t;
-      typedef buffer_t::size_type size_type;
+      typedef typename buffer_t::size_type size_type;
 
       BindedSignal(RosQueuedSubscribe* e)
         : BindedSignalBase (e)

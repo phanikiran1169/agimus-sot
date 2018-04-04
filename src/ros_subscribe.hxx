@@ -63,15 +63,13 @@ namespace dynamicgraph
     template <typename R>
     void BindedSignal<T, N>::writer (const R& data)
     {
-      T value;
-      converter (value, data);
-      if (!init) {
-        last = value;
-        init = true;
-      }
       // TODO: synchronize with method clear
       // qmutex.lock();
-      buffer[backIdx].push (value);
+      converter (buffer[backIdx], data);
+      if (!init) {
+        last = buffer[backIdx];
+        init = true;
+      }
       // assert(!full());
       backIdx = (backIdx+1) % N;
       // TODO: synchronize with method clear
@@ -79,7 +77,7 @@ namespace dynamicgraph
     }
 
     template <typename T, int N>
-    T& BindedSignal<T>::reader (T& data, int time)
+    T& BindedSignal<T, N>::reader (T& data, int time)
     {
       if (entity->readQueue_ == -1 || time < entity->readQueue_) {
         data = last;
