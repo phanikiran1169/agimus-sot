@@ -91,20 +91,22 @@ namespace dynamicgraph
         clear();
       }
 
-      // TODO Add synchronization between:
-      // - writer and clear (both changes variable backIdx)
-      // - reader and clear (both changes variable frontIdx)
+      /// See comments in reader and writer for details about synchronisation.
       void clear ()
       {
-        // qmutex.lock();
+        // synchronize with method writer
+        wmutex.lock();
         if (!empty()) {
           if (backIdx == 0)
             last = buffer[BufferSize-1];
           else
             last = buffer[backIdx-1];
         }
+        // synchronize with method reader
+        rmutex.lock();
         frontIdx = backIdx = 0;
-        // qmutex.unlock();
+        rmutex.unlock();
+        wmutex.unlock();
       }
 
       bool empty () const
@@ -131,7 +133,7 @@ namespace dynamicgraph
       /// Index of the slot where to write next value (does not contain valid data).
       size_type backIdx;
       buffer_t buffer;
-      // boost::mutex qmutex;
+      boost::mutex wmutex, rmutex;
       T last;
       bool init;
 

@@ -63,27 +63,31 @@ namespace dynamicgraph
     template <typename R>
     void BindedSignal<T, N>::writer (const R& data)
     {
-      // TODO: synchronize with method clear
-      // qmutex.lock();
+      // synchronize with method clear
+      wmutex.lock();
       converter (buffer[backIdx], data);
+      // assert(!full());
+      // No need to synchronize with reader here because:
+      // - if the buffer was not empty, then it stays not empty,
+      // - if it was empty, then the current value will be used at next time. It
+      //   means the transmission bandwidth is too low.
+      backIdx = (backIdx+1) % N;
       if (!init) {
         last = buffer[backIdx];
         init = true;
       }
-      // assert(!full());
-      backIdx = (backIdx+1) % N;
-      // TODO: synchronize with method clear
-      // qmutex.unlock();
+      wmutex.unlock();
     }
 
     template <typename T, int N>
     T& BindedSignal<T, N>::reader (T& data, int time)
     {
-      if (entity->readQueue_ == -1 || time < entity->readQueue_) {
+      // synchronize with method clear:
+      // If reading from the list cannot be done, then return last value.
+      bool readingIsEnabled = rmutex.try_lock();
+      if (!readingIsEnabled || entity->readQueue_ == -1 || time < entity->readQueue_) {
         data = last;
       } else {
-        // TODO: remove me
-        // qmutex.lock();
         if (empty())
           data = last;
         else {
@@ -91,9 +95,9 @@ namespace dynamicgraph
           frontIdx = (frontIdx + 1) % N;
           last = data;
         }
-        // TODO: remove me
-        // qmutex.unlock();
       }
+      if (readingIsEnabled)
+        rmutex.unlock();
       return data;
     }
   } // end of namespace internal.
