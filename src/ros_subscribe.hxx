@@ -16,6 +16,8 @@ namespace dynamicgraph
 {
   namespace internal
   {
+    static const int BUFFER_SIZE = 50;
+
     template <typename T>
     struct Add
     {
@@ -26,7 +28,7 @@ namespace dynamicgraph
       {
         typedef typename SotToRos<T>::sot_t sot_t;
 	typedef typename SotToRos<T>::ros_const_ptr_t ros_const_ptr_t;
-        typedef BindedSignal<sot_t> BindedSignal_t;
+        typedef BindedSignal<sot_t, BUFFER_SIZE> BindedSignal_t;
 	typedef typename BindedSignal_t::Signal_t Signal_t;
 
 	// Initialize the bindedSignal object.
@@ -50,7 +52,7 @@ namespace dynamicgraph
   // -> No message should be lost because of a full buffer
 	bs->subscriber =
 	  boost::make_shared<ros::Subscriber>
-	  (rosSubscribe.nh ().subscribe (topic, 50, callback)); 
+	  (rosSubscribe.nh ().subscribe (topic, BUFFER_SIZE, callback)); 
 
 	RosQueuedSubscribe::bindedSignal_t bindedSignal (bs);
 	rosSubscribe.bindedSignal ()[signal] = bindedSignal;
@@ -58,37 +60,45 @@ namespace dynamicgraph
     };
 
     // template <typename T, typename R>
-    template <typename T>
+    template <typename T, int N>
     template <typename R>
-    void BindedSignal<T>::writer (const R& data)
+    void BindedSignal<T, N>::writer (const R& data)
     {
-      T value;
-      converter (value, data);
+      // synchronize with method clear
+      wmutex.lock();
+      converter (buffer[backIdx], data);
+      // assert(!full());
+      // No need to synchronize with reader here because:
+      // - if the buffer was not empty, then it stays not empty,
+      // - if it was empty, then the current value will be used at next time. It
+      //   means the transmission bandwidth is too low.
+      backIdx = (backIdx+1) % N;
       if (!init) {
-        last = value;
+        last = buffer[backIdx];
         init = true;
       }
-      qmutex.lock();
-      queue.push (value);
-      qmutex.unlock();
+      wmutex.unlock();
     }
 
-    template <typename T>
-    T& BindedSignal<T>::reader (T& data, int time)
+    template <typename T, int N>
+    T& BindedSignal<T, N>::reader (T& data, int time)
     {
-      if (entity->readQueue_ == -1 || time < entity->readQueue_) {
+      // synchronize with method clear:
+      // If reading from the list cannot be done, then return last value.
+      bool readingIsEnabled = rmutex.try_lock();
+      if (!readingIsEnabled || entity->readQueue_ == -1 || time < entity->readQueue_) {
         data = last;
       } else {
-        qmutex.lock();
-        if (queue.empty())
+        if (empty())
           data = last;
         else {
-          data = queue.front();
-          queue.pop();
+          data = buffer[frontIdx];
+          frontIdx = (frontIdx + 1) % N;
           last = data;
         }
-        qmutex.unlock();
       }
+      if (readingIsEnabled)
+        rmutex.unlock();
       return data;
     }
   } // end of namespace internal.

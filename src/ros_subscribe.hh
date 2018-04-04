@@ -70,13 +70,20 @@ namespace dynamicgraph
       RosQueuedSubscribe* entity;
     };
 
-    template <typename T>
+    template <typename T, int BufferSize>
     struct BindedSignal : BindedSignalBase {
       typedef dynamicgraph::Signal<T, int> Signal_t;
       typedef boost::shared_ptr<Signal_t> SignalPtr_t;
-      typedef std::queue<T> Queue_t;
+      typedef std::vector<T> buffer_t;
+      typedef typename buffer_t::size_type size_type;
 
-      BindedSignal(RosQueuedSubscribe* e) : BindedSignalBase (e), init(false) {}
+      BindedSignal(RosQueuedSubscribe* e)
+        : BindedSignalBase (e)
+        , frontIdx(0)
+        , backIdx(0)
+        , buffer (BufferSize)
+        , init(false)
+      {}
       ~BindedSignal()
       {
         std::cout << signal->getName() << ": Delete" << std::endl;
@@ -84,22 +91,49 @@ namespace dynamicgraph
         clear();
       }
 
+      /// See comments in reader and writer for details about synchronisation.
       void clear ()
       {
-        qmutex.lock();
-        if (!queue.empty()) last = queue.back();
-        queue = Queue_t();
-        qmutex.unlock();
+        // synchronize with method writer
+        wmutex.lock();
+        if (!empty()) {
+          if (backIdx == 0)
+            last = buffer[BufferSize-1];
+          else
+            last = buffer[backIdx-1];
+        }
+        // synchronize with method reader
+        rmutex.lock();
+        frontIdx = backIdx = 0;
+        rmutex.unlock();
+        wmutex.unlock();
       }
 
-      std::size_t size () const
+      bool empty () const
       {
-        return queue.size();
+        return frontIdx == backIdx;
+      }
+      
+      bool full () const
+      {
+        return ((backIdx + 1) % BufferSize) == frontIdx;
+      }
+
+      size_type size () const
+      {
+        if (frontIdx < backIdx)
+          return frontIdx + BufferSize - backIdx;
+        else
+          return frontIdx - backIdx;
       }
 
       SignalPtr_t signal;
-      Queue_t queue;
-      boost::mutex qmutex;
+      /// Index of the next value to be read.
+      size_type frontIdx;
+      /// Index of the slot where to write next value (does not contain valid data).
+      size_type backIdx;
+      buffer_t buffer;
+      boost::mutex wmutex, rmutex;
       T last;
       bool init;
 
