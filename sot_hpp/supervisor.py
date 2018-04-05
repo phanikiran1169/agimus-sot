@@ -1,3 +1,4 @@
+from __future__ import print_function
 from tools import Manifold, Posture
 from dynamic_graph.sot.core import SOT
 from dynamic_graph import plug
@@ -91,7 +92,7 @@ class Supervisor(object):
             rosexport.add (t["type"], n, topic)
             for s in t['signalGetters']:
                 plug (rosexport.signal(n), s())
-            print topic, "plugged to", n, ', ', len(t['signalGetters']), 'times'
+            print (topic, "plugged to", n, ', ', len(t['signalGetters']), 'times')
 
     def isSotConsistentWithCurrent(self, transitionName, thr = 1e-3):
         if self.currentSot is None or transitionName == self.currentSot:
@@ -105,8 +106,7 @@ class Supervisor(object):
         error = array(nsot.control.value) - array(csot.control.value)
         n = linalg.norm(error)
         if n > thr:
-            print "Control not consistent:", linalg.norm(error)
-            print error
+            print ("Control not consistent:", linalg.norm(error),'\n', error)
             return False
         return True
 
@@ -117,7 +117,7 @@ class Supervisor(object):
 
     def readQueue(self, read):
         if read < 0:
-            print "ReadQueue argument should be >= 0"
+            print ("ReadQueue argument should be >= 0")
             return
         t = self.sotrobot.device.control.time
         self.rosexport.readQueue (t + read)
@@ -131,7 +131,7 @@ class Supervisor(object):
             print("Sot {0} not consistent with sot {1}".format(self.currentSot, transitionName))
         if transitionName == "":
             # TODO : Explanation and linked TODO in the function makeInitialSot
-                self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
+            self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         sot = self.sots[transitionName]
         # Start reading queues
         self.readQueue(10)
@@ -148,7 +148,7 @@ class Supervisor(object):
             sot.control.recompute(t-1)
             plug(sot.control, self.sotrobot.device.control)
             return
-        print "No pre action", transitionName
+        print ("No pre action", transitionName)
 
     def runPostAction(self, targetStateName):
         if self.postActions.has_key(self.currentSot):
@@ -161,7 +161,7 @@ class Supervisor(object):
                 sot.control.recompute(t-1)
                 plug(sot.control, self.sotrobot.device.control)
                 return
-        print "No post action", self.currentSot, targetStateName
+        print ("No post action", self.currentSot, targetStateName)
 
     def getJointList (self, prefix = ""):
         return [ prefix + n for n in self.sotrobot.dynamic.model.names[1:] ]
