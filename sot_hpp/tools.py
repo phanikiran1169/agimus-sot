@@ -8,12 +8,13 @@ def parseHppName (hppjointname):
     if hppjointname == "universe": return "", "universe"
     return hppjointname.split('/', 1)
 
-def transformToMatrix (T):
+def transformToTuple (T):
+    from dynamic_graph.sot.core.matrix_util import matrixToTuple
     from numpy import eye
     M = eye (4)
     M[:3,:3] = T.quaternion.toRotationMatrix()
     M[:3,3] = T.translation
-    return M
+    return matrixToTuple(M)
 
 class Manifold(object):
     sep = "___"
@@ -130,56 +131,46 @@ class Grasp (Manifold):
             self.otherHandle = otherGraspOnObject.handle
 
     def makeTasks(self, sotrobot):
-        from dynamic_graph.sot.core.matrix_util import matrixToTuple
-        from dynamic_graph.sot.core import Multiply_of_matrix, Multiply_of_matrixHomo, OpPointModifier
         from dynamic_graph import plug
         if self.relative:
-            self.graspTask = MetaTaskKine6d (
+            self.graspTask = MetaTaskKine6dRel (
                     Grasp.sep + self.gripper.name + Grasp.sep + self.otherGripper.name,
                     sotrobot.dynamic,
                     self.gripper.sotjoint,
-                    self.gripper.sotjoint)
+                    self.otherGripper.sotjoint,
+                    self.gripper.sotjoint,
+                    self.otherGripper.sotjoint)
+
+            M = transformToTuple(self.gripper.sotpose * self.handle.sotpose.inverse())
+            self.graspTask.opPointModif.activ = True
+            self.graspTask.opPointModif.setTransformation (M)
+            # Express the velocities in local frame.
+            # This is the default.
+            # self.graspTask.opPointModif.setEndEffector(True)
+
+            M = transformToTuple(self.otherGripper.sotpose * self.otherHandle.sotpose.inverse())
+            self.graspTask.opPointModifBase.activ = True
+            self.graspTask.opPointModifBase.setTransformation (M)
+            # Express the velocities in local frame.
+            # This is the default.
+            # self.graspTask.opPointModif.setEndEffector(True)
+
+            # Plug the signals
+            plug(self.graspTask.opPointModif    .signal('position'),self.graspTask.feature.position )
+            plug(self.graspTask.opPointModif    .signal('jacobian'),self.graspTask.feature.Jq)
+            plug(self.graspTask.opPointModifBase.signal('position'),self.graspTask.feature.positionRef )
+            plug(self.graspTask.opPointModifBase.signal('jacobian'),self.graspTask.feature.JqRef)
             
-            # Creates the matrix transforming the goal gripper's position into the desired moving gripper's position:
-            #     on the other handle of the object
-            #M = ((-1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0), (0.0, 0.0, -1.0, -0.55), (0.0, 0.0, 0.0, 1.0))
-            M = transformToMatrix(self.otherGripper.sotpose * self.otherHandle.sotpose.inverse() * self.handle.sotpose * self.gripper.sotpose.inverse())
-            self.graspTask.opmodif = matrixToTuple(M)
-            self.graspTask.feature.frame("current")
             setGain(self.graspTask.gain,(4.9,0.9,0.01,0.9))
             self.graspTask.task.setWithDerivative (False)
 
-            # Sets the position and velocity of the other gripper as the goal of the first gripper pose
-            if not self.opPointExist(sotrobot.dynamic, self.otherGripper.sotjoint):
-                sotrobot.dynamic.createOpPoint(self.otherGripper.sotjoint, self.otherGripper.sotjoint)
-                sotrobot.dynamic.createVelocity("vel_"+self.otherGripper.sotjoint, self.otherGripper.sotjoint)
-            plug(sotrobot.dynamic.signal(self.otherGripper.sotjoint), self.graspTask.featureDes.position)
-            plug(sotrobot.dynamic.signal("vel_"+self.otherGripper.sotjoint), self.graspTask.featureDes.velocity)
-            #plug(sotrobot.dynamic.signal("J"+self.otherGripper.sotjoint), self.graspTask.featureDes.Jq)
-            
-            # We will need a less barbaric method to do this...
-            # Zeroes the jacobian for the joints we don't want to use.
-            
-            #  - Create the selection matrix for the desired joints
-            mat = ()
-            for i in range(38):
-                mat += ((0,)*i + (1 if i in range(29, 36) else 0,) + (0,)*(37-i),)
-            
-            # - Multiplies it with the computed jacobian matrix of the gripper
-            mult = Multiply_of_matrix('mult')
-            mult.sin2.value = mat
-            plug(self.graspTask.opPointModif.jacobian, mult.sin1)
-            plug(mult.sout, self.graspTask.feature.Jq)
-
             self.tasks = [ self.graspTask.task ]
-            #self.tasks = []
 
-    def opPointExist(self,dyn,opPoint):
-        sigsP = filter(lambda x: x.getName().split(':')[-1] == opPoint,
-                       dyn.signals())
-        sigsJ = filter(lambda x: x.getName().split(':')[-1] == 'J'+opPoint,
-                       dyn.signals())
-        return len(sigsP)==1 & len(sigsJ)==1
+            # TODO Add velocity
+            # self.graspTask.task.setWithDerivative (True)
+            # which needs the following signals:
+            # - velocity of object attached to gripper.sotjoint, into self.graspTask.feature.dotposition
+            # - velocity of object attached to otherGripper.sotjoint, into self.graspTask.feature.dotpositionRef
 
 class EEPosture (Manifold):
     def __init__ (self, sotrobot, gripper, position):
