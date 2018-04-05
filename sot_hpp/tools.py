@@ -1,7 +1,6 @@
 from hpp import Transform
 from dynamic_graph.sot.core.meta_tasks_kine import MetaTaskKine6d, MetaTaskKineCom
 from dynamic_graph.sot.core.meta_tasks_kine_relative import MetaTaskKine6dRel
-from dynamic_graph.sot.core.meta_task_posture import MetaTaskKinePosture
 from dynamic_graph.sot.core.meta_tasks import setGain
 from dynamic_graph.sot.core import FeaturePosture
 
@@ -51,10 +50,10 @@ class Manifold(object):
 class Posture(Manifold):
     def __init__ (self, name, sotrobot):
         super(Posture, self).__init__()
-        from dynamic_graph.sot.core import Task, FeatureGeneric, GainAdaptive, Selec_of_vector
+        from dynamic_graph.sot.core import Task, FeatureGeneric, GainAdaptive
         from dynamic_graph.sot.core.matrix_util import matrixToTuple
         from dynamic_graph import plug
-        from numpy import identity, hstack, zeros
+        from numpy import identity
 
         n = Posture.sep + name
         self.tp = Task ('task' + n)
@@ -184,10 +183,8 @@ class Grasp (Manifold):
 
 class EEPosture (Manifold):
     def __init__ (self, sotrobot, gripper, position):
-        from dynamic_graph.sot.core import Task, FeatureGeneric, GainAdaptive, Selec_of_vector
-        from dynamic_graph.sot.core.matrix_util import matrixToTuple
+        from dynamic_graph.sot.core import Task, GainAdaptive
         from dynamic_graph import plug
-        from numpy import identity, hstack, zeros
 
         super(EEPosture, self).__init__()
         self.gripper = gripper
