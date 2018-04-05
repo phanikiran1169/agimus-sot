@@ -67,12 +67,12 @@ namespace dynamicgraph
       // synchronize with method clear
       wmutex.lock();
       converter (buffer[backIdx], data);
-      // assert(!full());
       // No need to synchronize with reader here because:
       // - if the buffer was not empty, then it stays not empty,
       // - if it was empty, then the current value will be used at next time. It
       //   means the transmission bandwidth is too low.
       backIdx = (backIdx+1) % N;
+      assert(!full());
       if (!init) {
         last = buffer[backIdx];
         init = true;
