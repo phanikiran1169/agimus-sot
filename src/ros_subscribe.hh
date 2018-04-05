@@ -5,6 +5,7 @@
 
 # include <boost/shared_ptr.hpp>
 # include <boost/thread/mutex.hpp>
+# include <boost/thread/condition_variable.hpp>
 
 # include <dynamic-graph/entity.h>
 # include <dynamic-graph/signal-time-dependent.h>
@@ -105,6 +106,7 @@ namespace dynamicgraph
         // synchronize with method reader
         rmutex.lock();
         frontIdx = backIdx = 0;
+        fullCondition.notify_all ();
         rmutex.unlock();
         wmutex.unlock();
       }
@@ -113,7 +115,7 @@ namespace dynamicgraph
       {
         return frontIdx == backIdx;
       }
-      
+
       bool full () const
       {
         return ((backIdx + 1) % BufferSize) == frontIdx;
@@ -121,10 +123,10 @@ namespace dynamicgraph
 
       size_type size () const
       {
-        if (frontIdx < backIdx)
-          return frontIdx + BufferSize - backIdx;
+        if (frontIdx <= backIdx)
+          return backIdx - frontIdx;
         else
-          return frontIdx - backIdx;
+          return backIdx + BufferSize - frontIdx;
       }
 
       SignalPtr_t signal;
@@ -134,6 +136,7 @@ namespace dynamicgraph
       size_type backIdx;
       buffer_t buffer;
       boost::mutex wmutex, rmutex;
+      boost::condition_variable fullCondition;
       T last;
       bool init;
 

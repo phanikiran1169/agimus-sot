@@ -11,12 +11,13 @@
 # include "dynamic_graph_bridge_msgs/Vector.h"
 
 namespace dg = dynamicgraph;
+typedef boost::mutex::scoped_lock scoped_lock;
 
 namespace dynamicgraph
 {
   namespace internal
   {
-    static const int BUFFER_SIZE = 50;
+    static const int BUFFER_SIZE = 1 << 10;
 
     template <typename T>
     struct Add
@@ -65,19 +66,22 @@ namespace dynamicgraph
     void BindedSignal<T, N>::writer (const R& data)
     {
       // synchronize with method clear
-      wmutex.lock();
+      boost::mutex::scoped_lock lock(wmutex);
+      boost::mutex dummy;
+      boost::unique_lock<boost::mutex> lock_dummy (dummy);
+      while (full()) {
+        fullCondition.wait (lock_dummy);
+      }
       converter (buffer[backIdx], data);
       // No need to synchronize with reader here because:
       // - if the buffer was not empty, then it stays not empty,
       // - if it was empty, then the current value will be used at next time. It
       //   means the transmission bandwidth is too low.
-      backIdx = (backIdx+1) % N;
-      assert(!full());
       if (!init) {
         last = buffer[backIdx];
         init = true;
       }
-      wmutex.unlock();
+      backIdx = (backIdx+1) % N;
     }
 
     template <typename T, int N>
@@ -85,8 +89,8 @@ namespace dynamicgraph
     {
       // synchronize with method clear:
       // If reading from the list cannot be done, then return last value.
-      bool readingIsEnabled = rmutex.try_lock();
-      if (!readingIsEnabled || entity->readQueue_ == -1 || time < entity->readQueue_) {
+      scoped_lock lock(rmutex, boost::try_to_lock);
+      if (!lock.owns_lock() || entity->readQueue_ == -1 || time < entity->readQueue_) {
         data = last;
       } else {
         if (empty())
@@ -95,10 +99,9 @@ namespace dynamicgraph
           data = buffer[frontIdx];
           frontIdx = (frontIdx + 1) % N;
           last = data;
+          fullCondition.notify_all();
         }
       }
-      if (readingIsEnabled)
-        rmutex.unlock();
       return data;
     }
   } // end of namespace internal.
