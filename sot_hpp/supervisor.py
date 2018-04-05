@@ -134,15 +134,14 @@ class Supervisor(object):
         # Start reading queues
         self.readQueue(10)
         plug(sot.control, self.sotrobot.device.control)
-        print "Current sot:", transitionName
-        print sot.display()
+        print("Current sot:", transitionName, "\n", sot.display())
         self.currentSot = transitionName
 
     def runPreAction(self, transitionName):
         if self.preActions.has_key(transitionName):
             sot = self.preActions[transitionName]
-            print "Running pre action", transitionName
-            print sot.display()
+            print("Running pre action", transitionName,
+                    "\n", sot.display())
             t = self.sotrobot.device.control.time
             sot.control.recompute(t-1)
             plug(sot.control, self.sotrobot.device.control)
@@ -154,8 +153,8 @@ class Supervisor(object):
             d = self.postActions[self.currentSot]
             if d.has_key(targetStateName):
                 sot = d[targetStateName]
-                print "Running post action", self.currentSot, targetStateName
-                print sot.display()
+                print( "Running post action", self.currentSot, targetStateName,
+                    "\n", sot.display())
                 t = self.sotrobot.device.control.time
                 sot.control.recompute(t-1)
                 plug(sot.control, self.sotrobot.device.control)

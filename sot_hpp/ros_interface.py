@@ -21,8 +21,19 @@ class RosInterface(object):
         rospy.Service('/sot/read_queue', SetInt, self.readQueue)
         rospy.Service('/sot/stop_reading_queue', Empty, self.stopReadingQueue)
         wait_for_service ("/run_command")
-        self.runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
+        self._runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor
+
+    def runCommand (self, cmd):
+        rospy.loginfo (">> " + cmd)
+        answer = self._runCommand (cmd)
+        if answer.result != "None":
+            rospy.loginfo (answer.result)
+        if len(answer.standardoutput) > 0:
+            rospy.loginfo (answer.standardoutput)
+        if len(answer.standarderror) > 0:
+            rospy.logerr (answer.standarderror)
+        return answer
 
     def runPreAction (self, req):
         rsp = PlugSotResponse()
@@ -37,7 +48,6 @@ class RosInterface(object):
         else:
             answer = self.runCommand ("supervisor.runPreAction('{}')".format(req.transition_name))
             if len(answer.standarderror) != 0:
-                rospy.logerr(answer.standarderror)
                 rsp.success = False
                 rsp.msg = answer.standarderror
                 return rsp
@@ -57,7 +67,6 @@ class RosInterface(object):
         else:
             answer = self.runCommand ("supervisor.plugSot('{}', False)".format(req.transition_name))
             if len(answer.standarderror) != 0:
-                rospy.logerr(answer.standarderror)
                 rsp.success = False
                 rsp.msg = answer.standarderror
                 return rsp
@@ -77,7 +86,6 @@ class RosInterface(object):
         else:
             answer = self.runCommand ("supervisor.runPostAction('{}')".format(req.transition_name))
             if len(answer.standarderror) != 0:
-                rospy.logerr(answer.standarderror)
                 rsp.success = False
                 rsp.msg = answer.standarderror
                 return rsp
@@ -89,7 +97,6 @@ class RosInterface(object):
             names = self.supervisor.getJointList(prefix = prefix)
         else:
             answer = self.runCommand ("supervisor.getJointList(prefix = '{}')".format(prefix))
-            print answer
             exec ("names = " + answer.result)
         wait_for_service ("/hpp/target/set_joint_names")
         setJoints = rospy.ServiceProxy ('/hpp/target/set_joint_names', SetJointNames)
@@ -103,8 +110,6 @@ class RosInterface(object):
         else:
             cmd = "supervisor.clearQueues()"
             answer = self.runCommand (cmd)
-            print cmd
-            print answer
         return TriggerResponse (True, "ok")
 
     def readQueue(self, req):
@@ -113,8 +118,6 @@ class RosInterface(object):
         else:
             cmd = "supervisor.readQueue(" + str(req.data) + ")"
             answer = self.runCommand (cmd)
-            print cmd
-            print answer
         return SetIntResponse ()
 
     def stopReadingQueue(self, req):
@@ -123,8 +126,6 @@ class RosInterface(object):
         else:
             cmd = "supervisor.stopReadingQueue()"
             answer = self.runCommand (cmd)
-            print cmd
-            print answer
         return EmptyResponse ()
 
     def requestHppTopics(self, req):
@@ -141,8 +142,6 @@ class RosInterface(object):
         else:
             cmd = "{ n: { k: v for k, v in t.items() if k != 'signalGetters' } for n, t in supervisor.topics().items() }"
             answer = self.runCommand (cmd)
-            print cmd
-            print answer
             exec ("topics = " + answer.result)
         for n, t in topics.items():
             for k in ['hppjoint', 'hppcom']:
