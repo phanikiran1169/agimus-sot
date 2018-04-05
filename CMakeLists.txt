@@ -29,7 +29,7 @@ SET(PROJECT_URL "")
 
 SETUP_PROJECT()
 
-FINDPYTHON(REQUIRED 2.7 EXACT)
+FINDPYTHON(REQUIRED EXACT 2.7)
 
 ADD_REQUIRED_DEPENDENCY ("dynamic_graph_bridge >= 3")
 # Needs only the Python classes related to ConstraintGraphFactory.
@@ -37,17 +37,6 @@ ADD_REQUIRED_DEPENDENCY ("hpp-manipulation-corba >= 3")
 ADD_REQUIRED_DEPENDENCY ("sot-core >= 3")
 ADD_REQUIRED_DEPENDENCY ("dynamic-graph-python >= 2")
 ADD_REQUIRED_DEPENDENCY ("sot_hpp_msgs")
-
-SET(FILES
-  supervisor.py
-  tools.py
-  ros_interface.py
-  factory.py
-  __init__.py)
-
-FOREACH(F ${FILES})
-    PYTHON_INSTALL_ON_SITE("sot_hpp" ${F})
-ENDFOREACH()
 
 ADD_SUBDIRECTORY(src)
 
