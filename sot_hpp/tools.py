@@ -147,7 +147,7 @@ class Grasp (Manifold):
             M = transformToMatrix(self.otherGripper.sotpose * self.otherHandle.sotpose.inverse() * self.handle.sotpose * self.gripper.sotpose.inverse())
             self.graspTask.opmodif = matrixToTuple(M)
             self.graspTask.feature.frame("current")
-            setGain(self.graspTask.gain,(100,0.9,0.01,0.9))
+            setGain(self.graspTask.gain,(4.9,0.9,0.01,0.9))
             self.graspTask.task.setWithDerivative (False)
 
             # Sets the position and velocity of the other gripper as the goal of the first gripper pose
@@ -222,7 +222,6 @@ class EEPosture (Manifold):
             self.tp.feature.selectDof (i, True)
 
         self.tp.gain = GainAdaptive("gain_"+n)
-        robotDim = sotrobot.dynamic.getDimension()
         self.tp.add(self.tp.feature.name)
 
         # Set the gain of the posture task
@@ -262,6 +261,7 @@ class Foot (Manifold):
     def _signalVelocityRef (self): return self.taskFoot.featureDes.velocity
 
 class COM (Manifold):
+    sep = "_com_"
     def __init__ (self, comname, sotrobot):
         self.taskCom = MetaTaskKineCom (sotrobot.dynamic,
                 name = COM.sep + comname)

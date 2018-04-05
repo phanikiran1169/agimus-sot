@@ -167,6 +167,7 @@ class Factory(GraphFactoryAbstract):
         n = self._loopTransitionName(state.grasps)
         sot = SOT ('sot_' + n)
         sot.setSize(self.sotrobot.dynamic.getDimension())
+        sot.damping.value = 0.001
 
         self.hpTasks.pushTo(sot)
         state.manifold.pushTo(sot)
@@ -208,6 +209,7 @@ class Factory(GraphFactoryAbstract):
             for n in ns:
                 s = SOT ('sot_' + n)
                 s.setSize(self.sotrobot.dynamic.getDimension())
+                s.damping.value = 0.001
                 self.hpTasks.pushTo(s)
 
                 #if pregrasp and i == 1:
@@ -225,6 +227,7 @@ class Factory(GraphFactoryAbstract):
 
         sot = SOT ("postAction_" + key)
         sot.setSize(self.sotrobot.dynamic.getDimension())
+        sot.damping.value = 0.001
         self.hpTasks.pushTo (sot)
         # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
         st.manifold.pushTo (sot)
@@ -242,6 +245,7 @@ class Factory(GraphFactoryAbstract):
 
         sot = SOT ("preAction_" + key)
         sot.setSize(self.sotrobot.dynamic.getDimension())
+        sot.damping.value = 0.001
         self.hpTasks.pushTo (sot)
         # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
         sf.manifold.pushTo (sot)
