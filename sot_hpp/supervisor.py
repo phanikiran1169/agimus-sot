@@ -62,7 +62,12 @@ class Supervisor(object):
         # movements at the beginning of the demo.
         # Maybe we can get the COM position and orientation from HPP at the beginning of the trajectory
         # to initialize self.sotrobot.dynamic.position.value
-        self.keep_posture._signalPositionRef().value = tuple([-0.74, 0.0, 1.0, 0.0, 0.0, 0.0] + list(self.sotrobot.dynamic.position.value)[6:])
+        # self.keep_posture._signalPositionRef().value = tuple([-0.74, 0.0, 1.0, 0.0, 0.0, 0.0] + list(self.sotrobot.dynamic.position.value)[6:])
+
+        # The above TODO must be fixed in users script by providing the
+        # right initial pose using robot.device.set (configuration) before starting
+        # dynamic graph.
+        self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         
         self.keep_posture.pushTo(sot)
         self.sots[""] = sot
@@ -126,9 +131,6 @@ class Supervisor(object):
             print("Sot {0} not consistent with sot {1}".format(self.currentSot, transitionName))
         if transitionName == "":
             # TODO : Explanation and linked TODO in the function makeInitialSot
-            if self.sotrobot.dynamic.position.value[0] > -0.5:
-                self.keep_posture._signalPositionRef().value = tuple([-0.74, 0.0, 1.0, 0.0, 0.0, 0.0] + list(self.sotrobot.dynamic.position.value)[6:])
-            else:
                 self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         sot = self.sots[transitionName]
         # Start reading queues
