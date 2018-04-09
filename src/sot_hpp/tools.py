@@ -1,4 +1,3 @@
-from hpp import Transform
 from dynamic_graph.sot.core.meta_tasks_kine import MetaTaskKine6d, MetaTaskKineCom
 from dynamic_graph.sot.core.meta_tasks_kine_relative import MetaTaskKine6dRel
 from dynamic_graph.sot.core.meta_tasks import setGain
@@ -8,13 +7,14 @@ def parseHppName (hppjointname):
     if hppjointname == "universe": return "", "universe"
     return hppjointname.split('/', 1)
 
-def transformToTuple (T):
+def transQuatToSE3 (p):
+    from pinocchio import SE3, Quaternion
+    from numpy import matrix
+    return SE3 (Quaternion (p[6],p[3],p[4],p[5]).matrix(), matrix(p[0:3]).transpose())
+
+def se3ToTuple (M):
     from dynamic_graph.sot.core.matrix_util import matrixToTuple
-    from numpy import eye
-    M = eye (4)
-    M[:3,:3] = T.quaternion.toRotationMatrix()
-    M[:3,3] = T.translation
-    return matrixToTuple(M)
+    return matrixToTuple (M.homogeneous)
 
 class Manifold(object):
     sep = "___"
@@ -91,31 +91,29 @@ class Posture(Manifold):
     def _signalPositionRef (self): return self.tp.featureDes.errorIN
     def _signalVelocityRef (self): return self.tp.featureDes.errordotIN
 
+## Represents a gripper or a handle
 class OpFrame(object):
-    def __init__ (self, hppclient):
-        self.hpp = hppclient
+    def __init__ (self, srdf, model = None):
+        self.robotName = srdf["robot"]
+        self.name = srdf["name"]
+        self.key = self.robotName + "/" + self.name
+        self.link = srdf["link"]
+        pose = transQuatToSE3 (srdf["position"])
+        if srdf.has_key ("joints"):
+            assert model is not None
+            ## Only for grippers
+            self.joints = srdf["joints"]
+            self._setupParentJoint (self.link, pose, model)
+        else:
+            ## Only for handles
+            self.pose = pose
 
-    def setHppGripper (self, name):
-        self.name = name
-        # Get parent joint and position from HPP
-        self.hppjoint, self.hpppose = self.hpp.manipulation.robot.getGripperPositionInJoint(name)
-        self.hpppose = Transform (self.hpppose)
-
-    def setHppHandle (self, name):
-        self.name = name
-        # Get parent joint and position from HPP
-        self.hppjoint, self.hpppose = self.hpp.manipulation.robot.getHandlePositionInJoint(name)
-        self.hpppose = Transform (self.hpppose)
-
-    def setSotFrameFromHpp(self, pinrobot):
-        # The joint should be available in the robot model used by SOT
-        n = self.hppjoint
-        self.sotpose = self.hpppose
-        self.robotname, self.sotjoint = parseHppName (n)
-        while self.sotjoint not in pinrobot.names:
-            self.sotpose = Transform(self.hpp.basic.robot.getJointPositionInParentFrame(n)) * self.sotpose
-            n = self.hpp.basic.robot.getParentJointName(n)
-            robotname, self.sotjoint = parseHppName (n)
+    def _setupParentJoint (self, link, pose, model):
+        frameid = model.getFrameId (link)
+        frame = model.frames[frameid]
+        
+        self.pose = frame.placement * pose
+        self.joint = model.names[frame.parent]
 
 class Grasp (Manifold):
     def __init__ (self, gripper, handle, otherGraspOnObject = None, closeGripper = False):
@@ -124,8 +122,12 @@ class Grasp (Manifold):
         self.handle = handle
         self.closeGripper = closeGripper
 
-        self.relative = otherGraspOnObject is not None \
-                and otherGraspOnObject.handle.hppjoint == self.handle.hppjoint
+        # self.relative = otherGraspOnObject is not None \
+                # and otherGraspOnObject.handle.link == self.handle.link
+        # TODO: We should make sure that the relative position is constant
+        # but we have no way to do it (HPP does). We assume that the object is
+        # not articulated.
+        self.relative = otherGraspOnObject
         if self.relative:
             self.otherGripper = otherGraspOnObject.gripper
             self.otherHandle = otherGraspOnObject.handle
@@ -136,19 +138,19 @@ class Grasp (Manifold):
             self.graspTask = MetaTaskKine6dRel (
                     Grasp.sep + self.gripper.name + Grasp.sep + self.otherGripper.name,
                     sotrobot.dynamic,
-                    self.gripper.sotjoint,
-                    self.otherGripper.sotjoint,
-                    self.gripper.sotjoint,
-                    self.otherGripper.sotjoint)
+                    self.gripper.joint,
+                    self.otherGripper.joint,
+                    self.gripper.joint,
+                    self.otherGripper.joint)
 
-            M = transformToTuple(self.gripper.sotpose * self.handle.sotpose.inverse())
+            M = se3ToTuple(self.gripper.pose * self.handle.pose.inverse())
             self.graspTask.opPointModif.activ = True
             self.graspTask.opPointModif.setTransformation (M)
             # Express the velocities in local frame.
             # This is the default.
             # self.graspTask.opPointModif.setEndEffector(True)
 
-            M = transformToTuple(self.otherGripper.sotpose * self.otherHandle.sotpose.inverse())
+            M = se3ToTuple(self.otherGripper.pose * self.otherHandle.pose.inverse())
             self.graspTask.opPointModifBase.activ = True
             self.graspTask.opPointModifBase.setTransformation (M)
             # Express the velocities in local frame.
@@ -179,8 +181,7 @@ class EEPosture (Manifold):
 
         super(EEPosture, self).__init__()
         self.gripper = gripper
-        robotName, gripperName = parseHppName (gripper.name)
-        self.jointNames = sotrobot.grippers[gripperName]
+        self.jointNames = gripper.joints
         pinmodel = sotrobot.dynamic.model
 
         n = "eeposture" + Posture.sep + gripper.name + Posture.sep + str(list(position))

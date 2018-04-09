@@ -93,6 +93,7 @@ SET(FILES
   tools.py
   ros_interface.py
   factory.py
+  srdf_parser.py
   __init__.py)
 
 FOREACH(F ${FILES})

@@ -68,8 +68,8 @@ class TaskFactory(ConstraintFactoryAbstract):
         if isinstance(handle, str): ih = self.graphfactory.handles.index(handle)
         else: ih = handle
         if otherGrasp is not None:
-            otherIg = self.graphfactory.grippers.index(otherGrasp.gripper.name)
-            otherIh = self.graphfactory.handles.index(otherGrasp.handle.name)
+            otherIg = self.graphfactory.grippers.index(otherGrasp.gripper.key)
+            otherIh = self.graphfactory.handles.index(otherGrasp.handle.key)
             k = (ig, ih, otherIg, otherIh)
         else:
             k = (ig, ih)
@@ -121,22 +121,9 @@ class Factory(GraphFactoryAbstract):
         assert isinstance(aff, Affordance)
         self.affordances [(aff.gripper, aff.handle)] = aff
 
-    def finalize (self, hppclient):
-        graph, elmts = hppclient.manipulation.graph.getGraph()
-        ids = { n.name: n.id for n in elmts.edges }
-        nids = { n.name: n.id for n in elmts.nodes }
+    def generate (self):
+        super(Factory, self).generate ()
 
-        self.transitionIds = { n.name: n.id for n in elmts.edges }
-        # self.supervisor.sots = { ids[n]: sot for n, sot in self.sots.items() if ids.has_key(n) }
-        # self.supervisor.grasps = { (gh, w): t for gh, ts in self.tasks._grasp.items() for w, t in ts.items() }
-        # self.supervisor.hpTasks = self.hpTasks
-        # self.supervisor.lpTasks = self.lpTasks
-        # self.supervisor.postActions = {
-                # ids[trans] : {
-                    # nids[state]: sot for state, sot in values.items() if nids.has_key(state)
-                    # } for trans, values in self.postActions.items() if ids.has_key(trans)
-                # }
-        # self.supervisor.preActions = { ids[trans] : sot for trans, sot in self.preActions.items() if ids.has_key(trans) }
         self.supervisor.sots = self.sots
         self.supervisor.grasps = { (gh, w): t for gh, ts in self.tasks._grasp.items() for w, t in ts.items() }
         self.supervisor.hpTasks = self.hpTasks
@@ -144,20 +131,14 @@ class Factory(GraphFactoryAbstract):
         self.supervisor.postActions = self.postActions
         self.supervisor.preActions  = self.preActions
 
-    def setupFrames (self, hppclient, sotrobot):
+    def setupFrames (self, srdfGrippers, srdfHandles, sotrobot):
         self.sotrobot = sotrobot
 
         self.grippersIdx = { g: i for i,g in enumerate(self.grippers) }
         self.handlesIdx  = { h: i for i,h in enumerate(self.handles) }
 
-        self.gripperFrames = { g: OpFrame(hppclient) for g in self.grippers }
-        self.handleFrames  = { h: OpFrame(hppclient) for h in self.handles  }
-
-        for g in self.grippers: self.gripperFrames[g].setHppGripper (g)
-        for h in self.handles : self.handleFrames [h].setHppHandle  (h)
-
-        for g in self.gripperFrames.values(): g.setSotFrameFromHpp (sotrobot.dynamic.model)
-        for h in self.handleFrames .values(): h.setSotFrameFromHpp (sotrobot.dynamic.model)
+        self.gripperFrames = { g: OpFrame(srdfGrippers[g], sotrobot.dynamic.model) for g in self.grippers }
+        self.handleFrames  = { h: OpFrame(srdfHandles [h]                        ) for h in self.handles  }
 
     def makeState (self, grasps, priority):
         # Nothing to do here
