@@ -93,19 +93,19 @@ namespace dynamicgraph
 	const std::string& topic = values[2].value ();
 
 	if (type == "double")
-	  entity.add<double> (signal, topic);
+	  entity.add<double> (type, signal, topic);
 	else if (type == "unsigned")
-	  entity.add<unsigned int> (signal, topic);
+	  entity.add<unsigned int> (type, signal, topic);
 	else if (type == "matrix")
-	  entity.add<dg::Matrix> (signal, topic);
+	  entity.add<dg::Matrix> (type, signal, topic);
 	else if (type == "vector")
-	  entity.add<dg::Vector> (signal, topic);
+	  entity.add<dg::Vector> (type, signal, topic);
 	else if (type == "vector3")
-	  entity.add<specific::Vector3> (signal, topic);
+	  entity.add<specific::Vector3> (type, signal, topic);
 	else if (type == "matrixHomo")
-	  entity.add<sot::MatrixHomogeneous> (signal, topic);
+	  entity.add<sot::MatrixHomogeneous> (type, signal, topic);
 	else if (type == "twist")
-	  entity.add<specific::Twist> (signal, topic);
+	  entity.add<specific::Twist> (type, signal, topic);
 	else
 	  throw std::runtime_error("bad type");
 	return Value ();

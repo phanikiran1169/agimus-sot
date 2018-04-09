@@ -61,12 +61,13 @@ MACRO(DYNAMIC_GRAPH_HPP_PYTHON_MODULE SUBMODULENAME LIBRARYNAME TARGETNAME)
     DESTINATION ${PYTHON_INSTALL_DIR}
     )
 
-ENDMACRO(DYNAMIC_GRAPH_PYTHON_MODULE SUBMODULENAME)
+ENDMACRO()
 
 SET(LIBRARY_NAME ${PROJECT_NAME})
 
 ADD_LIBRARY(${LIBRARY_NAME}
   SHARED
+  holonomic-constraint.cc
   event.cc
   boolean-reduction.cc
   ros_subscribe.cpp
@@ -80,9 +81,20 @@ INSTALL(TARGETS ${LIBRARY_NAME}
   DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
   )
 
-SET(NEW_ENTITY_CLASS "Event" "CompareDouble" "RosQueuedSubscribe")
+SET(NEW_ENTITY_CLASS "Event" "CompareDouble" "RosQueuedSubscribe" "HolonomicConstraint")
 
 DYNAMIC_GRAPH_HPP_PYTHON_MODULE("sot" ${LIBRARY_NAME} wrap)
 FILE(WRITE ${CMAKE_CURRENT_BINARY_DIR}/dynamic_graph_hpp/__init__.py "")
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/dynamic_graph_hpp/__init__.py
     DESTINATION ${PYTHON_SITELIB}/dynamic_graph_hpp/)
+
+SET(FILES
+  supervisor.py
+  tools.py
+  ros_interface.py
+  factory.py
+  __init__.py)
+
+FOREACH(F ${FILES})
+    PYTHON_INSTALL_ON_SITE("sot_hpp" ${F})
+ENDFOREACH()

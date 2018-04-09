@@ -1,6 +1,23 @@
 from hpp.corbaserver.manipulation.constraint_graph_factory import ConstraintFactoryAbstract, GraphFactoryAbstract
-from tools import Manifold, Grasp, idx, idx_zip, OpFrame, EEPosture
+from tools import Manifold, Grasp, OpFrame, EEPosture
 from dynamic_graph.sot.core import SOT
+
+class Affordance(object):
+    def __init__ (self, gripper, handle, **kwargs):
+        self.gripper = gripper
+        self.handle  = handle
+        self.setControl (**kwargs)
+    def setControl (self, refOpen, refClose, openType = "position", closeType="position"):
+        if openType != "position" or closeType != "position":
+            raise NotImplementedError ("Only position control is implemented for gripper opening/closure.")
+        self.controlType = {
+                "open": openType,
+                "close": closeType,
+                }
+        self.ref = {
+                "open": refOpen,
+                "close": refClose,
+                }
 
 class TaskFactory(ConstraintFactoryAbstract):
     gfields = ('grasp', 'pregrasp', 'gripper_open', 'gripper_close')
@@ -9,12 +26,26 @@ class TaskFactory(ConstraintFactoryAbstract):
     def __init__ (self, graphfactory):
         super(TaskFactory, self).__init__ (graphfactory)
 
+    def _buildGripper (self, type, gripper, handle):
+        try:
+            aff = self.graphfactory.affordances[(gripper, handle)]
+        except KeyError:
+            # If there are no affordance, do not add a task.
+            return Manifold()
+        gf = self.graphfactory
+        robot = gf.sotrobot
+        if aff.controlType[type] == "position":
+            return EEPosture (robot, gf.gripperFrames[gripper], aff.ref[type])
+        else:
+            raise NotImplementedError ("Only position control is implemented for gripper closure.")
+
     def buildGrasp (self, g, h, otherGrasp=None):
         gf = self.graphfactory
         if h is None:
-            return { 'gripper_open': EEPosture (gf.sotrobot, gf.gripperFrames [g], [0]) }
+            gripper_open = self._buildGripper ("open", g, h)
+            return { 'gripper_open': gripper_open }
 
-        gripper_close  = EEPosture (gf.sotrobot, gf.gripperFrames [g], [-0.2])
+        gripper_close  = self._buildGripper ("close", g, h)
         pregrasp = Grasp (gf.gripperFrames [g],
                           gf.handleFrames [h],
                           otherGrasp,
@@ -63,9 +94,10 @@ class Factory(GraphFactoryAbstract):
 
             objectsAlreadyGrasped = {}
             
-            for ig, ih in idx_zip (grasps):
+            for ig, ih in enumerate(grasps):
                 if ih is not None:
                     # Add task gripper_close
+                    self.manifold += tasks.g (factory.grippers[ig], factory.handles[ih], 'gripper_close')
                     otherGrasp = objectsAlreadyGrasped.get(factory.objectFromHandle[ih])
                     self.manifold += tasks.g (factory.grippers[ig], factory.handles[ih], 'grasp', otherGrasp)
                     objectsAlreadyGrasped[factory.objectFromHandle[ih]] = tasks.g (factory.grippers[ig], factory.handles[ih], 'grasp', otherGrasp)
@@ -78,33 +110,45 @@ class Factory(GraphFactoryAbstract):
         self.tasks = TaskFactory (self)
         self.hpTasks = supervisor.hpTasks
         self.lpTasks = supervisor.lpTasks
+        self.affordances = dict()
         self.sots = dict()
         self.postActions = dict()
         self.preActions = dict()
 
         self.supervisor = supervisor
 
+    def addAffordance (self, aff):
+        assert isinstance(aff, Affordance)
+        self.affordances [(aff.gripper, aff.handle)] = aff
+
     def finalize (self, hppclient):
         graph, elmts = hppclient.manipulation.graph.getGraph()
         ids = { n.name: n.id for n in elmts.edges }
         nids = { n.name: n.id for n in elmts.nodes }
 
-        self.supervisor.sots = { ids[n]: sot for n, sot in self.sots.items() }
+        self.transitionIds = { n.name: n.id for n in elmts.edges }
+        # self.supervisor.sots = { ids[n]: sot for n, sot in self.sots.items() if ids.has_key(n) }
+        # self.supervisor.grasps = { (gh, w): t for gh, ts in self.tasks._grasp.items() for w, t in ts.items() }
+        # self.supervisor.hpTasks = self.hpTasks
+        # self.supervisor.lpTasks = self.lpTasks
+        # self.supervisor.postActions = {
+                # ids[trans] : {
+                    # nids[state]: sot for state, sot in values.items() if nids.has_key(state)
+                    # } for trans, values in self.postActions.items() if ids.has_key(trans)
+                # }
+        # self.supervisor.preActions = { ids[trans] : sot for trans, sot in self.preActions.items() if ids.has_key(trans) }
+        self.supervisor.sots = self.sots
         self.supervisor.grasps = { (gh, w): t for gh, ts in self.tasks._grasp.items() for w, t in ts.items() }
         self.supervisor.hpTasks = self.hpTasks
         self.supervisor.lpTasks = self.lpTasks
-        self.supervisor.postActions = {
-                ids[trans] : {
-                    nids[state]: sot for state, sot in values.items() if nids.has_key(state)
-                    } for trans, values in self.postActions.items()
-                }
-        self.supervisor.preActions = { ids[trans] : sot for trans, sot in self.preActions.items() }
+        self.supervisor.postActions = self.postActions
+        self.supervisor.preActions  = self.preActions
 
     def setupFrames (self, hppclient, sotrobot):
         self.sotrobot = sotrobot
 
-        self.grippersIdx = { self.grippers[i] : i for i in idx(self.grippers) }
-        self.handlesIdx  = {  self.handles[i] : i for i in idx(self.handles) }
+        self.grippersIdx = { g: i for i,g in enumerate(self.grippers) }
+        self.handlesIdx  = { h: i for i,h in enumerate(self.handles) }
 
         self.gripperFrames = { g: OpFrame(hppclient) for g in self.grippers }
         self.handleFrames  = { h: OpFrame(hppclient) for h in self.handles  }
@@ -123,6 +167,7 @@ class Factory(GraphFactoryAbstract):
         n = self._loopTransitionName(state.grasps)
         sot = SOT ('sot_' + n)
         sot.setSize(self.sotrobot.dynamic.getDimension())
+        sot.damping.value = 0.001
 
         self.hpTasks.pushTo(sot)
         state.manifold.pushTo(sot)
@@ -164,6 +209,7 @@ class Factory(GraphFactoryAbstract):
             for n in ns:
                 s = SOT ('sot_' + n)
                 s.setSize(self.sotrobot.dynamic.getDimension())
+                s.damping.value = 0.001
                 self.hpTasks.pushTo(s)
 
                 #if pregrasp and i == 1:
@@ -181,6 +227,7 @@ class Factory(GraphFactoryAbstract):
 
         sot = SOT ("postAction_" + key)
         sot.setSize(self.sotrobot.dynamic.getDimension())
+        sot.damping.value = 0.001
         self.hpTasks.pushTo (sot)
         # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
         st.manifold.pushTo (sot)
@@ -198,6 +245,7 @@ class Factory(GraphFactoryAbstract):
 
         sot = SOT ("preAction_" + key)
         sot.setSize(self.sotrobot.dynamic.getDimension())
+        sot.damping.value = 0.001
         self.hpTasks.pushTo (sot)
         # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
         sf.manifold.pushTo (sot)

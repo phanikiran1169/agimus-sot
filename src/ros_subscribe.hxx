@@ -11,21 +11,25 @@
 # include "dynamic_graph_bridge_msgs/Vector.h"
 
 namespace dg = dynamicgraph;
+typedef boost::mutex::scoped_lock scoped_lock;
 
 namespace dynamicgraph
 {
   namespace internal
   {
+    static const int BUFFER_SIZE = 1 << 10;
+
     template <typename T>
     struct Add
     {
       void operator () (RosQueuedSubscribe& rosSubscribe,
+			const std::string& type,
 			const std::string& signal,
 			const std::string& topic)
       {
         typedef typename SotToRos<T>::sot_t sot_t;
 	typedef typename SotToRos<T>::ros_const_ptr_t ros_const_ptr_t;
-        typedef BindedSignal<sot_t> BindedSignal_t;
+        typedef BindedSignal<sot_t, BUFFER_SIZE> BindedSignal_t;
 	typedef typename BindedSignal_t::Signal_t Signal_t;
 
 	// Initialize the bindedSignal object.
@@ -33,8 +37,8 @@ namespace dynamicgraph
         SotToRos<T>::setDefault (bs->last);
 
 	// Initialize the signal.
-	boost::format signalName ("RosQueuedSubscribe(%1%)::%2%");
-	signalName % rosSubscribe.getName () % signal;
+	boost::format signalName ("RosQueuedSubscribe(%1%)::output(%2%)::%3%");
+	signalName % rosSubscribe.getName () % type % signal;
 
 	bs->signal.reset (new Signal_t (signalName.str ()));
         bs->signal->setFunction (boost::bind(&BindedSignal_t::reader, bs, _1, _2));
@@ -49,7 +53,7 @@ namespace dynamicgraph
   // -> No message should be lost because of a full buffer
 	bs->subscriber =
 	  boost::make_shared<ros::Subscriber>
-	  (rosSubscribe.nh ().subscribe (topic, 50, callback)); 
+	  (rosSubscribe.nh ().subscribe (topic, BUFFER_SIZE, callback)); 
 
 	RosQueuedSubscribe::bindedSignal_t bindedSignal (bs);
 	rosSubscribe.bindedSignal ()[signal] = bindedSignal;
@@ -57,45 +61,55 @@ namespace dynamicgraph
     };
 
     // template <typename T, typename R>
-    template <typename T>
+    template <typename T, int N>
     template <typename R>
-    void BindedSignal<T>::writer (const R& data)
+    void BindedSignal<T, N>::writer (const R& data)
     {
-      T value;
-      converter (value, data);
+      // synchronize with method clear
+      boost::mutex::scoped_lock lock(wmutex);
+      boost::mutex dummy;
+      boost::unique_lock<boost::mutex> lock_dummy (dummy);
+      while (full()) {
+        fullCondition.wait (lock_dummy);
+      }
+      converter (buffer[backIdx], data);
+      // No need to synchronize with reader here because:
+      // - if the buffer was not empty, then it stays not empty,
+      // - if it was empty, then the current value will be used at next time. It
+      //   means the transmission bandwidth is too low.
       if (!init) {
-        last = value;
+        last = buffer[backIdx];
         init = true;
       }
-      qmutex.lock();
-      queue.push (value);
-      qmutex.unlock();
+      backIdx = (backIdx+1) % N;
     }
 
-    template <typename T>
-    T& BindedSignal<T>::reader (T& data, int time)
+    template <typename T, int N>
+    T& BindedSignal<T, N>::reader (T& data, int time)
     {
-      if (entity->readQueue_ == -1 || time < entity->readQueue_) {
+      // synchronize with method clear:
+      // If reading from the list cannot be done, then return last value.
+      scoped_lock lock(rmutex, boost::try_to_lock);
+      if (!lock.owns_lock() || entity->readQueue_ == -1 || time < entity->readQueue_) {
         data = last;
       } else {
-        qmutex.lock();
-        if (queue.empty())
+        if (empty())
           data = last;
         else {
-          data = queue.front();
-          queue.pop();
+          data = buffer[frontIdx];
+          frontIdx = (frontIdx + 1) % N;
           last = data;
+          fullCondition.notify_all();
         }
-        qmutex.unlock();
       }
       return data;
     }
   } // end of namespace internal.
 
   template <typename T>
-  void RosQueuedSubscribe::add (const std::string& signal, const std::string& topic)
+  void RosQueuedSubscribe::add (const std::string& type, const std::string& signal, const std::string& topic)
   {
-    internal::Add<T> () (*this, signal, topic);
+    internal::Add<T> () (*this, type, signal, topic);
   }
 } // end of namespace dynamicgraph.
 

@@ -13,6 +13,7 @@ time.sleep(1)
 N = 1
 
 s = rqe.sig
+rqe.readQueue (s.time)
 s.recompute (s.time + 1)
 # print s.value
 
