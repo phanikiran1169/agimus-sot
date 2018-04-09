@@ -68,8 +68,8 @@ class TaskFactory(ConstraintFactoryAbstract):
         if isinstance(handle, str): ih = self.graphfactory.handles.index(handle)
         else: ih = handle
         if otherGrasp is not None:
-            otherIg = self.graphfactory.grippers.index(otherGrasp.gripper.name)
-            otherIh = self.graphfactory.handles.index(otherGrasp.handle.name)
+            otherIg = self.graphfactory.grippers.index(otherGrasp.gripper.key)
+            otherIh = self.graphfactory.handles.index(otherGrasp.handle.key)
             k = (ig, ih, otherIg, otherIh)
         else:
             k = (ig, ih)
@@ -131,20 +131,14 @@ class Factory(GraphFactoryAbstract):
         self.supervisor.postActions = self.postActions
         self.supervisor.preActions  = self.preActions
 
-    def setupFrames (self, hppclient, sotrobot):
+    def setupFrames (self, srdfGrippers, srdfHandles, sotrobot):
         self.sotrobot = sotrobot
 
         self.grippersIdx = { g: i for i,g in enumerate(self.grippers) }
         self.handlesIdx  = { h: i for i,h in enumerate(self.handles) }
 
-        self.gripperFrames = { g: OpFrame(hppclient) for g in self.grippers }
-        self.handleFrames  = { h: OpFrame(hppclient) for h in self.handles  }
-
-        for g in self.grippers: self.gripperFrames[g].setHppGripper (g)
-        for h in self.handles : self.handleFrames [h].setHppHandle  (h)
-
-        for g in self.gripperFrames.values(): g.setSotFrameFromHpp (sotrobot.dynamic.model)
-        for h in self.handleFrames .values(): h.setSotFrameFromHpp (sotrobot.dynamic.model)
+        self.gripperFrames = { g: OpFrame(srdfGrippers[g], sotrobot.dynamic.model) for g in self.grippers }
+        self.handleFrames  = { h: OpFrame(srdfHandles [h]                        ) for h in self.handles  }
 
     def makeState (self, grasps, priority):
         # Nothing to do here
