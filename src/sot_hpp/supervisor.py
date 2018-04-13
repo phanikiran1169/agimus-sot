@@ -133,9 +133,10 @@ class Supervisor(object):
             # TODO : Explanation and linked TODO in the function makeInitialSot
             self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         sot = self.sots[transitionName]
+        control = self._getControlSignal(sot)
         # Start reading queues
         self.readQueue(10)
-        plug(sot.control, self.sotrobot.device.control)
+        plug(control, self.sotrobot.device.control)
         print("Current sot:", transitionName, "\n", sot.display())
         self.currentSot = transitionName
 
@@ -165,6 +166,12 @@ class Supervisor(object):
 
     def getJointList (self, prefix = ""):
         return [ prefix + n for n in self.sotrobot.dynamic.model.names[1:] ]
+
+    def _getControlSignal (self, sot):
+        if self.SoTtimers.has_key (sot.name):
+            return self.SoTtimers[sot.name].sout
+        else:
+            return sot.control
 
 def _handleHppJoint (n, t):
     type = t["type"]

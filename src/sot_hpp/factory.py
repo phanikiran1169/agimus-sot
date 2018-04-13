@@ -115,13 +115,38 @@ class Factory(GraphFactoryAbstract):
         self.postActions = dict()
         self.preActions = dict()
 
+        self.timers = {}
         self.supervisor = supervisor
+
+        self.addTimerToSotControl = False
+
+    def _newSoT (self, name):
+        sot = SOT (name)
+        sot.setSize(self.sotrobot.dynamic.getDimension())
+        sot.damping.value = 0.001
+
+        if self.addTimerToSotControl:
+            from .tools import insertTimerOnOutput
+            self.timers[name] = insertTimerOnOutput (sot.control, "vector")
+            self.SoTtracer.add (self.timers[name].name + ".timer", str(len(self.timerIds)) + ".timer")
+            self.timerIds.append(name)
+        return sot
 
     def addAffordance (self, aff):
         assert isinstance(aff, Affordance)
         self.affordances [(aff.gripper, aff.handle)] = aff
 
     def generate (self):
+        if self.addTimerToSotControl:
+            # init tracer
+            from dynamic_graph.tracer_real_time import TracerRealTime
+            self.SoTtracer = TracerRealTime ("tracer_of_timers")
+            self.timerIds = []
+            self.SoTtracer.setBufferSize (10 * 1048576) # 10 Mo
+            self.SoTtracer.open ("/tmp", "sot-control-trace", ".txt")
+            self.sotrobot.device.after.addSignal("tracer_of_timers.triger")
+            self.supervisor.SoTtracer = self.SoTtracer
+            self.supervisor.SoTtimerIds = self.timerIds
         super(Factory, self).generate ()
 
         self.supervisor.sots = self.sots
@@ -130,6 +155,7 @@ class Factory(GraphFactoryAbstract):
         self.supervisor.lpTasks = self.lpTasks
         self.supervisor.postActions = self.postActions
         self.supervisor.preActions  = self.preActions
+        self.supervisor.SoTtimers = self.timers
 
     def setupFrames (self, srdfGrippers, srdfHandles, sotrobot):
         self.sotrobot = sotrobot
@@ -146,9 +172,7 @@ class Factory(GraphFactoryAbstract):
 
     def makeLoopTransition (self, state):
         n = self._loopTransitionName(state.grasps)
-        sot = SOT ('sot_' + n)
-        sot.setSize(self.sotrobot.dynamic.getDimension())
-        sot.damping.value = 0.001
+        sot = self._newSoT ('sot_'+n)
 
         self.hpTasks.pushTo(sot)
         state.manifold.pushTo(sot)
@@ -188,9 +212,7 @@ class Factory(GraphFactoryAbstract):
                   "{0}_{2}{1}".format(names[1], i, i+1))
 
             for n in ns:
-                s = SOT ('sot_' + n)
-                s.setSize(self.sotrobot.dynamic.getDimension())
-                s.damping.value = 0.001
+                s = self._newSoT('sot_'+n)
                 self.hpTasks.pushTo(s)
 
                 #if pregrasp and i == 1:
@@ -206,9 +228,7 @@ class Factory(GraphFactoryAbstract):
         key = sots[2*(M-1)]
         states = ( st.name, names[0] + "_intersec")
 
-        sot = SOT ("postAction_" + key)
-        sot.setSize(self.sotrobot.dynamic.getDimension())
-        sot.damping.value = 0.001
+        sot = self._newSoT ("postAction_" + key)
         self.hpTasks.pushTo (sot)
         # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
         st.manifold.pushTo (sot)
@@ -224,9 +244,7 @@ class Factory(GraphFactoryAbstract):
         key = sots[2*(M-1) + 1]
         states = ( st.name, names[0] + "_intersec")
 
-        sot = SOT ("preAction_" + key)
-        sot.setSize(self.sotrobot.dynamic.getDimension())
-        sot.damping.value = 0.001
+        sot = self._newSoT ("preAction_" + key)
         self.hpTasks.pushTo (sot)
         # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
         sf.manifold.pushTo (sot)
