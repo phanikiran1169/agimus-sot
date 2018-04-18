@@ -98,21 +98,25 @@ class Posture(Manifold):
         n = Posture.sep + name
         self.tp = Task ('task' + n)
         self.tp.dyn = sotrobot.dynamic
-        self.tp.feature = FeatureGeneric('feature_'+n)
-        self.tp.featureDes = FeatureGeneric('feature_des_'+n)
-        self.tp.gain = GainAdaptive("gain_"+n)
+        self.tp.feature = FeaturePosture('feature_'+n)
+
+        q = list(sotrobot.dynamic.position.value)
+        self.tp.feature.state.value = q
+        self.tp.feature.posture.value = q
+
         robotDim = sotrobot.dynamic.getDimension()
-        self.tp.feature.jacobianIN.value = matrixToTuple( identity(robotDim) )
-        self.tp.feature.setReference(self.tp.featureDes.name)
+        for i in range(6, robotDim):
+            self.tp.feature.selectDof (i, True)
+        self.tp.gain = GainAdaptive("gain_"+n)
         self.tp.add(self.tp.feature.name)
 
         # Connects the dynamics to the current feature of the posture task
-        plug(sotrobot.dynamic.position, self.tp.feature.errorIN)
+        plug(sotrobot.dynamic.position, self.tp.feature.state)
 
         self.tp.setWithDerivative (True)
 
         # Set the gain of the posture task
-        setGain(self.tp.gain,10)
+        setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
         plug(self.tp.gain.gain, self.tp.controlGain)
         plug(self.tp.error, self.tp.gain.error)
         self.tasks = [ self.tp ]
@@ -127,8 +131,8 @@ class Posture(Manifold):
                         "signalGetters": [ self._signalVelocityRef ] },
                 }
 
-    def _signalPositionRef (self): return self.tp.featureDes.errorIN
-    def _signalVelocityRef (self): return self.tp.featureDes.errordotIN
+    def _signalPositionRef (self): return self.tp.feature.posture
+    def _signalVelocityRef (self): return self.tp.feature.postureDot
 
 ## Represents a gripper or a handle
 class OpFrame(object):
