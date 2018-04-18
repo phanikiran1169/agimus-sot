@@ -40,7 +40,7 @@ class Supervisor(object):
         # self.sotrobot.device.after.addSignal (self.norm_event.check.name)
         self.sotrobot.device.after.addSignal ("control_norm_event.check")
 
-        self.ros_publish = RosPublish ('ros_publish')
+        self.ros_publish = RosPublish ('ros_publish_control_norm')
         self.ros_publish.add ('double', 'event_control_norm', '/sot_hpp/control_norm_changed')
         plug (self.norm.sout, self.ros_publish.event_control_norm)
         # plug (self.norm_event.trigger, self.ros_publish.trigger)
