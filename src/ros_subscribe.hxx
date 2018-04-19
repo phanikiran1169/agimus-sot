@@ -67,10 +67,10 @@ namespace dynamicgraph
     {
       // synchronize with method clear
       boost::mutex::scoped_lock lock(wmutex);
-      boost::mutex dummy;
-      boost::unique_lock<boost::mutex> lock_dummy (dummy);
-      while (full()) {
-        fullCondition.wait (lock_dummy);
+      if (full()) {
+        rmutex.lock();
+        frontIdx = (frontIdx + 1) % N;
+        rmutex.unlock();
       }
       converter (buffer[backIdx], data);
       // No need to synchronize with reader here because:
@@ -99,7 +99,6 @@ namespace dynamicgraph
           data = buffer[frontIdx];
           frontIdx = (frontIdx + 1) % N;
           last = data;
-          fullCondition.notify_all();
         }
       }
       return data;
