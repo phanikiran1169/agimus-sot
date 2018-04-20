@@ -38,7 +38,8 @@ namespace dynamicgraph {
         Event (const std::string& name) :
           Entity (name),
           checkSOUT ("Event("+name+")::output(bool)::check"),
-          conditionSIN(NULL,"Event("+name+")::input(bool)::condition")
+          conditionSIN(NULL,"Event("+name+")::input(bool)::condition"),
+          lastVal_ (2) // lastVal_ should be different true and false.
         {
           checkSOUT.setFunction
             (boost::bind (&Event::check, this, _1, _2));

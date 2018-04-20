@@ -2,6 +2,46 @@ from dynamic_graph.sot.core.meta_tasks_kine import MetaTaskKine6d, MetaTaskKineC
 from dynamic_graph.sot.core.meta_tasks_kine_relative import MetaTaskKine6dRel
 from dynamic_graph.sot.core.meta_tasks import setGain
 from dynamic_graph.sot.core import FeaturePosture
+from dynamic_graph import plug
+
+def getTimerType (type):
+    from dynamic_graph.sot.core.timer import TimerDouble, TimerMatrix, TimerMatrixHomo, TimerVector
+    if type == "double":
+        return TimerDouble
+    elif type == "matrix":
+        return TimerMatrix
+    elif type == "matrixhomo":
+        return TimerMatrixHomo
+    elif type == "vector":
+        return TimerVector
+    else:
+        raise ValueError ("Unknown type of timer.")
+
+def insertTimerOnOutput (signal, type):
+    """
+    Plug the signal sout of the return entity instead of `signal` to
+    input signal to enable the timer.
+    - param signal an output signal.
+    - return an Timer entity.
+    """
+    Timer = getTimerType (type)
+    timer = Timer ("timer_of_" + signal.name)
+    plug(signal, timer.sin)
+    return timer
+
+def insertTimer (signal, type):
+    """
+    - param signal a plugged input signal.
+    - return an Timer entity.
+    """
+    assert signal.isPlugged()
+    from dynamic_graph.sot.core.timer import TimerDouble, TimerMatrix, TimerMatrixHomo, TimerVector
+    Timer = getTimerType (type)
+    timer = Timer ("timer_of_" + signal.name)
+    other = signal.getPlugged()
+    plug(other, timer.sin)
+    plug(timer.sout, signal)
+    return timer
 
 def parseHppName (hppjointname):
     if hppjointname == "universe": return "", "universe"
@@ -53,27 +93,30 @@ class Posture(Manifold):
         super(Posture, self).__init__()
         from dynamic_graph.sot.core import Task, FeatureGeneric, GainAdaptive
         from dynamic_graph.sot.core.matrix_util import matrixToTuple
-        from dynamic_graph import plug
         from numpy import identity
 
         n = Posture.sep + name
         self.tp = Task ('task' + n)
         self.tp.dyn = sotrobot.dynamic
-        self.tp.feature = FeatureGeneric('feature_'+n)
-        self.tp.featureDes = FeatureGeneric('feature_des_'+n)
-        self.tp.gain = GainAdaptive("gain_"+n)
+        self.tp.feature = FeaturePosture('feature_'+n)
+
+        q = list(sotrobot.dynamic.position.value)
+        self.tp.feature.state.value = q
+        self.tp.feature.posture.value = q
+
         robotDim = sotrobot.dynamic.getDimension()
-        self.tp.feature.jacobianIN.value = matrixToTuple( identity(robotDim) )
-        self.tp.feature.setReference(self.tp.featureDes.name)
+        for i in range(6, robotDim):
+            self.tp.feature.selectDof (i, True)
+        self.tp.gain = GainAdaptive("gain_"+n)
         self.tp.add(self.tp.feature.name)
 
         # Connects the dynamics to the current feature of the posture task
-        plug(sotrobot.dynamic.position, self.tp.feature.errorIN)
+        plug(sotrobot.dynamic.position, self.tp.feature.state)
 
         self.tp.setWithDerivative (True)
 
         # Set the gain of the posture task
-        setGain(self.tp.gain,10)
+        setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
         plug(self.tp.gain.gain, self.tp.controlGain)
         plug(self.tp.error, self.tp.gain.error)
         self.tasks = [ self.tp ]
@@ -88,8 +131,8 @@ class Posture(Manifold):
                         "signalGetters": [ self._signalVelocityRef ] },
                 }
 
-    def _signalPositionRef (self): return self.tp.featureDes.errorIN
-    def _signalVelocityRef (self): return self.tp.featureDes.errordotIN
+    def _signalPositionRef (self): return self.tp.feature.posture
+    def _signalVelocityRef (self): return self.tp.feature.postureDot
 
 ## Represents a gripper or a handle
 class OpFrame(object):
@@ -133,7 +176,6 @@ class Grasp (Manifold):
             self.otherHandle = otherGraspOnObject.handle
 
     def makeTasks(self, sotrobot):
-        from dynamic_graph import plug
         if self.relative:
             self.graspTask = MetaTaskKine6dRel (
                     Grasp.sep + self.gripper.name + Grasp.sep + self.otherGripper.name,
@@ -177,7 +219,6 @@ class Grasp (Manifold):
 class EEPosture (Manifold):
     def __init__ (self, sotrobot, gripper, position):
         from dynamic_graph.sot.core import Task, GainAdaptive
-        from dynamic_graph import plug
 
         super(EEPosture, self).__init__()
         self.gripper = gripper

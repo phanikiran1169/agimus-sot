@@ -27,7 +27,7 @@ class Supervisor(object):
     def setupEvents (self):
         from dynamic_graph_hpp.sot import Event, CompareDouble
         from dynamic_graph.sot.core.operator import Norm_of_vector
-        from dynamic_graph.ros import RosImport
+        from dynamic_graph.ros import RosPublish
         self.norm = Norm_of_vector ("control_norm")
         plug (self.sotrobot.device.control, self.norm.sin)
 
@@ -40,11 +40,11 @@ class Supervisor(object):
         # self.sotrobot.device.after.addSignal (self.norm_event.check.name)
         self.sotrobot.device.after.addSignal ("control_norm_event.check")
 
-        self.norm_ri = RosImport ('ros_import_control_norm')
-        self.norm_ri.add ('double', 'event_control_norm', '/sot_hpp/control_norm_changed')
-        plug (self.norm.sout, self.norm_ri.event_control_norm)
-        # plug (self.norm_event.trigger, self.norm_ri.trigger)
-        self.norm_event.addSignal ("ros_import_control_norm.trigger")
+        self.ros_publish = RosPublish ('ros_publish_control_norm')
+        self.ros_publish.add ('double', 'event_control_norm', '/sot_hpp/control_norm_changed')
+        plug (self.norm.sout, self.ros_publish.event_control_norm)
+        # plug (self.norm_event.trigger, self.ros_publish.trigger)
+        self.norm_event.addSignal ("ros_publish_control_norm.trigger")
 
     def makeInitialSot (self):
         # Create the initial sot (keep)
@@ -100,6 +100,8 @@ class Supervisor(object):
         csot = self.sots[self.currentSot]
         nsot = self.sots[transitionName]
         t = self.sotrobot.device.control.time
+        # This is not safe since it would be run concurrently with the
+        # real time thread.
         csot.control.recompute(t)
         nsot.control.recompute(t)
         from numpy import array, linalg
@@ -133,9 +135,10 @@ class Supervisor(object):
             # TODO : Explanation and linked TODO in the function makeInitialSot
             self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         sot = self.sots[transitionName]
+        control = self._getControlSignal(sot)
         # Start reading queues
         self.readQueue(10)
-        plug(sot.control, self.sotrobot.device.control)
+        plug(control, self.sotrobot.device.control)
         print("Current sot:", transitionName, "\n", sot.display())
         self.currentSot = transitionName
 
@@ -145,7 +148,9 @@ class Supervisor(object):
             print("Running pre action", transitionName,
                     "\n", sot.display())
             t = self.sotrobot.device.control.time
-            sot.control.recompute(t-1)
+            # This is not safe since it would be run concurrently with the
+            # real time thread.
+            # sot.control.recompute(t-1)
             plug(sot.control, self.sotrobot.device.control)
             return
         print ("No pre action", transitionName)
@@ -158,13 +163,21 @@ class Supervisor(object):
                 print( "Running post action", self.currentSot, targetStateName,
                     "\n", sot.display())
                 t = self.sotrobot.device.control.time
-                sot.control.recompute(t-1)
+                # This is not safe since it would be run concurrently with the
+                # real time thread.
+                # sot.control.recompute(t-1)
                 plug(sot.control, self.sotrobot.device.control)
                 return
         print ("No post action", self.currentSot, targetStateName)
 
     def getJointList (self, prefix = ""):
         return [ prefix + n for n in self.sotrobot.dynamic.model.names[1:] ]
+
+    def _getControlSignal (self, sot):
+        if self.SoTtimers.has_key (sot.name):
+            return self.SoTtimers[sot.name].sout
+        else:
+            return sot.control
 
 def _handleHppJoint (n, t):
     type = t["type"]
