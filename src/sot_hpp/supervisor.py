@@ -100,6 +100,8 @@ class Supervisor(object):
         csot = self.sots[self.currentSot]
         nsot = self.sots[transitionName]
         t = self.sotrobot.device.control.time
+        # This is not safe since it would be run concurrently with the
+        # real time thread.
         csot.control.recompute(t)
         nsot.control.recompute(t)
         from numpy import array, linalg
@@ -146,7 +148,9 @@ class Supervisor(object):
             print("Running pre action", transitionName,
                     "\n", sot.display())
             t = self.sotrobot.device.control.time
-            sot.control.recompute(t-1)
+            # This is not safe since it would be run concurrently with the
+            # real time thread.
+            # sot.control.recompute(t-1)
             plug(sot.control, self.sotrobot.device.control)
             return
         print ("No pre action", transitionName)
@@ -159,7 +163,9 @@ class Supervisor(object):
                 print( "Running post action", self.currentSot, targetStateName,
                     "\n", sot.display())
                 t = self.sotrobot.device.control.time
-                sot.control.recompute(t-1)
+                # This is not safe since it would be run concurrently with the
+                # real time thread.
+                # sot.control.recompute(t-1)
                 plug(sot.control, self.sotrobot.device.control)
                 return
         print ("No post action", self.currentSot, targetStateName)
