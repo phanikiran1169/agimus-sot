@@ -20,6 +20,7 @@ class RosInterface(object):
         rospy.Service('/sot/clear_queues', Trigger, self.clearQueues)
         rospy.Service('/sot/read_queue', SetInt, self.readQueue)
         rospy.Service('/sot/stop_reading_queue', Empty, self.stopReadingQueue)
+        rospy.Service('/sot/publish_state', Empty, self.publishState)
         wait_for_service ("/run_command")
         self._runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor
@@ -125,6 +126,14 @@ class RosInterface(object):
             self.supervisor.stopReadingQueue ()
         else:
             cmd = "supervisor.stopReadingQueue()"
+            answer = self.runCommand (cmd)
+        return EmptyResponse ()
+
+    def publishState(self, req):
+        if self.supervisor is not None:
+            self.supervisor.publishState ()
+        else:
+            cmd = "supervisor.publishState()"
             answer = self.runCommand (cmd)
         return EmptyResponse ()
 
