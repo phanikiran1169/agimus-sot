@@ -184,7 +184,7 @@ class Supervisor(object):
             return
         from dynamic_graph.ros import RosPublish
         self.ros_publish_state = RosPublish ("ros_publish_state")
-        ros_publish_state.add ("vector", "state", "/sot_hpp/state")
+        self.ros_publish_state.add ("vector", "state", "/sot_hpp/state")
         plug (self.sotrobot.device.state, self.ros_publish_state.state)
         self.sotrobot.device.after.addDownsampledSignal ("ros_publish_state.trigger", 100)
 
