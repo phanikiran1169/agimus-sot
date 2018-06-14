@@ -95,3 +95,12 @@ SET(FILES
 FOREACH(F ${FILES})
     PYTHON_INSTALL_ON_SITE("sot_hpp" ${F})
 ENDFOREACH()
+
+SET(FILES
+  controllers.py
+  switch.py
+  __init__.py)
+
+FOREACH(F ${FILES})
+    PYTHON_INSTALL_ON_SITE("sot_hpp/control" ${F})
+ENDFOREACH()

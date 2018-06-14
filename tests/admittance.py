@@ -1,10 +1,7 @@
 from dynamic_graph import plug
 from dynamic_graph.sot.core.integrator_euler import IntegratorEulerVectorMatrix
-from dynamic_graph.sot.core.switch import SwitchVector
-from dynamic_graph.sot.core.latch import Latch
-from dynamic_graph.sot.core.event import Event
-from dynamic_graph.sot.core.operator import CompareDouble
 import dynamic_graph.sot.core as dgsc
+import sot_hpp.control.controllers as controllers
 import numpy as np
 from math import sqrt, pi
 
@@ -88,54 +85,29 @@ plug (theta2phi.sout  , phi2torque.sin)
 ### Feed-forward - non-contact phase
 # {{{
 
-PID  = IntegratorEulerVectorMatrix ("transfer_non_contact")
-
-# nc_z  = 0
-# nc_z  = sqrt(2)/2
-nc_z  = 1
-# nc_z  = 5
-# nc_wn = 0.1
-# nc_wn = 1.
-nc_wn = 10.
+# z  = 0
+# z  = sqrt(2)/2
+z  = 1
+# z  = 5
+# wn = 0.1
+# wn = 1.
+wn = 10.
 
 # the control reaches a precision of 5% at
-# nc_z = 1: t = - log(0.05) / nc_wn
-# nc_z < 1: t = - log(0.05 * sqrt(1-nc_z**2)) / (nc_z * nc_wn),
+# z = 1: t = - log(0.05) / wn
+# z < 1: t = - log(0.05 * sqrt(1-z**2)) / (z * wn),
 
 print "Non-contact phase - PID:"
-print " - z  =", nc_z
-print " - wn =", nc_wn
+print " - z  =", z
+print " - wn =", wn
 
-PID.pushNumCoef   (((nc_wn**2,),))
-PID.pushDenomCoef (((nc_wn**2,),))
-PID.pushDenomCoef (((2*nc_z*nc_wn,),))
-PID.pushDenomCoef (((1.,),))
-
-# PID.pushNumCoef   (((1.,),))
-# PID.pushDenomCoef (((1.,),))
-# PID.pushDenomCoef (((nc_tau,),))
-
-nc_feedforward = PID
-
-nc_feedforward.sin.value = (0,)
-nc_feedforward.initialize()
-nc_feedforward.setSamplingPeriod(dt)
-
-
-delta_theta = dgsc.Add_of_vector("delta_theta")
-delta_theta.setCoeff1( 1)
-# delta_theta.setCoeff2(-1)
-delta_theta.setCoeff2(0)
-delta_theta.sin1.value = (est_theta0,)
-
-plug(delta_theta.sout, nc_feedforward.sin)
+pos_control = controllers.secondOrderClosedLoop ("position_controller", wn, z, dt, (0,))
+pos_control.reference.value = (est_theta0,)
 
 # }}}
 
 ### Feed-forward - contact phase
 # {{{
-
-PD  = IntegratorEulerVectorMatrix ("PD")
 
 # dY/dt + Y = X
 # tau = 0.1
@@ -159,22 +131,8 @@ print " - alpha 0 =", alpha * k / denom
 print " - alpha 1 =", (1+alpha*d)/denom
 print " - alpha 2 =", 1
 
-PD.pushNumCoef   (((alpha,),))
-PD.pushDenomCoef (((1.,),))
-PD.pushDenomCoef (((tau,),))
-
-feedforward = PD
-
-feedforward.sin.value = (0,)
-feedforward.initialize()
-feedforward.setSamplingPeriod(dt)
-
-delta_torque = dgsc.Add_of_vector("delta_torque")
-delta_torque.setCoeff1( 1)
-delta_torque.setCoeff2(-1)
-
-plug(delta_torque.sout, feedforward.sin)
-# plug(feedforward.sout, omega2theta.sin)
+torque_controller = controllers.Controller ("torque_controller", (alpha,), (1., tau), dt, (0,))
+torque_controller.addFeedback()
 
 # }}}
 
@@ -201,27 +159,13 @@ input = constant
 ### Setup switch between the two control scheme
 # {{{
 
-# 1e-5 < measured_torque => torque control
-switch_condition = CompareDouble ("switch_condition")
-switch_condition.sin1.value = 1e-5
-switch_condition.sin2.value = 0
-# plug(phi2torque.sout, switch_condition.sin2)
+from sot_hpp.control.switch import ControllerSwitch
 
-# TODO: Needs only up
-switch_event = Event ("switch_event")
-switch_latch = Latch("switch_latch")
-switch_latch.turnOff()
+switch = ControllerSwitch ("controller_switch",
+        (pos_control.outputDerivative, torque_controller.output),
+        (1e-5,))
 
-switch_signals = SwitchVector ("switch_signals")
-switch_signals.setSignalNumber(2)
-plug(switch_condition.sout, switch_event.condition)
-plug(switch_latch.out , switch_signals.boolSelection)
-switch_event.check.recompute(0)
-switch_event.addSignal ("switch_latch.turnOnSout")
-
-plug(nc_feedforward.derivativesout, switch_signals.sin0)
-plug(   feedforward.          sout, switch_signals.sin1)
-plug(switch_signals.sout, omega2theta.sin)
+plug(switch.signalOut, omega2theta.sin)
 
 # }}}
 
@@ -255,34 +199,29 @@ for i in range(1,N):
             print "Assuming very small measured torque at", t, phi
             measured_torque = (1e-4,)
 
-    # if not torque_control and measured_torque[0] >= 1e-5:
-        # Switch to torque control
-        # print "Should switch to torque control at", t
-        # torque_control = True
-        # plug(feedforward.sout, omega2theta.sin)
+    if pos_control.hasFeedback:
+        pos_control.measurement.value = (theta,)
 
-    delta_theta.sin2.value = (theta,)
-    delta_torque.sin1.value = input_torque
-    delta_torque.sin2.value = measured_torque
-    switch_condition.sin2.value = measured_torque[0]
+    torque_controller.reference  .value = input_torque
+    torque_controller.measurement.value = measured_torque
+    switch.measurement.value = measured_torque
 
-    switch_event.check.recompute(t)
+    switch.event.check.recompute(t)
     phi2torque.sout.recompute(t);
 
-    if not torque_control and switch_latch.out.value == 1:
+    if not torque_control and switch.latch.out.value == 1:
         # Switch to torque control
         print "Switch to torque control at", t
         torque_control = True
-    elif torque_control and switch_latch.out.value == 0:
+    elif torque_control and switch.latch.out.value == 0:
         print "Switch to position control at", t
         torque_control = False
 
     ts     .append(t * dt)
-    conditions.append(switch_latch.out.value)
+    conditions.append(switch.latch.out.value)
     inputs .append(input_torque)
     omegas .append(omega2theta.sin.value[0])
     thetas .append(omega2theta.sout.value[0])
-    # torques.append(phi2torque .sout.value[0])
     torques.append(measured_torque)
 
     theta = omega2theta.sout.value[0]
