@@ -7,6 +7,11 @@ from dynamic_graph.sot.core.operator import CompareVector
 class ControllerSwitch:
     def __init__ (self,name,controllers,threshold,):
         """
+        Use controller 0 until the condition signal value becomes greater than threshold.
+        Then use controller 1. Manually switch between controller using the latch.
+        OFF means controller 0 and ON means controller 1.
+
+        Currently support only two controllers.
         - controllers: output signal of a controller
         """
         # 1e-5 < measured_torque => torque control

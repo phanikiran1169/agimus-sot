@@ -179,14 +179,16 @@ class Supervisor(object):
         else:
             return sot.control
 
-    def publishState (self, subsampling = 100):
+    def publishState (self, subsampling = 40):
         if hasattr (self, "ros_publish_state"):
             return
         from dynamic_graph.ros import RosPublish
         self.ros_publish_state = RosPublish ("ros_publish_state")
         self.ros_publish_state.add ("vector", "state", "/sot_hpp/state")
+        self.ros_publish_state.add ("vector", "reference_state", "/sot_hpp/reference_state")
         plug (self.sotrobot.device.state, self.ros_publish_state.state)
-        self.sotrobot.device.after.addDownsampledSignal ("ros_publish_state.trigger", 100)
+        plug (self.rosexport.posture, self.ros_publish_state.reference_state)
+        self.sotrobot.device.after.addDownsampledSignal ("ros_publish_state.trigger", subsampling)
 
 
 def _handleHppJoint (n, t):
