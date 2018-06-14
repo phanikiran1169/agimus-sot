@@ -68,8 +68,6 @@ SET(LIBRARY_NAME ${PROJECT_NAME})
 ADD_LIBRARY(${LIBRARY_NAME}
   SHARED
   holonomic-constraint.cc
-  ros_subscribe.cpp
-  sot_to_ros.cpp
   )
 
 PKG_CONFIG_USE_DEPENDENCY (${LIBRARY_NAME} dynamic-graph-python)
@@ -79,7 +77,7 @@ INSTALL(TARGETS ${LIBRARY_NAME}
   DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
   )
 
-SET(NEW_ENTITY_CLASS "RosQueuedSubscribe" "HolonomicConstraint")
+SET(NEW_ENTITY_CLASS "HolonomicConstraint")
 
 DYNAMIC_GRAPH_HPP_PYTHON_MODULE("sot" ${LIBRARY_NAME} wrap)
 FILE(WRITE ${CMAKE_CURRENT_BINARY_DIR}/dynamic_graph_hpp/__init__.py "")
