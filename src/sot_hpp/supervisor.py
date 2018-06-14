@@ -25,8 +25,8 @@ class Supervisor(object):
         self.currentSot = None
 
     def setupEvents (self):
-        from dynamic_graph_hpp.sot import Event, CompareDouble
-        from dynamic_graph.sot.core.operator import Norm_of_vector
+        from dynamic_graph.sot.core.operator import Norm_of_vector, CompareDouble
+        from dynamic_graph.sot.core.event import Event
         from dynamic_graph.ros import RosPublish
         self.norm = Norm_of_vector ("control_norm")
         plug (self.sotrobot.device.control, self.norm.sin)
