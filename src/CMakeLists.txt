@@ -68,6 +68,7 @@ SET(LIBRARY_NAME ${PROJECT_NAME})
 ADD_LIBRARY(${LIBRARY_NAME}
   SHARED
   holonomic-constraint.cc
+  delay.cc
   )
 
 PKG_CONFIG_USE_DEPENDENCY (${LIBRARY_NAME} dynamic-graph-python)
@@ -99,6 +100,7 @@ ENDFOREACH()
 SET(FILES
   controllers.py
   switch.py
+  gripper.py
   __init__.py)
 
 FOREACH(F ${FILES})
