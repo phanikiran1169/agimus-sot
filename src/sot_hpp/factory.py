@@ -157,6 +157,24 @@ class Factory(GraphFactoryAbstract):
         self.supervisor.preActions  = self.preActions
         self.supervisor.SoTtimers = self.timers
 
+        from dynamic_graph import plug
+        self.supervisor.sots_indexes = dict()
+        for tn,sot in self.sots.iteritems():
+            # Pre action
+            if self.preActions.has_key(tn):
+                pa_sot = self.preActions[tn]
+                self.supervisor.addSignalToSotSwitch (pa_sot.name, pa_sot.control)
+            # Action
+            if self.timers.has_key (sot.name):
+                self.supervisor.addSignalToSotSwitch (sot.name, self.timers[sot.name].sout)
+            else:
+                self.supervisor.addSignalToSotSwitch (sot.name, sot.control)
+            # Post action
+            if self.postActions.has_key(tn):
+                d = self.postActions[tn]
+                for targetState, pa_sot in d.iteritems():
+                    self.supervisor.addSignalToSotSwitch (pa_sot.name, pa_sot.control)
+
     def setupFrames (self, srdfGrippers, srdfHandles, sotrobot):
         self.sotrobot = sotrobot
 

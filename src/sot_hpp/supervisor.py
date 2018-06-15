@@ -23,6 +23,9 @@ class Supervisor(object):
         self.hpTasks = hpTasks if hpTasks is not None else _hpTasks(sotrobot)
         self.lpTasks = lpTasks if lpTasks is not None else _lpTasks(sotrobot)
         self.currentSot = None
+        from dynamic_graph.sot.core.switch import SwitchVector
+        self.sot_switch = SwitchVector ("sot_supervisor_switch")
+        plug(self.sot_switch.sout, self.sotrobot.device.control)
 
     def setupEvents (self):
         from dynamic_graph.sot.core.operator import Norm_of_vector, CompareDouble
@@ -71,7 +74,17 @@ class Supervisor(object):
         self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         
         self.keep_posture.pushTo(sot)
-        self.sots[""] = sot
+        self.addSot ("", sot, sot.control)
+
+    def addSot (self, name, sot, controlSignal):
+        self.sots[name] = sot
+        self.addSignalToSotSwitch (sot.name, controlSignal)
+
+    def addSignalToSotSwitch (self, name, controlSignal):
+        n = self.sot_switch.getSignalNumber()
+        self.sot_switch.setSignalNumber(n+1)
+        self.sots_indexes[name] = n
+        plug (controlSignal, self.sot_switch.signal("sin" + str(n)))
 
     def topics (self):
         c = self.hpTasks + self.lpTasks
@@ -135,10 +148,10 @@ class Supervisor(object):
             # TODO : Explanation and linked TODO in the function makeInitialSot
             self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         sot = self.sots[transitionName]
-        control = self._getControlSignal(sot)
+        n = self.sots_indexes[sot.name]
         # Start reading queues
         self.readQueue(10)
-        plug(control, self.sotrobot.device.control)
+        self.sot_switch.selection.value = n
         print("Current sot:", transitionName, "\n", sot.display())
         self.currentSot = transitionName
 
@@ -147,11 +160,12 @@ class Supervisor(object):
             sot = self.preActions[transitionName]
             print("Running pre action", transitionName,
                     "\n", sot.display())
-            t = self.sotrobot.device.control.time
+            # t = self.sotrobot.device.control.time
             # This is not safe since it would be run concurrently with the
             # real time thread.
             # sot.control.recompute(t-1)
-            plug(sot.control, self.sotrobot.device.control)
+            n = self.sots_indexes[sot.name]
+            self.sot_switch.selection.value = n
             return
         print ("No pre action", transitionName)
 
@@ -162,22 +176,17 @@ class Supervisor(object):
                 sot = d[targetStateName]
                 print( "Running post action", self.currentSot, targetStateName,
                     "\n", sot.display())
-                t = self.sotrobot.device.control.time
+                # t = self.sotrobot.device.control.time
                 # This is not safe since it would be run concurrently with the
                 # real time thread.
                 # sot.control.recompute(t-1)
-                plug(sot.control, self.sotrobot.device.control)
+                n = self.sots_indexes[sot.name]
+                self.sot_switch.selection.value = n
                 return
         print ("No post action", self.currentSot, targetStateName)
 
     def getJointList (self, prefix = ""):
         return [ prefix + n for n in self.sotrobot.dynamic.model.names[1:] ]
-
-    def _getControlSignal (self, sot):
-        if self.SoTtimers.has_key (sot.name):
-            return self.SoTtimers[sot.name].sout
-        else:
-            return sot.control
 
     def publishState (self, subsampling = 40):
         if hasattr (self, "ros_publish_state"):
