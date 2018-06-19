@@ -3,10 +3,15 @@ from tools import Manifold, Grasp, OpFrame, EEPosture
 from dynamic_graph.sot.core import SOT
 
 class Affordance(object):
-    def __init__ (self, gripper, handle, **kwargs):
+    def __init__ (self, gripper, handle, openControlType, closeControlType,
+            refs, controlParams = {}, simuParams = {}):
         self.gripper = gripper
         self.handle  = handle
-        self.setControl (**kwargs)
+        self.controlType = { "open": openControlType, "close": closeControlType, }
+        self.ref = refs
+        self.controlParams = {}
+        self.simuParams = {}
+
     def setControl (self, refOpen, refClose, openType = "position", closeType="position"):
         if openType != "position" or closeType != "position":
             raise NotImplementedError ("Only position control is implemented for gripper opening/closure.")
@@ -15,9 +20,49 @@ class Affordance(object):
                 "close": closeType,
                 }
         self.ref = {
-                "open": refOpen,
-                "close": refClose,
+                "angle_open": refOpen,
+                "angle_close": refClose,
                 }
+
+    def getControlParameter (self):
+        wn    = self.controlParams.get("wn",    10.)
+        z     = self.controlParams.get("z",     1. )
+        alpha = self.controlParams.get("alpha", 1. )
+        tau   = self.controlParams.get("tau",   1. )
+        return wn, z, alpha, tau
+
+    def getSimulationParameters (self):
+        mass    = self.simuParams.get("mass"   , 0.)
+        damping = self.simuParams.get("damping", 5. )
+        spring  = self.simuParams.get("spring" , 100. )
+        refPos  = self.simuParams.get("refPos" , self.ref["angle_close"] )
+        return mass,damping,spring,refPos
+
+    def makePositionAndTorqueControl (self,type,period,simulateTorqueFeedback=False):
+        from sot_hpp.control.gripper import AdmittanceControl
+        # type = "open" or "close"
+        desired_torque = self.ref["torque"]
+        theta_open = self.ref["angle_open"]
+        estimated_theta_close = self.ref["angle_close"]
+        threshold_up = tuple([ x / 10. for x in desired_torque ])
+        threshold_down = tuple([ x / 100. for x in desired_torque ])
+        wn, z, alpha, tau, = self.getControlParameter ()
+
+        ac = AdmittanceControl ("controller_" + self.gripper + "_" + str(self.handle) + "_" + type,
+                theta_open, estimated_theta_close,
+                desired_torque, period,
+                threshold_up, threshold_down,
+                wn, z, alpha, tau,)
+        if simulateTorqueFeedback:
+            M,d,k,x0 = self.getSimulationParameters()
+            ac.setupFeedbackSimulation(M,d,k,x0)
+        if type=="open":
+            ac.setGripperOpen  ()
+        elif type=="close":
+            ac.setGripperClosed()
+        else:
+            raise ValueError ("Type should be either 'open' or 'closed'")
+        return ac
 
 class TaskFactory(ConstraintFactoryAbstract):
     gfields = ('grasp', 'pregrasp', 'gripper_open', 'gripper_close')
@@ -35,9 +80,26 @@ class TaskFactory(ConstraintFactoryAbstract):
         gf = self.graphfactory
         robot = gf.sotrobot
         if aff.controlType[type] == "position":
-            return EEPosture (robot, gf.gripperFrames[gripper], aff.ref[type])
+            return EEPosture (robot, gf.gripperFrames[gripper], aff.ref["angle_"+type])
+        elif aff.controlType[type] == "torque":
+            raise NotImplementedError ("Torque control alone is not implemented for gripper.")
+        elif aff.controlType[type] == "position_torque":
+            ac = aff.makePositionAndTorqueControl (type,
+                    period = gf.parameters["period"],
+                    simulateTorqueFeedback = gf.parameters.get("simulateTorqueFeedback",False))
+            if gf.parameters["addTracerToAdmittanceController"]:
+                tracer = ac.addTracerRealTime (robot)
+                gf.tracers[tracer.name] = tracer
+            jointNames = gf.gripperFrames[aff.gripper].joints
+            ac.connectToRobot ( robot, jointNames,
+                    # TODO Indicate whether we should use current
+                    # gf.gripperFrames[aff.gripper].currents
+                    )
+            gf.controllers[ac.name] = ac
+            from functools import partial
+            return Manifold (initial_control = [partial(ac.addOutputTo,robot,jointNames),])
         else:
-            raise NotImplementedError ("Only position control is implemented for gripper closure.")
+            raise NotImplementedError ("Control type " + type + " is not implemented for gripper.")
 
     def buildGrasp (self, g, h, otherGrasp=None):
         gf = self.graphfactory
@@ -116,36 +178,49 @@ class Factory(GraphFactoryAbstract):
         self.preActions = dict()
 
         self.timers = {}
+        self.tracers = {}
+        self.controllers = {}
         self.supervisor = supervisor
 
-        self.addTimerToSotControl = False
+        ## Accepted parameters:
+        ## - period: [double, no default]
+        ##           Time interval between two iterations of the graph.
+        ## - simulateTorqueFeedback: [boolean, False]
+        ##                           do not use torque feedback from the robot
+        ##                           but simulate it instead.
+        self.parameters = {
+                "addTracerToAdmittanceController": False,
+                "addTimerToSotControl": False,
+                "simulateTorqueFeedback": False,
+                }
 
     def _newSoT (self, name):
         sot = SOT (name)
         sot.setSize(self.sotrobot.dynamic.getDimension())
         sot.damping.value = 0.001
 
-        if self.addTimerToSotControl:
+        if self.parameters["addTimerToSotControl"]:
             from .tools import insertTimerOnOutput
             self.timers[name] = insertTimerOnOutput (sot.control, "vector")
             self.SoTtracer.add (self.timers[name].name + ".timer", str(len(self.timerIds)) + ".timer")
             self.timerIds.append(name)
         return sot
 
-    def addAffordance (self, aff):
+    def addAffordance (self, aff, simulateTorqueFeedback = False):
         assert isinstance(aff, Affordance)
         self.affordances [(aff.gripper, aff.handle)] = aff
 
     def generate (self):
-        if self.addTimerToSotControl:
+        if self.parameters["addTimerToSotControl"]:
             # init tracer
             from dynamic_graph.tracer_real_time import TracerRealTime
-            self.SoTtracer = TracerRealTime ("tracer_of_timers")
+            SoTtracer = TracerRealTime ("tracer_of_timers")
+            self.tracers[SoTtracer.name] = SoTtracer
             self.timerIds = []
-            self.SoTtracer.setBufferSize (10 * 1048576) # 10 Mo
-            self.SoTtracer.open ("/tmp", "sot-control-trace", ".txt")
+            SoTtracer.setBufferSize (10 * 1048576) # 10 Mo
+            SoTtracer.open ("/tmp", "sot-control-trace", ".txt")
             self.sotrobot.device.after.addSignal("tracer_of_timers.triger")
-            self.supervisor.SoTtracer = self.SoTtracer
+            self.supervisor.SoTtracer = SoTtracer
             self.supervisor.SoTtimerIds = self.timerIds
         super(Factory, self).generate ()
 
@@ -156,6 +231,8 @@ class Factory(GraphFactoryAbstract):
         self.supervisor.postActions = self.postActions
         self.supervisor.preActions  = self.preActions
         self.supervisor.SoTtimers = self.timers
+        self.supervisor.tracers = self.tracers
+        self.supervisor.controllers = self.controllers
 
         from dynamic_graph import plug
         self.supervisor.sots_indexes = dict()
@@ -183,6 +260,20 @@ class Factory(GraphFactoryAbstract):
 
         self.gripperFrames = { g: OpFrame(srdfGrippers[g], sotrobot.dynamic.model) for g in self.grippers }
         self.handleFrames  = { h: OpFrame(srdfHandles [h]                        ) for h in self.handles  }
+
+        # Compute the DoF which should not be affected by the
+        # task not related to end-effectors.
+        gripper_joints = []
+        self.admittance_controllers = {}
+        for g,gripper in self.gripperFrames.iteritems():
+            try:
+                gripper_joints += gripper.joints
+            except:
+                print "Gripper", gripper.name, "has not joints. Cannot be controlled."
+        from .tools import computeControlSelection
+        self.dof_selection = computeControlSelection (sotrobot,gripper_joints)
+        self.hpTasks.setControlSelection (self.dof_selection)
+        self.lpTasks.setControlSelection (self.dof_selection)
 
     def makeState (self, grasps, priority):
         # Nothing to do here
