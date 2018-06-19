@@ -42,10 +42,24 @@ class Controller:
             return self.function.sin
 
     @property
+    def referenceName (self):
+        """ input signal """
+        if self.ref_m_meas is not None:
+            return self.ref_m_meas.name + ".sin1"
+        else:
+            return self.function.name + ".sin"
+
+    @property
     def measurement (self):
         """ input signal """
         assert self.ref_m_meas is not None
         return self.ref_m_meas.sin2
+
+    @property
+    def measurementName (self):
+        """ input signal """
+        assert self.ref_m_meas is not None
+        return self.ref_m_meas.name + ".sin2"
 
     @property
     def output (self): return self.function.sout

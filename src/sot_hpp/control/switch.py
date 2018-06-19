@@ -5,7 +5,7 @@ from dynamic_graph.sot.core.event import Event
 from dynamic_graph.sot.core.operator import CompareVector
 
 class ControllerSwitch:
-    def __init__ (self,name,controllers,threshold,):
+    def __init__ (self,name,controllers,threshold_up,threshold_down):
         """
         Use controller 0 until the condition signal value becomes greater than threshold.
         Then use controller 1. Manually switch between controller using the latch.
@@ -14,44 +14,75 @@ class ControllerSwitch:
         Currently support only two controllers.
         - controllers: output signal of a controller
         """
-        # 1e-5 < measured_torque => torque control
-        self._condition = CompareVector (name + "_condition")
-        self._condition.setTrueIfAny(True)
-        self._condition.sin1.value = threshold
-        self._condition.sin2.value = threshold
+        self.reverse = (threshold_up < threshold_down)
 
-        self._event = Event (name + "_event")
+        # any(threshold_up < measured_torque) => torque control
+        self._condition_up = CompareVector (name + "_condition_up")
+        self._condition_up.setTrueIfAny(True)
+        self._condition_up.sin1.value = threshold_up
+        self._condition_up.sin2.value = threshold_up
+
+        # all(measured_torque < threshold_down) => position control
+        self._condition_down = CompareVector (name + "_condition_down")
+        self._condition_down.setTrueIfAny(False)
+        self._condition_down.sin1.value = threshold_down
+        self._condition_down.sin2.value = threshold_down
+
+        self._event_up   = Event (name + "_event_up")
+        self._event_down = Event (name + "_event_down")
+        self._event_up   .setOnlyUp(True);
+        self._event_down .setOnlyUp(True);
         self._latch = Latch(name + "_latch")
         self._latch.turnOff()
 
         self._switch = SwitchVector (name + "_switch")
         self._switch.setSignalNumber(len(controllers))
 
-        plug(self._condition.sout, self._event.condition)
+        plug(self._condition_up  .sout, self._event_up  .condition)
+        plug(self._condition_down.sout, self._event_down.condition)
         plug(self._latch.out , self._switch.boolSelection)
 
         # This is necessary to initialize the event (the first recompute triggers the event...)
-        self._event.check.recompute(0)
-        self._event.addSignal (name + "_latch.turnOnSout")
+        self._event_up.check.recompute(0)
+        self._event_down.check.recompute(0)
+        self._event_up  .addSignal (name + "_latch.turnOnSout")
+        self._event_down.addSignal (name + "_latch.turnOffSout")
 
         for n, sig in enumerate(controllers):
             plug(sig, self.signalIn(n))
 
+    def setMeasurement (self,sig):
+        if self.reverse:
+            plug(sig, self._condition_up  .sin1)
+            plug(sig, self._condition_down.sin2)
+        else:
+            plug(sig, self._condition_up  .sin2)
+            plug(sig, self._condition_down.sin1)
     @property
-    def measurement (self): return self._condition.sin2
+    def thresholdUp   (self):
+        if self.reverse:
+            return self._condition_up  .sin2
+        else:
+            return self._condition_up  .sin1
     @property
-    def threshold (self): return self._condition.sin1
-    @property
-    def threshold (self): return self._condition.sin1
+    def thresholdDown (self):
+        if self.reverse:
+            return self._condition_down.sin1
+        else:
+            return self._condition_down.sin2
     @property
     def signalOut (self): return self._switch.sout
 
     def signalIn (self, n): return self._switch.signal("sin" + str(n))
 
     @property
-    def condition (self): return self._condition
+    def conditionUp   (self): return self._condition_up
     @property
-    def event (self): return self._event
+    def conditionDown (self): return self._condition_down
+    @property
+    def eventUp   (self): return self._event_up
+    @property
+    def eventDown (self): return self._event_down
     @property
     def latch (self): return self._latch
     @property
