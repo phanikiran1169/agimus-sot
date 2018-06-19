@@ -171,6 +171,68 @@ class AdmittanceControl:
         self.setCurrentConditionIn (delay.current)
         plug (delay.previous, self.currentTorqueIn)
 
+    def connectToRobot (self, robot, jointNames, currents = True):
+        # Input formattting
+        from dynamic_graph.sot.core.operator import Selec_of_vector
+        self. _joint_selec = Selec_of_vector (self.name + "_joint_selec")
+        self._torque_selec = Selec_of_vector (self.name + "_torque_selec")
+        model = robot.dynamic.model
+        for jn in jointNames:
+            jid = model.getJointId (jn)
+            assert jid < len(model.joints)
+            jmodel = model.joints[jid]
+            self. _joint_selec.addSelec (jmodel.idx_v,jmodel.idx_v + jmodel.nv)
+            self._torque_selec.addSelec (jmodel.idx_v,jmodel.idx_v + jmodel.nv)
+        plug (robot.dynamic.position, self. _joint_selec.sin)
+        plug (self. _joint_selec.sout, self.currentPositionIn)
+        if currents:
+            from dynamic_graph.sot.core.operator import Multiply_double_vector
+            plug (robot.device.currents, self._torque_selec.sin)
+            self._multiply_by_torque_constant = Multiply_double_vector (self.name + "_multiply_by_torque_constant")
+            self._multiply_by_torque_constant.sin1.value = 1.
+            plug (self._torque_selec.sout, self._multiply_by_torque_constant.sin2)
+            plug (self._multiply_by_torque_constant.sout, self.currentTorqueIn)
+        else:
+            assert False, "Not implemented yet as I do not know what signal gives the torque."
+
+    def addOutputTo (self, robot, jointNames, mix_of_vector, sot=None):
+        #TODO assert isinstance(mix_of_vector, Mix_of_vector)
+        print "Add initial control to ", sot.name, "for ", self.name
+        i = mix_of_vector.getSignalNumber()
+        mix_of_vector.setSignalNumber(i+1)
+        plug (self.output, mix_of_vector.signal("sin"+str(i)))
+        model = robot.dynamic.model
+        for jn in jointNames:
+            jid = model.getJointId (jn)
+            jmodel = model.joints[jid]
+            mix_of_vector.addSelec(i, jmodel.idx_v, jmodel.nv)
+
+    def addTracerRealTime (self, robot):
+        from dynamic_graph.tracer_real_time import TracerRealTime
+        from sot_hpp.tools import slugify
+        self._tracer = TracerRealTime (self.name + "_tracer")
+        self._tracer.setBufferSize (10 * 1048576) # 10 Mo
+        self._tracer.open ("/tmp", "aa", ".txt")
+
+        self._tracer.add (self.switch.latch.name + ".out",     # torque control activated ?
+                slugify(self.name + "_torque_control_activated"))
+        self._tracer.add (self.switch._switch.name + ".sout",               # omega
+                slugify(self.name + "_omega"))
+        # self._tracer.add (self.omega2theta.output) # theta
+        # self._tracer.add (self.theta2phi.sout)     # phi
+        self._tracer.add (self.torque_controller.referenceName,    # Reference torque
+                slugify(self.name + "_reference_torque"))
+        self._tracer.add (self.torque_controller.measurementName,    # Measured torque
+                slugify(self.name + "_measured_torque"))
+        # self._tracer.add (self.currentConditionIn.name,   # Measured torque
+                # slugify(self.name + "_"))
+
+        # self._tracer.add (self.switch._condition_up.sout)
+        # self._tracer.add (self.switch._condition_down.sout)
+        robot.device.after.addSignal(self._tracer.name + ".triger")
+        return self._tracer
+
+
     @property
     def output (self):
         return self.switch.signalOut
@@ -201,5 +263,13 @@ class AdmittanceControl:
     @property
     def switchEventToPositionCheck (self):
         return self.switch.eventDown.check
+
+    @property
+    def torqueConstant (self):
+        return self._multiply_by_torque_constant.sin1
+
+    @property
+    def robotVelocityOut (self):
+        return self._to_robot_velocity.sout
 
 # vim: set foldmethod=indent
