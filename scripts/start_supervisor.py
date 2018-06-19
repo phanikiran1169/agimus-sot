@@ -5,10 +5,11 @@ def usage():
     print ("Usage: " + sys.argv[0] + " --input script.py [--prefix prefix]")
     sys.exit(1)
 
-opts, args = getopt.getopt (sys.argv[1:], "i:p:", ["input=", "prefix="])
+opts, args = getopt.getopt (sys.argv[1:], "i:p:s", ["input=", "prefix=","simulate-torque-feedback"])
 
 f = None
 prefix = ""
+simulateTorqueFeedbackForEndEffector=False
 for opt, arg in opts:
     if opt == "-i" or opt == "--input":
         from os.path import isfile
@@ -17,6 +18,8 @@ for opt, arg in opts:
         f = arg
     elif opt == "-p" or opt == "--prefix":
         prefix = arg
+    elif opt == "-s" or opt == "--simulate-torque-feedback":
+        simulateTorqueFeedbackForEndEffector=True
     else:
         usage()
 
@@ -83,7 +86,8 @@ try:
     runCommandClient = rospy.ServiceProxy('/run_command', RunCommand)
     runCommandStartDynamicGraph = rospy.ServiceProxy('/start_dynamic_graph', Empty)
 
-    initCode = open( f, "r").read().split("\n")
+    initCode = ["simulateTorqueFeedbackForEndEffector = "+str(simulateTorqueFeedbackForEndEffector),] \
+            + open( f, "r").read().split("\n")
 
     rospy.loginfo("Stack of Tasks launched")
 
