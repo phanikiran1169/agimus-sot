@@ -209,23 +209,23 @@ class AdmittanceControl:
 
     def addTracerRealTime (self, robot):
         from dynamic_graph.tracer_real_time import TracerRealTime
-        from sot_hpp.tools import slugify
+        from sot_hpp.tools import filename_escape
         self._tracer = TracerRealTime (self.name + "_tracer")
         self._tracer.setBufferSize (10 * 1048576) # 10 Mo
         self._tracer.open ("/tmp", "aa", ".txt")
 
         self._tracer.add (self.switch.latch.name + ".out",     # torque control activated ?
-                slugify(self.name + "_torque_control_activated"))
+                filename_escape(self.name + "_torque_control_activated"))
         self._tracer.add (self.switch._switch.name + ".sout",               # omega
-                slugify(self.name + "_omega"))
+                filename_escape(self.name + "_omega"))
         # self._tracer.add (self.omega2theta.output) # theta
         # self._tracer.add (self.theta2phi.sout)     # phi
         self._tracer.add (self.torque_controller.referenceName,    # Reference torque
-                slugify(self.name + "_reference_torque"))
+                filename_escape(self.name + "_reference_torque"))
         self._tracer.add (self.torque_controller.measurementName,    # Measured torque
-                slugify(self.name + "_measured_torque"))
+                filename_escape(self.name + "_measured_torque"))
         # self._tracer.add (self.currentConditionIn.name,   # Measured torque
-                # slugify(self.name + "_"))
+                # filename_escape(self.name + "_"))
 
         # self._tracer.add (self.switch._condition_up.sout)
         # self._tracer.add (self.switch._condition_down.sout)
