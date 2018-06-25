@@ -26,7 +26,9 @@ def _read_position (xml):
     positionsTag = xml.findall('position')
     if len(positionsTag) != 1:
         raise ValueError ("Gripper needs exactly one tag position")
-    return tuple ([ float(x) for x in positionsTag[0].text.split() ])
+    xyz_wxyz = [ float(x) for x in positionsTag[0].text.split() ]
+    xyz_xyzw = xyz_wxyz[0:3] + xyz_wxyz[4:7] + xyz_wxyz[3:4]
+    return tuple (xyz_xyzw)
 
 def _read_link (xml):
     linksTag = xml.findall('link')

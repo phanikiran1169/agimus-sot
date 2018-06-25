@@ -155,7 +155,7 @@ class RosInterface(object):
         for n, t in topics.items():
             for k in ['hppjoint', 'hppcom']:
                 if t.has_key(k):
-                    kk = k if t["velocity"] else ("vel_" + k)
+                    kk = k if not t["velocity"] else ("vel_" + k)
                     handlers[kk] (t[k])
                     rospy.loginfo("Requested " + kk + " " + t[k])
         return TriggerResponse (True, "ok")

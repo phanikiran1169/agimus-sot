@@ -197,7 +197,6 @@ class AdmittanceControl:
 
     def addOutputTo (self, robot, jointNames, mix_of_vector, sot=None):
         #TODO assert isinstance(mix_of_vector, Mix_of_vector)
-        print "Add initial control to ", sot.name, "for ", self.name
         i = mix_of_vector.getSignalNumber()
         mix_of_vector.setSignalNumber(i+1)
         plug (self.output, mix_of_vector.signal("sin"+str(i)))
