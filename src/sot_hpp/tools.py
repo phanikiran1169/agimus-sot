@@ -269,9 +269,6 @@ class PreGrasp (Manifold):
                         "signalGetters": [ self._signalJointPlannningPose ] },
                     }
 
-        print self.topics
-        # print self.gripper.pose
-
         plug(self.gripper_desired_pose.sout, self.graspTask.featureDes.position)
 
         self.graspTask.feature.selec.value = "111111"
@@ -296,8 +293,8 @@ class Grasp (Manifold):
         # not articulated.
         self.relative = (otherGraspOnObject is not None)
         if self.relative:
-            self.otherGripper = otherGraspOnObject.gripper
-            self.otherHandle = otherGraspOnObject.handle
+            self.otherGripper = otherGraspOnObject[0]
+            self.otherHandle = otherGraspOnObject[1]
 
     def makeTasks(self, sotrobot):
         if self.relative:

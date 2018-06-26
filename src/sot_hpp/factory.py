@@ -112,9 +112,9 @@ class TaskFactory(ConstraintFactoryAbstract):
             # TODO If otherGrasp is not None,
             # we should include the grasp function of otherGrasp, not pregrasp function...
             if otherGrasp is not None:
-                print "using", self.g(otherGrasp.gripper.key,otherGrasp.handle.key,"pregrasp").tasks[0].name
+                print "using", self.g(otherGrasp[0].key,otherGrasp[1].key,"pregrasp").tasks[0].name
             return { 'grasp': Manifold(),
-                     'pregrasp': Manifold() if otherGrasp is None else self.g(otherGrasp.gripper.key,otherGrasp.handle.key,"pregrasp"),
+                     'pregrasp': Manifold() if otherGrasp is None else self.g(otherGrasp[0].key,otherGrasp[1].key,"pregrasp"),
                      'gripper_close': Manifold() }
 
         gripper_close  = self._buildGripper ("close", g, h)
@@ -139,8 +139,8 @@ class TaskFactory(ConstraintFactoryAbstract):
         if isinstance(handle, str): ih = self.graphfactory.handles.index(handle)
         else: ih = handle
         if otherGrasp is not None:
-            otherIg = self.graphfactory.grippers.index(otherGrasp.gripper.key)
-            otherIh = self.graphfactory.handles.index(otherGrasp.handle.key)
+            otherIg = self.graphfactory.grippers.index(otherGrasp[0].key)
+            otherIh = self.graphfactory.handles.index(otherGrasp[1].key)
             k = (ig, ih, otherIg, otherIh)
         else:
             k = (ig, ih)
@@ -163,15 +163,17 @@ class Factory(GraphFactoryAbstract):
             self.grasps = grasps
             self.manifold = Manifold()
 
-            objectsAlreadyGrasped = {}
+            self.objectsAlreadyGrasped = {}
             
             for ig, ih in enumerate(grasps):
                 if ih is not None:
                     # Add task gripper_close
                     self.manifold += tasks.g (factory.grippers[ig], factory.handles[ih], 'gripper_close')
-                    otherGrasp = objectsAlreadyGrasped.get(factory.objectFromHandle[ih])
+                    otherGrasp = self.objectsAlreadyGrasped.get(factory.objectFromHandle[ih])
                     self.manifold += tasks.g (factory.grippers[ig], factory.handles[ih], 'grasp', otherGrasp)
-                    objectsAlreadyGrasped[factory.objectFromHandle[ih]] = tasks.g (factory.grippers[ig], factory.handles[ih], 'grasp', otherGrasp)
+                    self.objectsAlreadyGrasped[factory.objectFromHandle[ih]] = (
+                            factory.gripperFrames[factory.grippers[ig]],
+                            factory. handleFrames[factory.handles[ih]],)
                 else:
                     # Add task gripper_open
                     self.manifold += tasks.g (factory.grippers[ig], None, 'gripper_open')
@@ -286,6 +288,7 @@ class Factory(GraphFactoryAbstract):
             except:
                 print "Gripper", gripper.name, "has not joints. Cannot be controlled."
         from .tools import computeControlSelection
+        # print "Remove gripper_joints from solvers", gripper_joints
         self.dof_selection = computeControlSelection (sotrobot,gripper_joints)
         self.hpTasks.setControlSelection (self.dof_selection)
         self.lpTasks.setControlSelection (self.dof_selection)
