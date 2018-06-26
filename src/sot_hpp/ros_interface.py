@@ -40,7 +40,7 @@ class RosInterface(object):
         rsp = PlugSotResponse()
         if self.supervisor is not None:
             try:
-                self.supervisor.runPreAction(req.transition_name)
+                success = self.supervisor.runPreAction(req.transition_name)
             except Exception as e:
                 rospy.logerr(str(e))
                 rsp.success = False
@@ -52,7 +52,10 @@ class RosInterface(object):
                 rsp.success = False
                 rsp.msg = answer.standarderror
                 return rsp
-        rsp.success = True
+            else:
+                success = bool (answer.result)
+        rsp.success = success
+        rsp.msg = "Successfully called supervisor."
         return rsp
 
     def plugSot (self, req):
@@ -78,7 +81,7 @@ class RosInterface(object):
         rsp = PlugSotResponse()
         if self.supervisor is not None:
             try:
-                self.supervisor.runPostAction(req.transition_name)
+                success = self.supervisor.runPostAction(req.transition_name)
             except Exception as e:
                 rospy.logerr(str(e))
                 rsp.success = False
@@ -90,7 +93,10 @@ class RosInterface(object):
                 rsp.success = False
                 rsp.msg = answer.standarderror
                 return rsp
-        rsp.success = True
+            else:
+                success = bool (answer.result)
+        rsp.success = success
+        rsp.msg = "Successfully called supervisor."
         return rsp
 
     def setupHppJoints(self, prefix = ""):

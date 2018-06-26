@@ -163,8 +163,9 @@ class Supervisor(object):
             # sot.control.recompute(t-1)
             n = self.sots_indexes[sot.name]
             self.sot_switch.selection.value = n
-            return
+            return True
         print ("No pre action", transitionName)
+        return False
 
     def runPostAction(self, targetStateName):
         if self.postActions.has_key(self.currentSot):
@@ -179,8 +180,9 @@ class Supervisor(object):
                 # sot.control.recompute(t-1)
                 n = self.sots_indexes[sot.name]
                 self.sot_switch.selection.value = n
-                return
+                return True
         print ("No post action", self.currentSot, targetStateName)
+        return False
 
     def getJointList (self, prefix = ""):
         return [ prefix + n for n in self.sotrobot.dynamic.model.names[1:] ]
