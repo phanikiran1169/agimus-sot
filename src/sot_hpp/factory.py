@@ -1,5 +1,5 @@
 from hpp.corbaserver.manipulation.constraint_graph_factory import ConstraintFactoryAbstract, GraphFactoryAbstract
-from tools import Manifold, Grasp, OpFrame, EEPosture
+from tools import Manifold, Grasp, PreGrasp, OpFrame, EEPosture
 from dynamic_graph.sot.core import SOT
 
 class Affordance(object):
@@ -104,15 +104,24 @@ class TaskFactory(ConstraintFactoryAbstract):
     def buildGrasp (self, g, h, otherGrasp=None):
         gf = self.graphfactory
         if h is None:
+            if g in gf.disabledGrippers:
+                return { 'gripper_open': Manifold() }
             gripper_open = self._buildGripper ("open", g, h)
             return { 'gripper_open': gripper_open }
+        if g in gf.disabledGrippers:
+            # TODO If otherGrasp is not None,
+            # we should include the grasp function of otherGrasp, not pregrasp function...
+            if otherGrasp is not None:
+                print "using", self.g(otherGrasp.gripper.key,otherGrasp.handle.key,"pregrasp").tasks[0].name
+            return { 'grasp': Manifold(),
+                     'pregrasp': Manifold() if otherGrasp is None else self.g(otherGrasp.gripper.key,otherGrasp.handle.key,"pregrasp"),
+                     'gripper_close': Manifold() }
 
         gripper_close  = self._buildGripper ("close", g, h)
-        pregrasp = Grasp (gf.gripperFrames [g],
-                          gf.handleFrames [h],
-                          otherGrasp,
-                          False)
-        pregrasp.makeTasks (gf.sotrobot)
+        pregrasp = PreGrasp (gf.gripperFrames [g],
+                             gf.handleFrames [h],
+                             otherGrasp)
+        pregrasp.makeTasks (gf.sotrobot, gf.parameters["useMeasurementOfObjectsPose"])
         grasp = Grasp (gf.gripperFrames [g],
                        gf.handleFrames [h],
                        otherGrasp,
@@ -121,7 +130,7 @@ class TaskFactory(ConstraintFactoryAbstract):
         return { 'grasp': grasp,
                  'pregrasp': pregrasp,
                  'gripper_close': gripper_close }
-    
+
     ## \name Accessors to the different elementary constraints
     # \{
     def getGrasp(self, gripper, handle, otherGrasp=None):
@@ -180,6 +189,7 @@ class Factory(GraphFactoryAbstract):
         self.timers = {}
         self.tracers = {}
         self.controllers = {}
+        self.disabledGrippers = []
         self.supervisor = supervisor
 
         ## Accepted parameters:
@@ -188,11 +198,17 @@ class Factory(GraphFactoryAbstract):
         ## - simulateTorqueFeedback: [boolean, False]
         ##                           do not use torque feedback from the robot
         ##                           but simulate it instead.
+        ## - useMeasurementOfObjectsPose: [boolean, False]
+        ##                                whether SoT should use tf_listener to get the real position of objects.
         self.parameters = {
                 "addTracerToAdmittanceController": False,
                 "addTimerToSotControl": False,
                 "simulateTorqueFeedback": False,
+                "useMeasurementOfObjectsPose": False,
                 }
+
+    def disableGrippers (self, disabledGrippers):
+        self.disabledGrippers = disabledGrippers
 
     def _newSoT (self, name):
         sot = SOT (name)
@@ -264,7 +280,6 @@ class Factory(GraphFactoryAbstract):
         # Compute the DoF which should not be affected by the
         # task not related to end-effectors.
         gripper_joints = []
-        self.admittance_controllers = {}
         for g,gripper in self.gripperFrames.iteritems():
             try:
                 gripper_joints += gripper.joints
@@ -299,6 +314,10 @@ class Factory(GraphFactoryAbstract):
         iobj = self.objectFromHandle [st.grasps[ig]]
         obj = self.objects[iobj]
         noPlace = self._isObjectGrasped (sf.grasps, iobj)
+        #TODO compute other grasp on iobj
+        # it must be a grasp or pregrasp task
+        # otherGrasp = sf.objectsAlreadyGrasped.get(iobj ,None)
+        otherGrasp = None
 
         print "iobj, obj, noPlace: {}, {}, {}".format(iobj, obj, noPlace)
 
@@ -324,9 +343,10 @@ class Factory(GraphFactoryAbstract):
                 s = self._newSoT('sot_'+n)
                 self.hpTasks.pushTo(s)
 
-                #if pregrasp and i == 1:
+                if pregrasp and i == 1:
                     # Add pregrasp task
-                    #self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp').pushTo (s)
+                    pregrasp = self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp', otherGrasp = otherGrasp)
+                    pregrasp.pushTo (s)
                 if i < M: sf.manifold.pushTo(s)
                 else:     st.manifold.pushTo(s)
 
@@ -340,6 +360,7 @@ class Factory(GraphFactoryAbstract):
         sot = self._newSoT ("postAction_" + key)
         self.hpTasks.pushTo (sot)
         # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
+        self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp').pushTo (sot)
         st.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
         # print sot
@@ -356,6 +377,7 @@ class Factory(GraphFactoryAbstract):
         sot = self._newSoT ("preAction_" + key)
         self.hpTasks.pushTo (sot)
         # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
+        self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp').pushTo (sot)
         sf.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
         # print sot

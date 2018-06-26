@@ -93,19 +93,16 @@ class Supervisor(object):
 
         return c.topics
 
-    def plugTopics (self, rosexport):
-        self.rosexport = rosexport
+    def plugTopicsToRos (self):
+        from dynamic_graph.ros.ros_queued_subscribe import RosQueuedSubscribe
+        self.rosSusbcribe = RosQueuedSubscribe ('ros_queued_subscribe')
+        from dynamic_graph.ros.ros_tf_listener import RosTfListener
+        self.rosTf = RosTfListener ('ros_tf_listener')
         topics = self.topics()
 
-        for n, t in topics.items():
-            if t.has_key('handler'):
-                topic = _handlers[t['handler']] (n, t)
-            else:
-                topic = t["topic"]
-            rosexport.add (t["type"], n, topic)
-            for s in t['signalGetters']:
-                plug (rosexport.signal(n), s())
-            print (topic, "plugged to", n, ', ', len(t['signalGetters']), 'times')
+        for name, topic_info in topics.items():
+            topic_handler = _handlers[topic_info.get("handler","default")]
+            topic_handler (name,topic_info,self.rosSusbcribe,self.rosTf)
 
     def isSotConsistentWithCurrent(self, transitionName, thr = 1e-3):
         if self.currentSot is None or transitionName == self.currentSot:
@@ -126,19 +123,19 @@ class Supervisor(object):
         return True
 
     def clearQueues(self):
-        exec ("tmp = " + self.rosexport.list())
+        exec ("tmp = " + self.rosSusbcribe.list())
         for s in tmp:
-            self.rosexport.clearQueue(s)
+            self.rosSusbcribe.clearQueue(s)
 
     def readQueue(self, read):
         if read < 0:
             print ("ReadQueue argument should be >= 0")
             return
         t = self.sotrobot.device.control.time
-        self.rosexport.readQueue (t + read)
+        self.rosSusbcribe.readQueue (t + read)
 
     def stopReadingQueue(self):
-        self.rosexport.readQueue (-1)
+        self.rosSusbcribe.readQueue (-1)
 
     def plugSot(self, transitionName, check = False):
         if check and not self.isSotConsistentWithCurrent (transitionName):
@@ -196,26 +193,43 @@ class Supervisor(object):
         self.ros_publish_state.add ("vector", "state", "/sot_hpp/state")
         self.ros_publish_state.add ("vector", "reference_state", "/sot_hpp/reference_state")
         plug (self.sotrobot.device.state, self.ros_publish_state.state)
-        plug (self.rosexport.posture, self.ros_publish_state.reference_state)
+        plug (self.rosSusbcribe.posture, self.ros_publish_state.reference_state)
         self.sotrobot.device.after.addDownsampledSignal ("ros_publish_state.trigger", subsampling)
 
+def _defaultHandler(name,topic_info,rosSusbcribe,rosTf):
+    topic = topic_info["topic"]
+    rosSusbcribe.add (topic_info["type"], name, topic)
+    for s in topic_info['signalGetters']:
+        plug (rosSusbcribe.signal(name), s())
+    print (topic, "plugged to", name, ', ', len(topic_info['signalGetters']), 'times')
 
-def _handleHppJoint (n, t):
-    type = t["type"]
-    if t["velocity"]: topic = "velocity/op_frame"
-    else:             topic = "op_frame"
-    return "/hpp/target/" + topic + '/' + t['hppjoint']
+def _handleTfListener (name,topic_info,rosSusbcribe,rosTf):
+    signame = topic_info["frame1"] + "_wrt_" + topic_info["frame0"]
+    rosTf.add (topic_info["frame0"], topic_info["frame1"], signame)
+    for s in topic_info['signalGetters']:
+        plug (rosTf.signal(signame), s())
+    print (topic_info["frame1"], "wrt", topic_info["frame0"], "plugged to", signame, ', ', len(topic_info['signalGetters']), 'times')
 
-def _handleHppCom (n, t):
-    type = t["type"]
-    if t["velocity"]: topic = "velocity/com"
-    else:             topic = "com"
-    if t['hppcom'] == "":
-        return "/hpp/target/" + topic
+def _handleHppJoint (name,topic_info,rosSusbcribe,rosTf):
+    if topic_info["velocity"]: topic = "velocity/op_frame"
+    else:                      topic = "op_frame"
+    ti = dict(topic_info)
+    ti["topic"] = "/hpp/target/" + topic + '/' + topic_info['hppjoint']
+    _defaultHandler (name,ti,rosSusbcribe,rosTf)
+
+def _handleHppCom (name,topic_info,rosSusbcribe,rosTf):
+    if topic_info["velocity"]: topic = "velocity/com"
+    else:                      topic = "com"
+    ti = dict(topic_info)
+    if topic_info['hppcom'] == "":
+        ti["topic"] = "/hpp/target/" + topic
     else:
-        return "/hpp/target/" + topic + '/' + t['hppcom']
+        ti["topic"] = "/hpp/target/" + topic + '/' + topic_info['hppcom']
+    _defaultHandler (name,ti,rosSusbcribe,rosTf)
 
 _handlers = {
         "hppjoint": _handleHppJoint,
         "hppcom": _handleHppCom,
+        "tf_listener": _handleTfListener,
+        "default": _defaultHandler,
         }
