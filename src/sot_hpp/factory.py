@@ -188,7 +188,15 @@ class Factory(GraphFactoryAbstract):
         self.lpTasks = supervisor.lpTasks
         self.affordances = dict()
         self.sots = dict()
+        ## A dictionnary
+        # - key: name of the transition after which an action must be done
+        # - value: dictionnary:
+        #          - key: the reached state (at most two values, depending on whether the dst state was reached)
+        #          - value: sot representing the post-action
         self.postActions = dict()
+        ## A dictionnary
+        # - key: name of the transition before which an action must be done
+        # - value: sot representing the pre-action
         self.preActions = dict()
 
         self.timers = {}
@@ -351,33 +359,57 @@ class Factory(GraphFactoryAbstract):
                 self.sots[n] = s
                 sots.append (n)
 
+        ## Post-actions for transitions from
+        # 1. pregrasp to intersec, intersec (st) reached:
+        #   - "pregrasp"
+        #   - "gripper_close"
         key = sots[2*(M-1)]
-        states = ( st.name, names[0] + "_intersec")
-
         sot = self._newSoT ("postAction_" + key)
         self.hpTasks.pushTo (sot)
+        # "gripper_close" is in st.manifold
         # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
-        self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp').pushTo (sot)
+        self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp', otherGrasp).pushTo (sot)
         st.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
-        # print sot
-
-        # TODO one post action is missing
         if not self.postActions.has_key(key):
             self.postActions[ key ] = dict()
-        for n in states:
-            self.postActions[ key ] [n] = sot
+        self.postActions[ key ] [ st.name ] = sot
 
-        key = sots[2*(M-1) + 1]
-        states = ( st.name, names[0] + "_intersec")
-
-        sot = self._newSoT ("preAction_" + key)
+        # 2. intersec to pregrasp, pregrasp (sf) reached:
+        # TODO Should this post-action be done ?
+        # Force the re-alignment with planning.
+        key = sots[2*(M-1)+1]
+        sot = self._newSoT ("postAction_" + key)
         self.hpTasks.pushTo (sot)
-        # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
-        self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp').pushTo (sot)
         sf.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
-        # print sot
+        if not self.postActions.has_key(key):
+            self.postActions[ key ] = dict()
+        self.postActions[ key ] [ sf.name ] = sot
 
+
+        ## Pre-actions for transitions from
+
+        # 1.intersec to pregrasp:
+        #   - "pregrasp": the motion must be relative to the object
+        #   - "gripper_open"
+        key = sots[2*(M-1) + 1]
+        sot = self._newSoT ("preAction_" + key)
+        self.hpTasks.pushTo (sot)
+        # "gripper_open" is in sf.manifold
+        # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_open').pushTo (sot)
+        self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp', otherGrasp).pushTo (sot)
+        sf.manifold.pushTo (sot)
+        self.lpTasks.pushTo (sot)
         self.preActions[ key ] = sot
-        self.preActions[ sots[2*(M-1)] ] = sot
+
+        # 2. pregrasp to intersec:
+        #   - "pregrasp": the motion must be relative to the object
+        # Required to force the alignment gripper / handle before the actual grasp.
+        key = sots[2*(M-1)]
+        sot = self._newSoT ("preAction_" + key)
+        self.hpTasks.pushTo (sot)
+        self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp', otherGrasp).pushTo (sot)
+        sf.manifold.pushTo (sot)
+        self.lpTasks.pushTo (sot)
+        self.preActions[ key ] = sot
