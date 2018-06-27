@@ -70,17 +70,26 @@ class TaskFactory(ConstraintFactoryAbstract):
 
     def __init__ (self, graphfactory):
         super(TaskFactory, self).__init__ (graphfactory)
+        self._grippers = dict()
 
     def _buildGripper (self, type, gripper, handle):
+        key = (type, gripper, handle)
+        if self._grippers.has_key (key):
+            return self._grippers[key]
         try:
             aff = self.graphfactory.affordances[(gripper, handle)]
         except KeyError:
             # If there are no affordance, do not add a task.
-            return Manifold()
+            self._grippers[key] = Manifold ()
+            return self._grippers[key]
         gf = self.graphfactory
+        gripperFrame = gf.gripperFrames[gripper]
+        if not gripperFrame.enabled:
+            self._grippers[key] = Manifold ()
+            return self._grippers[key]
         robot = gf.sotrobot
         if aff.controlType[type] == "position":
-            return EEPosture (robot, gf.gripperFrames[gripper], aff.ref["angle_"+type])
+            self._grippers[key] = EEPosture (robot, gripperFrame, aff.ref["angle_"+type])
         elif aff.controlType[type] == "torque":
             raise NotImplementedError ("Torque control alone is not implemented for gripper.")
         elif aff.controlType[type] == "position_torque":
@@ -97,36 +106,30 @@ class TaskFactory(ConstraintFactoryAbstract):
                     )
             gf.controllers[ac.name] = ac
             from functools import partial
-            return Manifold (initial_control = [partial(ac.addOutputTo,robot,jointNames),])
+            self._grippers[key] = Manifold (initial_control = [partial(ac.addOutputTo,robot,jointNames),])
         else:
             raise NotImplementedError ("Control type " + type + " is not implemented for gripper.")
+        return self._grippers[key]
 
     def buildGrasp (self, g, h, otherGrasp=None):
         gf = self.graphfactory
         if h is None:
-            if g in gf.disabledGrippers:
-                return { 'gripper_open': Manifold() }
             gripper_open = self._buildGripper ("open", g, h)
             return { 'gripper_open': gripper_open }
-        if g in gf.disabledGrippers:
+        gripper = gf.gripperFrames[g]
+        handle  = gf.handleFrames [h]
+
+        gripper_close = self._buildGripper ("close", g, h)
+        pregrasp = PreGrasp (gripper, handle, otherGrasp)
+        pregrasp.makeTasks (gf.sotrobot, gf.parameters["useMeasurementOfObjectsPose"])
+
+        if not gripper.enabled:
             # TODO If otherGrasp is not None,
             # we should include the grasp function of otherGrasp, not pregrasp function...
-            if otherGrasp is not None:
-                print "using", self.g(otherGrasp[0].key,otherGrasp[1].key,"pregrasp").tasks[0].name
-            return { 'grasp': Manifold(),
-                     'pregrasp': Manifold() if otherGrasp is None else self.g(otherGrasp[0].key,otherGrasp[1].key,"pregrasp"),
-                     'gripper_close': Manifold() }
-
-        gripper_close  = self._buildGripper ("close", g, h)
-        pregrasp = PreGrasp (gf.gripperFrames [g],
-                             gf.handleFrames [h],
-                             otherGrasp)
-        pregrasp.makeTasks (gf.sotrobot, gf.parameters["useMeasurementOfObjectsPose"])
-        grasp = Grasp (gf.gripperFrames [g],
-                       gf.handleFrames [h],
-                       otherGrasp,
-                       True)
-        grasp.makeTasks (gf.sotrobot)
+            grasp = Manifold()
+        else:
+            grasp = Grasp (gripper, handle, otherGrasp)
+            grasp.makeTasks (gf.sotrobot)
         return { 'grasp': grasp,
                  'pregrasp': pregrasp,
                  'gripper_close': gripper_close }
@@ -191,7 +194,6 @@ class Factory(GraphFactoryAbstract):
         self.timers = {}
         self.tracers = {}
         self.controllers = {}
-        self.disabledGrippers = []
         self.supervisor = supervisor
 
         ## Accepted parameters:
@@ -208,9 +210,6 @@ class Factory(GraphFactoryAbstract):
                 "simulateTorqueFeedback": False,
                 "useMeasurementOfObjectsPose": False,
                 }
-
-    def disableGrippers (self, disabledGrippers):
-        self.disabledGrippers = disabledGrippers
 
     def _newSoT (self, name):
         sot = SOT (name)
@@ -270,14 +269,14 @@ class Factory(GraphFactoryAbstract):
                 for targetState, pa_sot in d.iteritems():
                     self.supervisor.addSignalToSotSwitch (pa_sot.name, pa_sot.control)
 
-    def setupFrames (self, srdfGrippers, srdfHandles, sotrobot):
+    def setupFrames (self, srdfGrippers, srdfHandles, sotrobot, disabledGrippers = ()):
         self.sotrobot = sotrobot
 
         self.grippersIdx = { g: i for i,g in enumerate(self.grippers) }
         self.handlesIdx  = { h: i for i,h in enumerate(self.handles) }
 
-        self.gripperFrames = { g: OpFrame(srdfGrippers[g], sotrobot.dynamic.model) for g in self.grippers }
-        self.handleFrames  = { h: OpFrame(srdfHandles [h]                        ) for h in self.handles  }
+        self.gripperFrames = { g: OpFrame(srdfGrippers[g], sotrobot.dynamic.model, g not in disabledGrippers) for g in self.grippers }
+        self.handleFrames  = { h: OpFrame(srdfHandles [h]                                                   ) for h in self.handles  }
 
         # Compute the DoF which should not be affected by the
         # task not related to end-effectors.
@@ -312,17 +311,12 @@ class Factory(GraphFactoryAbstract):
         st = stateTo
         names = self._transitionNames(sf, st, ig)
 
-        print "names: {}".format(names)
-
         iobj = self.objectFromHandle [st.grasps[ig]]
         obj = self.objects[iobj]
         noPlace = self._isObjectGrasped (sf.grasps, iobj)
         #TODO compute other grasp on iobj
         # it must be a grasp or pregrasp task
-        # otherGrasp = sf.objectsAlreadyGrasped.get(iobj ,None)
-        otherGrasp = None
-
-        print "iobj, obj, noPlace: {}, {}, {}".format(iobj, obj, noPlace)
+        otherGrasp = sf.objectsAlreadyGrasped.get(iobj ,None)
 
         # The different cases:
         pregrasp = True
