@@ -168,7 +168,7 @@ class Posture(Manifold):
 
 ## Represents a gripper or a handle
 class OpFrame(object):
-    def __init__ (self, srdf, model = None):
+    def __init__ (self, srdf, model = None, enabled = True):
         self.robotName = srdf["robot"]
         self.name = srdf["name"]
         self.key = self.robotName + "/" + self.name
@@ -179,16 +179,26 @@ class OpFrame(object):
             ## Only for grippers
             self.joints = srdf["joints"]
             self._setupParentJoint (self.link, pose, model)
+            self.enabled = enabled
         else:
             ## Only for handles
             self.pose = pose
 
     def _setupParentJoint (self, link, pose, model):
         frameid = model.getFrameId (link)
+        if frameid < 0 or frameid >= len(model.frames):
+            raise ValueError("Link " + self.link + " not found")
         frame = model.frames[frameid]
 
         self.pose = frame.placement * pose
         self.joint = model.names[frame.parent]
+
+    @property
+    def fullLink  (self): return self.robotName + "/" + self.link
+    @property
+    def fullJoint (self): return self.robotName + "/" + self.joint
+    @property
+    def fullName  (self): return self.robotName + "/" + self.name
 
 class PreGrasp (Manifold):
     def __init__ (self, gripper, handle, otherGraspOnObject = None):
