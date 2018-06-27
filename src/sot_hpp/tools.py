@@ -215,13 +215,9 @@ class PreGrasp (Manifold):
         self.graspTask.task.setWithDerivative (False)
 
         # Current gripper position
-        # M = se3ToTuple(self.gripper.pose)
-        # self.graspTask.opPointModif.activ = True
-        # self.graspTask.opPointModif.setTransformation (M)
         self.graspTask.opmodif = se3ToTuple(self.gripper.pose)
 
-        # Express the velocities in local frame.
-        # This is the default.
+        # Express the velocities in local frame. This is the default.
         # self.graspTask.opPointModif.setEndEffector(True)
 
         # Desired gripper position:
@@ -230,14 +226,14 @@ class PreGrasp (Manifold):
         # Displacement        M   = H_p^-1 * H_r
         # planned gripper pose G_p= joint_planned_pose * self.gripper.pose
         # The derised position is
-        # G*_r = G_p * M = G_p * H^-1 * O_p^-1 * O_r * H
-        #                = J_p * G * H^-1 * O_p^-1 * O_r * H
+        # G*_r = G_p * M = G_p     * h^-1 * O_p^-1 * O_r * h
+        #                = J_p * g * h^-1 * O_p^-1 * O_r * h
         self.gripper_desired_pose = Multiply_of_matrixHomo (name + "_desired")
         if withMeasurementOfObjectPos:
             self.gripper_desired_pose.setSignalNumber (5)
             # self.gripper_desired_pose.sin0 -> plug to joint planning pose
             self.gripper_desired_pose.sin1.value = se3ToTuple (self.gripper.pose * self.handle.pose.inverse())
-            self._invert_planning_pose = Inverse_of_matrixHomo (name + "_invert_planning_pose")
+            self._invert_planning_pose = Inverse_of_matrixHomo (self.handle.fullLink + "_invert_planning_pose")
             # self._invert_planning_pose.sin -> plug to object planning pose
             plug (self._invert_planning_pose.sout, self.gripper_desired_pose.sin2)
             # self.gripper_desired_pose.sin3 -> plug to object real pose
@@ -245,25 +241,25 @@ class PreGrasp (Manifold):
 
             plug(self.gripper_desired_pose.sout, self.graspTask.featureDes.position)
             self.topics = {
-                    self.gripper.key: {
+                    self.gripper.fullJoint: {
                         "velocity": False,
                         "type": "matrixHomo",
                         "handler": "hppjoint",
-                        "hppjoint": self.gripper.robotName + '/' + self.gripper.joint,
-                        "signalGetters": [ self._signalJointPlannningPose ] },
-                    self.handle.key: {
+                        "hppjoint": self.gripper.fullJoint,
+                        "signalGetters": [ lambda: self.gripper_desired_pose.sin0, ] },
+                    self.handle.fullLink: {
                         "velocity": False,
                         "type": "matrixHomo",
                         "handler": "hppjoint",
-                        "hppjoint": self.handle.robotName + '/' + self.handle.link,
-                        "signalGetters": [ self._signalObjectPlannningPose ] },
-                    "measurement_" + self.handle.key: {
+                        "hppjoint": self.handle.fullLink,
+                        "signalGetters": [ lambda: self._invert_planning_pose.sin, ] },
+                    "measurement_" + self.handle.fullLink: {
                         "velocity": False,
                         "type": "matrixHomo",
                         "handler": "tf_listener",
                         "frame0": "world",
-                        "frame1": self.handle.robotName + '/' + self.handle.link,
-                        "signalGetters": [ self._signalObjectRealPose ] },
+                        "frame1": self.handle.fullLink,
+                        "signalGetters": [ lambda: self.gripper_desired_pose.sin3, ] },
                     }
         else:
             # G*_r = J_p * G
@@ -271,23 +267,18 @@ class PreGrasp (Manifold):
             # self.gripper_desired_pose.sin0 -> plug to joint planning pose
             self.gripper_desired_pose.sin1.value = se3ToTuple (self.gripper.pose)
             self.topics = {
-                    self.gripper.robotName + '/' + self.gripper.joint : {
+                    self.gripper.fullJoint : {
                         "velocity": False,
                         "type": "matrixHomo",
                         "handler": "hppjoint",
-                        "hppjoint": self.gripper.robotName + '/' + self.gripper.joint,
-                        "signalGetters": [ self._signalJointPlannningPose ] },
+                        "hppjoint": self.gripper.fullJoint,
+                        "signalGetters": [ lambda: self.gripper_desired_pose.sin0, ] },
                     }
 
         plug(self.gripper_desired_pose.sout, self.graspTask.featureDes.position)
 
-        self.graspTask.feature.selec.value = "111111"
         self.tasks = [ self.graspTask.task ]
         # TODO Add velocity
-
-    def _signalJointPlannningPose  (self): return self.gripper_desired_pose.sin0
-    def _signalObjectPlannningPose (self): return self._invert_planning_pose.sin
-    def _signalObjectRealPose      (self): return self.gripper_desired_pose.sin3
 
 class Grasp (Manifold):
     def __init__ (self, gripper, handle, otherGraspOnObject = None, closeGripper = False):
