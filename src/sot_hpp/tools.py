@@ -250,6 +250,8 @@ class PreGrasp (Manifold):
         #                = J_p * g * h^-1 * O_p^-1 * O_r * h
         self.gripper_desired_pose = Multiply_of_matrixHomo (name + "_desired")
         if withMeasurementOfObjectPos:
+            # TODO Integrate measurement of h_r: position error of O_r^-1 * G_r
+            # (for the release phase and computed only at time 0)
             self.gripper_desired_pose.setSignalNumber (5)
             # self.gripper_desired_pose.sin0 -> plug to joint planning pose
             self.gripper_desired_pose.sin1.value = se3ToTuple (self.gripper.pose * self.handle.pose.inverse())
@@ -301,8 +303,60 @@ class PreGrasp (Manifold):
         # TODO Add velocity
     
     def _makeRelativeTask (self, sotrobot, withMeasurementOfObjectPos):
-        #TODO
-        pass
+        assert self.handle.robotName == self.otherHandle.robotName
+        assert self.handle.link      == self.otherHandle.link
+        name = PreGrasp.sep.join(["", "pregrasp", self.gripper.name, self.handle.fullName,
+            "based", self.otherGripper.name, self.handle.fullName])
+        print(name)
+        self.graspTask = MetaTaskKine6dRel (name, sotrobot.dynamic,
+                self.gripper.joint, self.otherGripper.joint,
+                self.gripper.joint, self.otherGripper.joint)
+
+        self.graspTask.opmodif = se3ToTuple(self.gripper.pose * self.handle.pose.inverse())
+        # Express the velocities in local frame. This is the default.
+        # self.graspTask.opPointModif.setEndEffector(True)
+
+        self.graspTask.opmodifBase = se3ToTuple(self.otherGripper.pose * self.otherHandle.pose.inverse())
+        # Express the velocities in local frame. This is the default.
+        # self.graspTask.opPointModif.setEndEffector(True)
+
+        setGain(self.graspTask.gain,(4.9,0.9,0.01,0.9))
+        self.graspTask.task.setWithDerivative (False)
+
+        self.gripper_desired_pose      = Multiply_of_matrixHomo (name + "_desired1")
+        self.otherGripper_desired_pose = Multiply_of_matrixHomo (name + "_desired2")
+        if withMeasurementOfObjectPos:
+            # TODO Integrate measurement of h1_r and h2_r: position error
+            # O_r^-1 * G1_r and O_r^-1 * G2_r
+            # (for the release phase and computed only at time 0)
+            print("Relative grasp with measurement is NOT IMPLEMENTED")
+        # else:
+        # G2*_r = H1_p * h1^-1 * h2 = G2_p = J2_p * G
+        self.gripper_desired_pose.setSignalNumber (2)
+        # self.gripper_desired_pose.sin0 -> plug to joint planning pose
+        self.gripper_desired_pose.sin1.value = se3ToTuple (self.gripper.pose * self.handle.pose.inverse())
+        self.otherGripper_desired_pose.setSignalNumber (2)
+        # self.otherGripper_desired_pose.sin0 -> plug to otherJoint planning pose
+        self.otherGripper_desired_pose.sin1.value = se3ToTuple (self.otherGripper.pose * self.otherHandle.pose.inverse())
+        plug(self.gripper_desired_pose.sout, self.graspTask.featureDes.position)
+        plug(self.otherGripper_desired_pose.sout, self.graspTask.featureDes.positionRef)
+        self.topics = {
+                self.gripper.fullJoint : {
+                    "velocity": False,
+                    "type": "matrixHomo",
+                    "handler": "hppjoint",
+                    "hppjoint": self.gripper.fullJoint,
+                    "signalGetters": [ lambda: self.gripper_desired_pose.sin0, ] },
+                self.otherGripper.fullJoint : {
+                    "velocity": False,
+                    "type": "matrixHomo",
+                    "handler": "hppjoint",
+                    "hppjoint": self.otherGripper.fullJoint,
+                    "signalGetters": [ lambda: self.otherGripper_desired_pose.sin0, ] },
+                }
+
+        self.tasks = [ self.graspTask.task ]
+        # TODO Add velocity
 
     def _makeAbsoluteBasedOnOther (self, sotrobot, withMeasurementOfObjectPos):
         assert self.handle.robotName == self.otherHandle.robotName
@@ -335,6 +389,9 @@ class PreGrasp (Manifold):
         # where h2_r can be a constant value of the expression above.
         self.gripper_desired_pose = Multiply_of_matrixHomo (name + "_desired")
         if withMeasurementOfObjectPos:
+            # TODO Integrate measurement of h1_r and h2_r: position error
+            # O_r^-1 * G1_r and O_r^-1 * G2_r
+            # (for the release phase and computed only at time 0)
             self.gripper_desired_pose.setSignalNumber (5)
             ## self.gripper_desired_pose.setSignalNumber (7)
             # self.gripper_desired_pose.sin0 -> plug to object1 planning pose
