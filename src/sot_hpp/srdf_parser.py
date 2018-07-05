@@ -36,6 +36,17 @@ def _read_link (xml):
         raise ValueError ("Gripper needs exactly one tag link")
     return str(linksTag[0].attrib['name'])
 
+# Torque constants should not appear in gripper tag.
+# There should be one value for each actuated joint.
+def _read_torque_constant (xml):
+    tcTags = xml.findall('torque_constant')
+    if len(tcTags) > 1:
+        raise ValueError ("Gripper needs at most one tag torque_constant")
+    elif len(tcTags) == 1:
+        return float(tcTags[0].attrib['value'])
+    else:
+        return None
+
 def parse_srdf (srdf, packageName = None, prefix = None):
     """
     parameters:
@@ -66,6 +77,8 @@ def parse_srdf (srdf, packageName = None, prefix = None):
               "position":  _read_position (xml),
               "joints":    _read_joints (xml),
               }
+        tc = _read_torque_constant (xml)
+        if tc is not None: g["torque_constant"] = tc
         grippers[ prefix + "/" + n if prefix is not None else n] = g
 
     handles = {}

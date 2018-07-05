@@ -180,6 +180,8 @@ class OpFrame(object):
             self.joints = srdf["joints"]
             self._setupParentJoint (self.link, pose, model)
             self.enabled = enabled
+            if srdf.has_key("torque_constant"):
+                self.torque_constant = srdf["torque_constant"]
         else:
             ## Only for handles
             self.pose = pose
@@ -522,6 +524,7 @@ class EndEffector (Manifold):
         super(EndEffector, self).__init__()
         self.gripper = gripper
         self.jointNames = gripper.joints
+        self.robot = sotrobot
         pinmodel = sotrobot.dynamic.model
 
         self.name = Posture.sep.join(["endeffector", gripper.name, name_suffix])
@@ -578,6 +581,11 @@ class EndEffector (Manifold):
         if simulateTorqueFeedback:
             M,d,k,x0 = affordance.getSimulationParameters()
             self.ac.setupFeedbackSimulation(M,d,k,x0)
+        else:
+            self.ac.connectToRobot (self.robot,
+                    self.gripper.jointNames,
+                    currents = True)
+            self.ac.torqueConstant.value = self.gripper.torque_constant
         if type=="open":
             self.ac.setGripperOpen  ()
         elif type=="close":
