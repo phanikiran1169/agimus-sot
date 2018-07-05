@@ -10,9 +10,9 @@ class Controller:
         """
         self.name = name
         if isinstance(nums[0], (float, int)):
-            self.function = IntegratorEulerVectorDouble (name + "_transfer_function")
+            self.function = IntegratorEulerVectorDouble (name + "_H")
         else:
-            self.function = IntegratorEulerVectorMatrix (name + "_transfer_function")
+            self.function = IntegratorEulerVectorMatrix (name + "_H")
         for n in nums  : self.function.pushNumCoef   (n)
         for n in denoms: self.function.pushDenomCoef (n)
 
@@ -63,6 +63,9 @@ class Controller:
 
     @property
     def output (self): return self.function.sout
+
+    @property
+    def outputName (self): return self.function.name + ".sout"
 
     @property
     def outputDerivative (self): return self.function.derivativesout

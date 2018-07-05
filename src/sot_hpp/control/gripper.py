@@ -211,18 +211,14 @@ class AdmittanceControl:
         from sot_hpp.tools import filename_escape
         self._tracer = TracerRealTime (self.name + "_tracer")
         self._tracer.setBufferSize (10 * 1048576) # 10 Mo
-        self._tracer.open ("/tmp", "aa", ".txt")
+        self._tracer.open ("/tmp", filename_escape(self.name), ".txt")
 
-        self._tracer.add (self.switch.latch.name + ".out",     # torque control activated ?
-                filename_escape(self.name + "_torque_control_activated"))
-        self._tracer.add (self.switch._switch.name + ".sout",               # omega
-                filename_escape(self.name + "_omega"))
-        # self._tracer.add (self.omega2theta.output) # theta
-        # self._tracer.add (self.theta2phi.sout)     # phi
-        self._tracer.add (self.torque_controller.referenceName,    # Reference torque
-                filename_escape(self.name + "_reference_torque"))
-        self._tracer.add (self.torque_controller.measurementName,    # Measured torque
-                filename_escape(self.name + "_measured_torque"))
+        self._tracer.add (self.switch.latch.name + ".out",        "_torque_control_activated")
+        self._tracer.add (self.switch._switch.name + ".sout",     "_omega")
+        self._tracer.add (self.omega2theta.outputName,            "_theta")
+        # self._tracer.add (self.theta2phi.sout,                    "_phi")
+        self._tracer.add (self.torque_controller.referenceName,   "_reference_torque")
+        self._tracer.add (self.torque_controller.measurementName, "_measured_torque")
         # self._tracer.add (self.currentConditionIn.name,   # Measured torque
                 # filename_escape(self.name + "_"))
 
