@@ -39,7 +39,7 @@ class Affordance(object):
         return mass,damping,spring,refPos
 
     def makePositionAndTorqueControl (self,type,period,simulateTorqueFeedback=False):
-        from sot_hpp.control.gripper import AdmittanceControl
+        from agimus_sot.control.gripper import AdmittanceControl
         # type = "open" or "close"
         desired_torque = self.ref["torque"]
         theta_open = self.ref["angle_open"]

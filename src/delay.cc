@@ -1,18 +1,18 @@
 // Copyright (c) 2018, Joseph Mirabel
 // Authors: Joseph Mirabel (joseph.mirabel@laas.fr)
 //
-// This file is part of sot_hpp.
-// sot_hpp is free software: you can redistribute it
+// This file is part of agimus_sot.
+// agimus_sot is free software: you can redistribute it
 // and/or modify it under the terms of the GNU Lesser General Public
 // License as published by the Free Software Foundation, either version
 // 3 of the License, or (at your option) any later version.
 //
-// sot_hpp is distributed in the hope that it will be
+// agimus_sot is distributed in the hope that it will be
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // General Lesser Public License for more details.  You should have
 // received a copy of the GNU Lesser General Public License along with
-// sot_hpp. If not, see <http://www.gnu.org/licenses/>.
+// agimus_sot. If not, see <http://www.gnu.org/licenses/>.
 
 #include <dynamic-graph/entity.h>
 #include <dynamic-graph/signal.h>
@@ -20,14 +20,13 @@
 #include <dynamic-graph/factory.h>
 #include <dynamic-graph/command-bind.h>
 
-#include <sot/hpp/config.hh>
+#include <agimus/sot/config.hh>
 
 namespace dynamicgraph {
-  namespace sot {
-    namespace hpp {
+  namespace agimus {
       /// Delay
       template <typename Value, typename Time = int>
-      class SOT_HPP_DLLAPI Delay : public dynamicgraph::Entity
+      class AGIMUS_SOT_DLLAPI Delay : public dynamicgraph::Entity
       {
         DYNAMIC_GRAPH_ENTITY_DECL();
 
@@ -88,6 +87,5 @@ namespace dynamicgraph {
       typedef Delay<Vector,int> DelayVector;
       template<>
       DYNAMICGRAPH_FACTORY_ENTITY_PLUGIN (DelayVector, "DelayVector");
-    } // namespace hpp
-  } // namespace sot
+  } // namespace agimus
 } // namespace dynamicgraph

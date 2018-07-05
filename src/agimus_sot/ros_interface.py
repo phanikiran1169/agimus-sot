@@ -1,6 +1,6 @@
 import rospy
 from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse, Empty, EmptyResponse
-from sot_hpp_msgs.srv import PlugSot, PlugSotResponse, SetString, SetJointNames, GetInt, GetIntResponse, SetInt, SetIntRequest, SetIntResponse
+from agimus_sot_msgs.srv import PlugSot, PlugSotResponse, SetString, SetJointNames, GetInt, GetIntResponse, SetInt, SetIntRequest, SetIntResponse
 from dynamic_graph_bridge_msgs.srv import RunCommand
 
 def wait_for_service (srv, time = 0.2):
@@ -13,14 +13,14 @@ def wait_for_service (srv, time = 0.2):
 
 class RosInterface(object):
     def __init__ (self, supervisor = None):
-        rospy.Service('/sot/plug_sot', PlugSot, self.plugSot)
-        rospy.Service('/sot/run_post_action', PlugSot, self.runPostAction)
-        rospy.Service('/sot/run_pre_action', PlugSot, self.runPreAction)
-        rospy.Service('/sot/request_hpp_topics', Trigger, self.requestHppTopics)
-        rospy.Service('/sot/clear_queues', Trigger, self.clearQueues)
-        rospy.Service('/sot/read_queue', SetInt, self.readQueue)
-        rospy.Service('/sot/stop_reading_queue', Empty, self.stopReadingQueue)
-        rospy.Service('/sot/publish_state', Empty, self.publishState)
+        rospy.Service('/agimus/sot/plug_sot', PlugSot, self.plugSot)
+        rospy.Service('/agimus/sot/run_post_action', PlugSot, self.runPostAction)
+        rospy.Service('/agimus/sot/run_pre_action', PlugSot, self.runPreAction)
+        rospy.Service('/agimus/sot/request_hpp_topics', Trigger, self.requestHppTopics)
+        rospy.Service('/agimus/sot/clear_queues', Trigger, self.clearQueues)
+        rospy.Service('/agimus/sot/read_queue', SetInt, self.readQueue)
+        rospy.Service('/agimus/sot/stop_reading_queue', Empty, self.stopReadingQueue)
+        rospy.Service('/agimus/sot/publish_state', Empty, self.publishState)
         wait_for_service ("/run_command")
         self._runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor

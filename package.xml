@@ -1,7 +1,7 @@
 <package>
-  <name>sot_hpp</name>
+  <name>agimus_sot</name>
   <version>0.0.0</version>
-  <description> SoT - HPP package. </description>
+  <description> Package to link SoT to the Agimus framework. </description>
   <maintainer email="jmirabel@laas.fr">Joseph Mirabel</maintainer>
   <author>Joseph Mirabel</author>
 
@@ -9,5 +9,5 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <run_depend>sot_hpp_msgs</run_depend>
+  <run_depend>agimus_sot_msgs</run_depend>
 </package>

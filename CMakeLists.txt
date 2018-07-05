@@ -23,9 +23,9 @@ SET(CXX_DISABLE_WERROR TRUE)
 INCLUDE(cmake/base.cmake)
 INCLUDE(cmake/python.cmake)
 
-SET(PROJECT_NAME sot_hpp)
-SET(PROJECT_DESCRIPTION "Bridge between hpp and sot")
-SET(PROJECT_URL "")
+SET(PROJECT_NAME agimus_sot)
+SET(PROJECT_DESCRIPTION "Package to link SoT to the Agimus framework.")
+SET(PROJECT_URL "https://github.com/agimus/agimus-sot")
 
 SETUP_PROJECT()
 
@@ -36,7 +36,7 @@ ADD_REQUIRED_DEPENDENCY ("dynamic_graph_bridge >= 3")
 ADD_REQUIRED_DEPENDENCY ("hpp-manipulation-corba >= 3")
 ADD_REQUIRED_DEPENDENCY ("sot-core >= 3")
 ADD_REQUIRED_DEPENDENCY ("dynamic-graph-python >= 2")
-ADD_REQUIRED_DEPENDENCY ("sot_hpp_msgs")
+ADD_REQUIRED_DEPENDENCY ("agimus_sot_msgs")
 
 INSTALL(FILES
   package.xml

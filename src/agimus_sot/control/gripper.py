@@ -58,21 +58,21 @@ class AdmittanceControl:
         * z = 1: t = - log(0.05) / wn
         * z < 1: t = - log(0.05 * sqrt(1-z**2)) / (z * wn),
         """
-        from sot_hpp.control.controllers import secondOrderClosedLoop
+        from agimus_sot.control.controllers import secondOrderClosedLoop
         self.position_controller = secondOrderClosedLoop (self.name + "_position", wn, z, self.dt, [0. for _ in self.est_theta_closed])
         self.position_controller.reference.value = self.est_theta_closed
 
     ### Feed-forward - contact phase
     def _makeTorqueControl (self, alpha, tau):
-        from sot_hpp.control.controllers import Controller
+        from agimus_sot.control.controllers import Controller
         self.torque_controller = Controller (self.name + "_torque", (alpha,), (1., tau), self.dt, [0. for _ in self.est_theta_closed])
         self.torque_controller.addFeedback()
         self.torque_controller.reference.value = self.desired_torque
 
     ### Setup switch between the two control scheme
     def _makeControllerSwich (self):
-        from sot_hpp.control.switch import ControllerSwitch
-        from sot_hpp.control.controllers import Controller
+        from agimus_sot.control.switch import ControllerSwitch
+        from agimus_sot.control.controllers import Controller
 
         self.switch = ControllerSwitch (self.name + "_switch",
                 # Outputs a velocity
@@ -123,9 +123,9 @@ class AdmittanceControl:
 
     ### Setup event to tell when object is grasped
     def setupFeedbackSimulation (self, mass, damping, spring, theta0):
-        from sot_hpp.control.controllers import Controller
+        from agimus_sot.control.controllers import Controller
         from dynamic_graph.sot.core import Add_of_vector
-        from dynamic_graph_hpp.sot import DelayVector
+        from agimus_sot import DelayVector
 
         ## omega -> theta
         # Done in _makeControllerSwich
@@ -239,7 +239,7 @@ class AdmittanceControl:
 
     def addTracerRealTime (self, robot):
         from dynamic_graph.tracer_real_time import TracerRealTime
-        from sot_hpp.tools import filename_escape
+        from agimus_sot.tools import filename_escape
         self._tracer = TracerRealTime (self.name + "_tracer")
         self._tracer.setBufferSize (10 * 1048576) # 10 Mo
         self._tracer.open ("/tmp", filename_escape(self.name), ".txt")

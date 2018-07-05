@@ -67,7 +67,7 @@ def launchScript(code,title):
     rospy.loginfo("...done with "+title)
 
 def makeRosInterface():
-    from sot_hpp.ros_interface import RosInterface
+    from agimus_sot.ros_interface import RosInterface
     import rospy
     ri = RosInterface ()
     ri.setupHppJoints (prefix = prefix)

@@ -1,21 +1,21 @@
 // Copyright (c) 2018, Joseph Mirabel
 // Authors: Joseph Mirabel (joseph.mirabel@laas.fr)
 //
-// This file is part of sot_hpp.
-// sot_hpp is free software: you can redistribute it
+// This file is part of agimus_sot.
+// agimus_sot is free software: you can redistribute it
 // and/or modify it under the terms of the GNU Lesser General Public
 // License as published by the Free Software Foundation, either version
 // 3 of the License, or (at your option) any later version.
 //
-// sot_hpp is distributed in the hope that it will be
+// agimus_sot is distributed in the hope that it will be
 // useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 // of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 // General Lesser Public License for more details.  You should have
 // received a copy of the GNU Lesser General Public License along with
-// sot_hpp. If not, see <http://www.gnu.org/licenses/>.
+// agimus_sot. If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef SOT_HPP_HOLONOMIC_CONSTRAINT_HH
-# define SOT_HPP_HOLONOMIC_CONSTRAINT_HH
+#ifndef AGIMUS_SOT_HOLONOMIC_CONSTRAINT_HH
+# define AGIMUS_SOT_HOLONOMIC_CONSTRAINT_HH
 
 #include <dynamic-graph/entity.h>
 #include <dynamic-graph/signal.h>
@@ -25,13 +25,12 @@
 
 #include <sot/core/matrix-geometry.hh>
 
-#include <sot/hpp/config.hh>
+#include <agimus/sot/config.hh>
 
 namespace dynamicgraph {
-  namespace sot {
-    namespace hpp {
+  namespace agimus {
       /// Holonomic constraints
-      class SOT_HPP_DLLAPI HolonomicConstraint : public dynamicgraph::Entity
+      class AGIMUS_SOT_DLLAPI HolonomicConstraint : public dynamicgraph::Entity
       {
         DYNAMIC_GRAPH_ENTITY_DECL();
 
@@ -61,15 +60,14 @@ namespace dynamicgraph {
         SignalPtr <double, int> g2SIN;
         SignalPtr <double, int> g3SIN;
 
-        SignalPtr <MatrixHomogeneous, int> positionSIN;
-        SignalPtr <MatrixHomogeneous, int> positionRefSIN;
+        SignalPtr <sot::MatrixHomogeneous, int> positionSIN;
+        SignalPtr <sot::MatrixHomogeneous, int> positionRefSIN;
         SignalPtr <Vector, int> velocityRefSIN;
 
         Signal <Vector, int> errorSOUT;
         Signal <Vector, int> controlSOUT;
         Signal <Matrix, int> projectorSOUT;
       };
-    } // namespace hpp
-  } // namespace sot
+  } // namespace agimus
 } // namespace dynamicgraph
-#endif // SOT_HPP_HOLONOMIC_CONSTRAINT_HH
+#endif // AGIMUS_SOT_HOLONOMIC_CONSTRAINT_HH

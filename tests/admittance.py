@@ -1,7 +1,7 @@
 from dynamic_graph import plug
 from dynamic_graph.sot.core.integrator_euler import IntegratorEulerVectorMatrix
 import dynamic_graph.sot.core as dgsc
-import sot_hpp.control.controllers as controllers
+import agimus_sot.control.controllers as controllers
 import numpy as np
 from math import sqrt, pi
 
@@ -56,7 +56,7 @@ Nkeep_same_control = 0
 ### Admittance controller
 # {{{
 
-from sot_hpp.control.gripper import AdmittanceControl
+from agimus_sot.control.gripper import AdmittanceControl
 
 # z  = 0
 # z  = sqrt(2)/2

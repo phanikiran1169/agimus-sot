@@ -3,21 +3,21 @@
 # Authors: Florent Lamiraux
 #
 #
-# This file is part of hpp-core
-# hpp-core is free software: you can redistribute it
+# This file is part of agimus_sot.
+# agimus_sot is free software: you can redistribute it
 # and/or modify it under the terms of the GNU Lesser General Public
 # License as published by the Free Software Foundation, either version
 # 3 of the License, or (at your option) any later version.
 #
-# hpp-core is distributed in the hope that it will be
+# agimus_sot is distributed in the hope that it will be
 # useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 # of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 # General Lesser Public License for more details.  You should have
 # received a copy of the GNU Lesser General Public License along with
-# hpp-core  If not, see
+# agimus_sot  If not, see
 # <http://www.gnu.org/licenses/>.
 
-MACRO(DYNAMIC_GRAPH_HPP_PYTHON_MODULE SUBMODULENAME LIBRARYNAME TARGETNAME)
+MACRO(AGIMUS_SOT_PYTHON_MODULE SUBMODULENAME LIBRARYNAME TARGETNAME)
   FINDPYTHON()
 
   SET(PYTHON_MODULE ${TARGETNAME})
@@ -26,10 +26,10 @@ MACRO(DYNAMIC_GRAPH_HPP_PYTHON_MODULE SUBMODULENAME LIBRARYNAME TARGETNAME)
     MODULE
     ${PROJECT_SOURCE_DIR}/cmake/dynamic_graph/python-module-py.cc)
 
-  FILE(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/src/dynamic_graph_hpp/${SUBMODULENAME})
+  FILE(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/src/agimus_sot/${SUBMODULENAME})
   SET_TARGET_PROPERTIES(${PYTHON_MODULE}
     PROPERTIES PREFIX ""
-    OUTPUT_NAME dynamic_graph_hpp/${SUBMODULENAME}/wrap
+    OUTPUT_NAME agimus_sot/${SUBMODULENAME}/wrap
    )
 
   TARGET_LINK_LIBRARIES(${PYTHON_MODULE} "-Wl,--no-as-needed")
@@ -40,7 +40,7 @@ MACRO(DYNAMIC_GRAPH_HPP_PYTHON_MODULE SUBMODULENAME LIBRARYNAME TARGETNAME)
   #
   # Installation
   #
-  SET(PYTHON_INSTALL_DIR ${PYTHON_SITELIB}/dynamic_graph_hpp/${SUBMODULENAME})
+  SET(PYTHON_INSTALL_DIR ${PYTHON_SITELIB}/agimus_sot/${SUBMODULENAME})
 
   INSTALL(TARGETS ${PYTHON_MODULE}
     DESTINATION
@@ -53,11 +53,11 @@ MACRO(DYNAMIC_GRAPH_HPP_PYTHON_MODULE SUBMODULENAME LIBRARYNAME TARGETNAME)
 
   CONFIGURE_FILE(
     ${PROJECT_SOURCE_DIR}/cmake/dynamic_graph/submodule/__init__.py.cmake
-    ${PROJECT_BINARY_DIR}/src/dynamic_graph_hpp/${SUBMODULENAME}/__init__.py
+    ${PROJECT_BINARY_DIR}/src/agimus_sot/${SUBMODULENAME}/__init__.py
     )
 
   INSTALL(
-    FILES ${PROJECT_BINARY_DIR}/src/dynamic_graph_hpp/${SUBMODULENAME}/__init__.py
+    FILES ${PROJECT_BINARY_DIR}/src/agimus_sot/${SUBMODULENAME}/__init__.py
     DESTINATION ${PYTHON_INSTALL_DIR}
     )
 
@@ -80,10 +80,10 @@ INSTALL(TARGETS ${LIBRARY_NAME}
 
 SET(NEW_ENTITY_CLASS "HolonomicConstraint")
 
-DYNAMIC_GRAPH_HPP_PYTHON_MODULE("sot" ${LIBRARY_NAME} wrap)
-FILE(WRITE ${CMAKE_CURRENT_BINARY_DIR}/dynamic_graph_hpp/__init__.py "")
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/dynamic_graph_hpp/__init__.py
-    DESTINATION ${PYTHON_SITELIB}/dynamic_graph_hpp/)
+AGIMUS_SOT_PYTHON_MODULE("sot" ${LIBRARY_NAME} wrap)
+FILE(WRITE ${CMAKE_CURRENT_BINARY_DIR}/agimus_sot/__init__.py "")
+INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/agimus_sot/__init__.py
+    DESTINATION ${PYTHON_SITELIB}/agimus_sot/)
 
 SET(FILES
   supervisor.py
@@ -94,7 +94,7 @@ SET(FILES
   __init__.py)
 
 FOREACH(F ${FILES})
-    PYTHON_INSTALL_ON_SITE("sot_hpp" ${F})
+    PYTHON_INSTALL_ON_SITE("agimus_sot" ${F})
 ENDFOREACH()
 
 SET(FILES
@@ -104,5 +104,5 @@ SET(FILES
   __init__.py)
 
 FOREACH(F ${FILES})
-    PYTHON_INSTALL_ON_SITE("sot_hpp/control" ${F})
+    PYTHON_INSTALL_ON_SITE("agimus_sot/control" ${F})
 ENDFOREACH()

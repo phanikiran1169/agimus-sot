@@ -44,7 +44,7 @@ class Supervisor(object):
         self.sotrobot.device.after.addSignal ("control_norm_event.check")
 
         self.ros_publish = RosPublish ('ros_publish_control_norm')
-        self.ros_publish.add ('double', 'event_control_norm', '/sot_hpp/control_norm_changed')
+        self.ros_publish.add ('double', 'event_control_norm', '/agimus_sot/control_norm_changed')
         plug (self.norm.sout, self.ros_publish.event_control_norm)
         # plug (self.norm_event.trigger, self.ros_publish.trigger)
         self.norm_event.addSignal ("ros_publish_control_norm.trigger")
@@ -192,8 +192,8 @@ class Supervisor(object):
             return
         from dynamic_graph.ros import RosPublish
         self.ros_publish_state = RosPublish ("ros_publish_state")
-        self.ros_publish_state.add ("vector", "state", "/sot_hpp/state")
-        self.ros_publish_state.add ("vector", "reference_state", "/sot_hpp/reference_state")
+        self.ros_publish_state.add ("vector", "state", "/agimus/sot/state")
+        self.ros_publish_state.add ("vector", "reference_state", "/agimus/sot/reference_state")
         plug (self.sotrobot.device.state, self.ros_publish_state.state)
         plug (self.rosSusbcribe.posture, self.ros_publish_state.reference_state)
         self.sotrobot.device.after.addDownsampledSignal ("ros_publish_state.trigger", subsampling)
