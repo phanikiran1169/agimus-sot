@@ -527,7 +527,7 @@ class EndEffector (Manifold):
         self.robot = sotrobot
         pinmodel = sotrobot.dynamic.model
 
-        self.name = Posture.sep.join(["endeffector", gripper.name, name_suffix])
+        self.name = Posture.sep.join(["ee", gripper.name, name_suffix])
 
         self.tp = Task ('task' + self.name)
         self.tp.dyn = sotrobot.dynamic
@@ -573,19 +573,24 @@ class EndEffector (Manifold):
         threshold_down = tuple([ x / 100. for x in desired_torque ])
         wn, z, alpha, tau, = affordance.getControlParameter ()
 
-        self.ac = AdmittanceControl ("controller_" + self.name + "_" + type,
+        self.ac = AdmittanceControl ("AC_" + self.name + "_" + type,
                 theta_open, estimated_theta_close,
                 desired_torque, period,
                 threshold_up, threshold_down,
                 wn, z, alpha, tau,)
+
         if simulateTorqueFeedback:
+            # Get torque from an internal simulation
             M,d,k,x0 = affordance.getSimulationParameters()
             self.ac.setupFeedbackSimulation(M,d,k,x0)
+            # Must be done after setupFeedbackSimulation
+            self.ac.readPositionsFromRobot(self.robot, self.jointNames)
         else:
-            self.ac.connectToRobot (self.robot,
-                    self.gripper.jointNames,
-                    currents = True)
-            self.ac.torqueConstant.value = self.gripper.torque_constant
+            self.ac.readPositionsFromRobot(self.robot, self.jointNames)
+            # Get torque from robot sensors (or external simulation)
+            # TODO allows to switch between current and torque sensors
+            self.ac.readCurrentsFromRobot(self.robot, self.jointNames, (self.gripper.torque_constant,))
+            # self.ac.readTorquesFromRobot(self.robot, self.jointNames)
         if type=="open":
             self.ac.setGripperOpen  ()
         elif type=="close":
@@ -602,10 +607,16 @@ class EndEffector (Manifold):
 
         # Plug the admittance controller to the posture task
         setGain(self.tp.gain,1.)
-        plug(self.ac.output    , mix_of_vector.signal("sin1"))
+        plug(self.ac.outputPosition, mix_of_vector.signal("sin1"))
         plug(mix_of_vector.sout, self.tp.feature.posture)
         # TODO plug posture dot ?
         # I do not think it is necessary.
+        # TODO should we send to the posture task
+        # - the current robot posture
+        # - the postureDot from self.ac.outputDerivative
+        # This would avoid the last integration in self.ac.
+        # This integration does not know the initial point so
+        # there might be some drift (removed the position controller at the beginning)
 
     def makePositionControl (self, position):
         q = list(self.tp.feature.state.value)

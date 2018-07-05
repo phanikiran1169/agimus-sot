@@ -100,7 +100,7 @@ class TaskFactory(ConstraintFactoryAbstract):
                     period = gf.parameters["period"],
                     simulateTorqueFeedback = gf.parameters.get("simulateTorqueFeedback",False))
             if gf.parameters["addTracerToAdmittanceController"]:
-                tracer = ac.addTracerRealTime (robot)
+                tracer = ee.ac.addTracerRealTime (robot)
                 gf.tracers[tracer.name] = tracer
             self._grippers[key] = ee
         else:

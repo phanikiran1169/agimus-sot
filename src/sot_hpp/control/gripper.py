@@ -72,10 +72,22 @@ class AdmittanceControl:
     ### Setup switch between the two control scheme
     def _makeControllerSwich (self):
         from sot_hpp.control.switch import ControllerSwitch
+        from sot_hpp.control.controllers import Controller
 
         self.switch = ControllerSwitch (self.name + "_switch",
+                # Outputs a velocity
                 (self.position_controller.outputDerivative, self.torque_controller.output),
+                # Outputs a position
+                # (self.position_controller.output, self.torque_controller.output),
                 self.threshold_up, self.threshold_down)
+
+        # TODO this assumes that the current position is 0
+        # Should we use self.theta_open instead ? But what if
+        # the same gripper is involved in different grasp with different
+        # theta_open ?
+        self.omega2theta = Controller (self.name + "_sim_omega2theta",
+                (1.,), (0., 1.), self.dt, [0. for _ in self.est_theta_closed])
+        plug (self.switch.signalOut, self.omega2theta.reference)
 
         #TODO I think this is not needed as currently admittance_control is used only
         # to close a gripper.
@@ -116,9 +128,8 @@ class AdmittanceControl:
         from dynamic_graph_hpp.sot import DelayVector
 
         ## omega -> theta
-        self.omega2theta = Controller (self.name + "_sim_omega2theta",
-                (1.,), (0., 1.), self.dt, [0. for _ in self.est_theta_closed])
-        plug (self.output, self.omega2theta.reference)
+        # Done in _makeControllerSwich
+        # A delay is necessary to avoid loops in SoT
 
         delayTheta = DelayVector (self.name + "_sim_theta_delay")
         delayTheta.setMemory (tuple([0. for _ in self.est_theta_closed]))
@@ -171,35 +182,55 @@ class AdmittanceControl:
         self.setCurrentConditionIn (delay.current)
         plug (delay.previous, self.currentTorqueIn)
 
-    def connectToRobot (self, robot, jointNames, currents = True):
+    def readPositionsFromRobot (self, robot, jointNames):
         # Input formattting
         from dynamic_graph.sot.core.operator import Selec_of_vector
         self. _joint_selec = Selec_of_vector (self.name + "_joint_selec")
-        self._torque_selec = Selec_of_vector (self.name + "_torque_selec")
         model = robot.dynamic.model
         for jn in jointNames:
             jid = model.getJointId (jn)
             assert jid < len(model.joints)
             jmodel = model.joints[jid]
             self. _joint_selec.addSelec (jmodel.idx_v,jmodel.idx_v + jmodel.nv)
-            self._torque_selec.addSelec (jmodel.idx_v,jmodel.idx_v + jmodel.nv)
         plug (robot.dynamic.position, self. _joint_selec.sin)
         plug (self. _joint_selec.sout, self.currentPositionIn)
-        if currents:
-            from dynamic_graph.sot.core.operator import Multiply_double_vector
-            plug (robot.device.currents, self._torque_selec.sin)
-            self._multiply_by_torque_constant = Multiply_double_vector (self.name + "_multiply_by_torque_constant")
-            self._multiply_by_torque_constant.sin1.value = 1.
-            plug (self._torque_selec.sout, self._multiply_by_torque_constant.sin2)
-            plug (self._multiply_by_torque_constant.sout, self.currentTorqueIn)
-        else:
-            assert False, "Not implemented yet as I do not know what signal gives the torque."
+
+    def readCurrentsFromRobot (self, robot, jointNames, torque_constants):
+        # Input formattting
+        from dynamic_graph.sot.core.operator import Selec_of_vector
+        self._current_selec = Selec_of_vector (self.name + "_current_selec")
+        model = robot.dynamic.model
+        for jn in jointNames:
+            jid = model.getJointId (jn)
+            assert jid < len(model.joints)
+            jmodel = model.joints[jid]
+            self._current_selec.addSelec (jmodel.idx_v,jmodel.idx_v + jmodel.nv)
+
+        from dynamic_graph.sot.core.operator import Multiply_of_vector
+        plug (robot.device.currents, self._current_selec.sin)
+        self._multiply_by_torque_constants = Multiply_of_vector (self.name + "_multiply_by_torque_constants")
+        self._multiply_by_torque_constants.sin0.value = torque_constants
+        plug (self._current_selec.sout, self._multiply_by_torque_constants.sin1)
+        plug (self._multiply_by_torque_constants.sout, self.currentTorqueIn)
+
+    def readTorquesFromRobot (self, robot, jointNames):
+        # Input formattting
+        from dynamic_graph.sot.core.operator import Selec_of_vector
+        self._torque_selec = Selec_of_vector (self.name + "_torque_selec")
+        model = robot.dynamic.model
+        for jn in jointNames:
+            jid = model.getJointId (jn)
+            assert jid < len(model.joints)
+            jmodel = model.joints[jid]
+            self._torque_selec.addSelec (jmodel.idx_v,jmodel.idx_v + jmodel.nv)
+        plug (robot.device.ptorques, self._torque_selec.sin)
+        plug (self._torque_selec.sout, self.currentTorqueIn)
 
     def addOutputTo (self, robot, jointNames, mix_of_vector, sot=None):
         #TODO assert isinstance(mix_of_vector, Mix_of_vector)
         i = mix_of_vector.getSignalNumber()
         mix_of_vector.setSignalNumber(i+1)
-        plug (self.output, mix_of_vector.signal("sin"+str(i)))
+        plug (self.outputVelocity, mix_of_vector.signal("sin"+str(i)))
         model = robot.dynamic.model
         for jn in jointNames:
             jid = model.getJointId (jn)
@@ -227,9 +258,12 @@ class AdmittanceControl:
         robot.device.after.addSignal(self._tracer.name + ".triger")
         return self._tracer
 
+    @property
+    def outputPosition (self):
+        return self.omega2theta.output
 
     @property
-    def output (self):
+    def outputVelocity (self):
         return self.switch.signalOut
 
     @property
@@ -260,8 +294,8 @@ class AdmittanceControl:
         return self.switch.eventDown.check
 
     @property
-    def torqueConstant (self):
-        return self._multiply_by_torque_constant.sin1
+    def torqueConstants (self):
+        return self._multiply_by_torque_constants.sin0
 
     @property
     def robotVelocityOut (self):
