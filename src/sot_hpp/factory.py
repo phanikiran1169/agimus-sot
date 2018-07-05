@@ -99,6 +99,9 @@ class TaskFactory(ConstraintFactoryAbstract):
             ee.makeAdmittanceControl (aff, type,
                     period = gf.parameters["period"],
                     simulateTorqueFeedback = gf.parameters.get("simulateTorqueFeedback",False))
+            if gf.parameters["addTracerToAdmittanceController"]:
+                tracer = ac.addTracerRealTime (robot)
+                gf.tracers[tracer.name] = tracer
             self._grippers[key] = ee
         else:
             raise NotImplementedError ("Control type " + type + " is not implemented for gripper.")
