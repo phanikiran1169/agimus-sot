@@ -1,5 +1,5 @@
 from hpp.corbaserver.manipulation.constraint_graph_factory import ConstraintFactoryAbstract, GraphFactoryAbstract
-from tools import Manifold, Grasp, PreGrasp, OpFrame, EEPosture
+from tools import Manifold, Grasp, PreGrasp, OpFrame, EndEffector
 from dynamic_graph.sot.core import SOT
 
 class Affordance(object):
@@ -89,7 +89,9 @@ class TaskFactory(ConstraintFactoryAbstract):
             return self._grippers[key]
         robot = gf.sotrobot
         if aff.controlType[type] == "position":
-            self._grippers[key] = EEPosture (robot, gripperFrame, aff.ref["angle_"+type])
+            ee = EndEffector (robot, gripperFrame, "p" + type + ("_" + handle if handle is not None else ""))
+            ee.makePositionControl (aff.ref["angle_"+type])
+            self._grippers[key] = ee
         elif aff.controlType[type] == "torque":
             raise NotImplementedError ("Torque control alone is not implemented for gripper.")
         elif aff.controlType[type] == "position_torque":

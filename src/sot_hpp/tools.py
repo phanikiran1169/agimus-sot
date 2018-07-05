@@ -515,42 +515,39 @@ class Grasp (Manifold):
             # - velocity of object attached to gripper.sotjoint, into self.graspTask.feature.dotposition
             # - velocity of object attached to otherGripper.sotjoint, into self.graspTask.feature.dotpositionRef
 
-class EEPosture (Manifold):
-    def __init__ (self, sotrobot, gripper, position):
+class EndEffector (Manifold):
+    def __init__ (self, sotrobot, gripper, name_suffix):
         from dynamic_graph.sot.core import Task, GainAdaptive
 
-        super(EEPosture, self).__init__()
+        super(EndEffector, self).__init__()
         self.gripper = gripper
         self.jointNames = gripper.joints
         pinmodel = sotrobot.dynamic.model
 
-        n = "eeposture" + Posture.sep + gripper.name + Posture.sep + str(list(position))
+        self.name = Posture.sep.join(["endeffector", gripper.name, name_suffix])
 
-        self.tp = Task ('task' + n)
+        self.tp = Task ('task' + self.name)
         self.tp.dyn = sotrobot.dynamic
-        self.tp.feature = FeaturePosture ('feature_' + n)
+        self.tp.feature = FeaturePosture ('feature_' + self.name)
 
         plug(sotrobot.dynamic.position, self.tp.feature.state)
-        q = list(sotrobot.dynamic.position.value)
+
+        # Select the dofs
+        self.tp.feature.posture.value = sotrobot.dynamic.position.value
         # Define the reference and the selected DoF
-        rank = 0
-        ranks = []
+        self.jointRanks = []
         for name in self.jointNames:
             idJ = pinmodel.getJointId(name)
             assert idJ < pinmodel.njoints
             joint = pinmodel.joints[idJ]
             idx_v = joint.idx_v
             nv = joint.nv
-            ranks += range(idx_v, idx_v + nv)
-            q[idx_v:idx_v+nv] = position[rank: rank + nv]
-            rank += nv
-        assert rank == len(position)
+            self.jointRanks.append( (idx_v, nv) )
+        for idx_v, nv in self.jointRanks:
+            for i in range(idx_v, idx_v + nv):
+                self.tp.feature.selectDof (i, True)
 
-        self.tp.feature.posture.value = q
-        for i in ranks:
-            self.tp.feature.selectDof (i, True)
-
-        self.tp.gain = GainAdaptive("gain_"+n)
+        self.tp.gain = GainAdaptive("gain_"+self.name)
         self.tp.add(self.tp.feature.name)
 
         # Set the gain of the posture task
@@ -559,6 +556,59 @@ class EEPosture (Manifold):
         plug(self.tp.error, self.tp.gain.error)
         if len(self.jointNames) > 0:
             self.tasks = [ self.tp ]
+
+    ### \param type equals "open" or "close"
+    ### \param period interval between two integration of SoT
+    def makeAdmittanceControl (self, affordance, type, period, simulateTorqueFeedback = False):
+        # Make the admittance controller
+        from sot_hpp.control.gripper import AdmittanceControl
+        # type = "open" or "close"
+        desired_torque = affordance.ref["torque"]
+        theta_open = affordance.ref["angle_open"]
+        estimated_theta_close = affordance.ref["angle_close"]
+        threshold_up = tuple([ x / 10. for x in desired_torque ])
+        threshold_down = tuple([ x / 100. for x in desired_torque ])
+        wn, z, alpha, tau, = affordance.getControlParameter ()
+
+        self.ac = AdmittanceControl ("controller_" + self.name + "_" + type,
+                theta_open, estimated_theta_close,
+                desired_torque, period,
+                threshold_up, threshold_down,
+                wn, z, alpha, tau,)
+        if simulateTorqueFeedback:
+            M,d,k,x0 = affordance.getSimulationParameters()
+            self.ac.setupFeedbackSimulation(M,d,k,x0)
+        if type=="open":
+            self.ac.setGripperOpen  ()
+        elif type=="close":
+            self.ac.setGripperClosed()
+        else:
+            raise ValueError ("Type should be either 'open' or 'close'")
+
+        from dynamic_graph.sot.core.operator import Mix_of_vector
+        mix_of_vector = Mix_of_vector (self.name + "_control_to_robot_control")
+        mix_of_vector.default.value = tuple ([0,] * len(self.tp.feature.posture.value))
+        mix_of_vector.setSignalNumber(2)
+        for idx_v,nv in self.jointRanks:
+            mix_of_vector.addSelec(1, idx_v, nv)
+
+        # Plug the admittance controller to the posture task
+        setGain(self.tp.gain,1.)
+        plug(self.ac.output    , mix_of_vector.signal("sin1"))
+        plug(mix_of_vector.sout, self.tp.feature.posture)
+        # TODO plug posture dot ?
+        # I do not think it is necessary.
+
+    def makePositionControl (self, position):
+        q = list(self.tp.feature.state.value)
+        # Define the reference
+        ip = 0
+        for iq, nv in self.jointRanks:
+            q[iq:iq+nv] = position[ip:ip+nv]
+            ip += nv
+        assert ip == len(position)
+        self.tp.feature.posture.value = q
+        setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
 
 class Foot (Manifold):
     def __init__ (self, footname, sotrobot, selec='111111'):
