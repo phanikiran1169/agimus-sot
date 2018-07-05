@@ -95,20 +95,11 @@ class TaskFactory(ConstraintFactoryAbstract):
         elif aff.controlType[type] == "torque":
             raise NotImplementedError ("Torque control alone is not implemented for gripper.")
         elif aff.controlType[type] == "position_torque":
-            ac = aff.makePositionAndTorqueControl (type,
+            ee = EndEffector (robot, gripperFrame, "pt_" + type + ("_" + handle if handle is not None else ""))
+            ee.makeAdmittanceControl (aff, type,
                     period = gf.parameters["period"],
                     simulateTorqueFeedback = gf.parameters.get("simulateTorqueFeedback",False))
-            if gf.parameters["addTracerToAdmittanceController"]:
-                tracer = ac.addTracerRealTime (robot)
-                gf.tracers[tracer.name] = tracer
-            jointNames = gf.gripperFrames[aff.gripper].joints
-            ac.connectToRobot ( robot, jointNames,
-                    # TODO Indicate whether we should use current
-                    # gf.gripperFrames[aff.gripper].currents
-                    )
-            gf.controllers[ac.name] = ac
-            from functools import partial
-            self._grippers[key] = Manifold (initial_control = [partial(ac.addOutputTo,robot,jointNames),])
+            self._grippers[key] = ee
         else:
             raise NotImplementedError ("Control type " + type + " is not implemented for gripper.")
         return self._grippers[key]
