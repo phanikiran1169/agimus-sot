@@ -1,9 +1,9 @@
 <launch>
-  <group ns="agimus" >
-    <arg name="script_file" doc="Full path to the script which initializes the SoT supervisor" />
-    <arg name="robot_prefix"            />
-    <arg name="simulate_torque_feedback"/>
+  <arg name="script_file" doc="Full path to the script which initializes the SoT supervisor" />
+  <arg name="robot_prefix"            />
+  <arg name="simulate_torque_feedback"/>
 
+  <group ns="agimus" >
     <group ns="sot">
       <node name="start_supervisor" pkg="agimus_sot"
         type="start_supervisor.py"
