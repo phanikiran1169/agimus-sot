@@ -89,4 +89,5 @@ try:
 except rospy.ServiceException, e:
     rospy.logerr("Service call failed: %s" % e)
 
+# We need to spin to provide the SoT ros interface.
 rospy.spin()

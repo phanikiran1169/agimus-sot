@@ -13,14 +13,14 @@ def wait_for_service (srv, time = 0.2):
 
 class RosInterface(object):
     def __init__ (self, supervisor = None):
-        rospy.Service('/agimus/sot/plug_sot', PlugSot, self.plugSot)
-        rospy.Service('/agimus/sot/run_post_action', PlugSot, self.runPostAction)
-        rospy.Service('/agimus/sot/run_pre_action', PlugSot, self.runPreAction)
-        rospy.Service('/agimus/sot/request_hpp_topics', Trigger, self.requestHppTopics)
-        rospy.Service('/agimus/sot/clear_queues', Trigger, self.clearQueues)
-        rospy.Service('/agimus/sot/read_queue', SetInt, self.readQueue)
-        rospy.Service('/agimus/sot/stop_reading_queue', Empty, self.stopReadingQueue)
-        rospy.Service('/agimus/sot/publish_state', Empty, self.publishState)
+        rospy.Service('plug_sot', PlugSot, self.plugSot)
+        rospy.Service('run_post_action', PlugSot, self.runPostAction)
+        rospy.Service('run_pre_action', PlugSot, self.runPreAction)
+        rospy.Service('request_hpp_topics', Trigger, self.requestHppTopics)
+        rospy.Service('clear_queues', Trigger, self.clearQueues)
+        rospy.Service('read_queue', SetInt, self.readQueue)
+        rospy.Service('stop_reading_queue', Empty, self.stopReadingQueue)
+        rospy.Service('publish_state', Empty, self.publishState)
         wait_for_service ("/run_command")
         self._runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor
