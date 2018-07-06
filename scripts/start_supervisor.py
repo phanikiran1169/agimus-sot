@@ -1,38 +1,29 @@
 #!/usr/bin/python
-import sys, getopt
 
-def usage():
-    print ("Usage: " + sys.argv[0] + " --input script.py [--prefix prefix]")
-    sys.exit(1)
-
-opts, args = getopt.getopt (sys.argv[1:], "i:p:s", ["input=", "prefix=","simulate-torque-feedback"])
-
-f = None
-prefix = ""
-simulateTorqueFeedbackForEndEffector=False
-for opt, arg in opts:
-    if opt == "-i" or opt == "--input":
-        from os.path import isfile
-        if not isfile(arg):
-            raise ValueError ("File not found: " + arg)
-        f = arg
-    elif opt == "-p" or opt == "--prefix":
-        prefix = arg
-    elif opt == "-s" or opt == "--simulate-torque-feedback":
-        simulateTorqueFeedbackForEndEffector=True
-    else:
-        usage()
-
-if f is None:
-    usage()
-
-import rospy
+import rospy,sys
 from std_srvs.srv import *
 from dynamic_graph_bridge.srv import *
 from dynamic_graph_bridge_msgs.srv import *
+from os.path import isfile
+
+def usage():
+    rospy.logerr ("Parameters are input (required, a python script), prefix (optional, a string) and"
+            " simulate_torque_feedback (optional, boolean which default to true)")
+    sys.exit(1)
 
 rospy.init_node ('start_supervisor')
-rospy.loginfo ("Will read file: " + f)
+
+input                                = rospy.get_param("~input",None)
+prefix                               = rospy.get_param("~prefix","")
+simulateTorqueFeedbackForEndEffector = rospy.get_param("~simulate-torque-feedback",False)
+
+if not input:
+    usage()
+
+if not isfile(input):
+    raise ValueError ("File not found: " + input)
+
+rospy.loginfo ("Will read file: " + input)
 
 def _runCommandPrint (ans):
     if ans.result != "None":
@@ -87,7 +78,7 @@ try:
     runCommandStartDynamicGraph = rospy.ServiceProxy('/start_dynamic_graph', Empty)
 
     initCode = ["simulateTorqueFeedbackForEndEffector = "+str(simulateTorqueFeedbackForEndEffector),] \
-            + open( f, "r").read().split("\n")
+            + open( input, "r").read().split("\n")
 
     rospy.loginfo("Stack of Tasks launched")
 
