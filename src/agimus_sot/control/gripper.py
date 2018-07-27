@@ -204,7 +204,9 @@ class AdmittanceControl:
             jid = model.getJointId (jn)
             assert jid < len(model.joints)
             jmodel = model.joints[jid]
-            self._current_selec.addSelec (jmodel.idx_v,jmodel.idx_v + jmodel.nv)
+            # TODO there is no value for the 6 first DoF
+            assert jmodel.idx_v >= 6
+            self._current_selec.addSelec (jmodel.idx_v-6,jmodel.idx_v-6 + jmodel.nv)
 
         from dynamic_graph.sot.core.operator import Multiply_of_vector
         plug (robot.device.currents, self._current_selec.sin)
@@ -224,7 +226,9 @@ class AdmittanceControl:
             jid = model.getJointId (jn)
             assert jid < len(model.joints)
             jmodel = model.joints[jid]
-            self._torque_selec.addSelec (jmodel.idx_v,jmodel.idx_v + jmodel.nv)
+            # TODO there is no value for the 6 first DoF
+            assert jmodel.idx_v >= 6
+            self._torque_selec.addSelec (jmodel.idx_v-6,jmodel.idx_v-6 + jmodel.nv)
         plug (robot.device.ptorques, self._torque_selec.sin)
 
         self.setCurrentConditionIn (self._torque_selec.sout)
