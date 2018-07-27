@@ -211,6 +211,8 @@ class AdmittanceControl:
         self._multiply_by_torque_constants = Multiply_of_vector (self.name + "_multiply_by_torque_constants")
         self._multiply_by_torque_constants.sin0.value = torque_constants
         plug (self._current_selec.sout, self._multiply_by_torque_constants.sin1)
+
+        self.setCurrentConditionIn (self._multiply_by_torque_constants.sout)
         plug (self._multiply_by_torque_constants.sout, self.currentTorqueIn)
 
     def readTorquesFromRobot (self, robot, jointNames):
@@ -224,6 +226,8 @@ class AdmittanceControl:
             jmodel = model.joints[jid]
             self._torque_selec.addSelec (jmodel.idx_v,jmodel.idx_v + jmodel.nv)
         plug (robot.device.ptorques, self._torque_selec.sin)
+
+        self.setCurrentConditionIn (self._torque_selec.sout)
         plug (self._torque_selec.sout, self.currentTorqueIn)
 
     def addOutputTo (self, robot, jointNames, mix_of_vector, sot=None):
