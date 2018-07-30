@@ -1,6 +1,6 @@
 from dynamic_graph import plug
 
-class AdmittanceControl:
+class AdmittanceControl(object):
     """
     The torque controller is then use to maintain a desired force.
     It outputs a velocity command to be sent to entity Device.
@@ -204,7 +204,7 @@ class AdmittanceControl:
     def torqueConstants (self):
         return self._multiply_by_torque_constants.sin0
 
-class PositionAndAdmittanceControl:
+class PositionAndAdmittanceControl(AdmittanceControl):
     """
     Encapsulate two controllers: a position controller and a torque controller.
     The position controller is used to create a contact.
@@ -231,7 +231,7 @@ class PositionAndAdmittanceControl:
         assert desired_torque[0] * (estimated_theta_closed[0]-theta_open[0]) > 0,\
                 "Incompatible desired positions and torques."
         super(PositionAndAdmittanceControl, self).__init__(name, estimated_theta_closed,
-                desired_torque, period, nums, denoms)
+                desired_torque, period, nums_tor, denoms_tor)
 
         self.theta_open = theta_open
         self.threshold_up = threshold_up
