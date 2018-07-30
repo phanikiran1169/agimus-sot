@@ -564,7 +564,7 @@ class EndEffector (Manifold):
     ### \param period interval between two integration of SoT
     def makeAdmittanceControl (self, affordance, type, period, simulateTorqueFeedback = False):
         # Make the admittance controller
-        from agimus_sot.control.gripper import AdmittanceControl
+        from agimus_sot.control.gripper import AdmittanceControl, PositionAndAdmittanceControl
         # type = "open" or "close"
         desired_torque = affordance.ref["torque"]
         theta_open = affordance.ref["angle_open"]
