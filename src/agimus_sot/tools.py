@@ -567,24 +567,24 @@ class EndEffector (Manifold):
         from agimus_sot.control.gripper import AdmittanceControl, PositionAndAdmittanceControl
         # type = "open" or "close"
         desired_torque = affordance.ref["torque"]
-        theta_open = affordance.ref["angle_open"]
         estimated_theta_close = affordance.ref["angle_close"]
-        threshold_up = tuple([ x / 10. for x in desired_torque ])
-        threshold_down = tuple([ x / 100. for x in desired_torque ])
 
-        nums, denoms = affordance.getControlParameter ()
+        wn, z, nums, denoms = affordance.getControlParameter ()
 
         if affordance.controlType[type] == "torque":
             self.ac = AdmittanceControl ("AC_" + self.name + "_" + type,
+                    estimated_theta_close,
+                    desired_torque, period,
+                    nums, denoms)
+        elif affordance.controlType[type] == "position_torque":
+            theta_open = affordance.ref["angle_open"]
+            threshold_up = tuple([ x / 10. for x in desired_torque ])
+            threshold_down = tuple([ x / 100. for x in desired_torque ])
+            self.ac = PositionAndAdmittanceControl ("AC_" + self.name + "_" + type,
                     theta_open, estimated_theta_close,
                     desired_torque, period,
                     threshold_up, threshold_down,
                     wn, z,
-                    nums, denoms)
-        elif affordance.controlType[type] == "position_torque":
-            self.ac = PositionAndAdmittanceControl ("AC_" + self.name + "_" + type,
-                    estimated_theta_close,
-                    desired_torque, period,
                     nums, denoms)
         else:
             raise NotImplementedError ("Control type " + type + " is not implemented for gripper.")

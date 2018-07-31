@@ -29,7 +29,7 @@ class Affordance(object):
     def getControlParameter (self):
         wn    = self.controlParams.get("wn",    10.)
         z     = self.controlParams.get("z",     1. )
-        nums_tor   = self.controlParams.get("torque_num", (1.,)),
+        nums_tor   = self.controlParams.get("torque_num", (1.,))
         denoms_tor = self.controlParams.get("torque_denom", (1.,))
         return wn, z, nums_tor, denoms_tor
 

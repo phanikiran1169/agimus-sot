@@ -172,9 +172,9 @@ class AdmittanceControl(object):
         self._tracer.setBufferSize (10 * 1048576) # 10 Mo
         self._tracer.open ("/tmp", filename_escape(self.name), ".txt")
 
-        self._tracer.add (self.omega2theta.name + "sin1",         "_theta_current")
-        self._tracer.add (self.omega2theta.name + "sin2",         "_omega")
-        self._tracer.add (self.omega2theta.name + "sout",         "_theta_desired")
+        self._tracer.add (self.omega2theta.name + ".sin1",        "_theta_current")
+        self._tracer.add (self.omega2theta.name + ".sin2",        "_omega")
+        self._tracer.add (self.omega2theta.name + ".sout",        "_theta_desired")
         self._tracer.add (self.torque_controller.referenceName,   "_reference_torque")
         self._tracer.add (self.torque_controller.measurementName, "_measured_torque")
 
@@ -183,7 +183,7 @@ class AdmittanceControl(object):
 
     @property
     def outputPosition (self):
-        return self.omega2theta.output
+        return self.omega2theta.sout
 
     @property
     def outputVelocity (self):
