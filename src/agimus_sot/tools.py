@@ -562,7 +562,9 @@ class EndEffector (Manifold):
 
     ### \param type equals "open" or "close"
     ### \param period interval between two integration of SoT
-    def makeAdmittanceControl (self, affordance, type, period, simulateTorqueFeedback = False):
+    def makeAdmittanceControl (self, affordance, type, period,
+            simulateTorqueFeedback = False,
+            filterCurrents = True):
         # Make the admittance controller
         from agimus_sot.control.gripper import AdmittanceControl, PositionAndAdmittanceControl
         # type = "open" or "close"
@@ -599,7 +601,8 @@ class EndEffector (Manifold):
             self.ac.readPositionsFromRobot(self.robot, self.jointNames)
             # Get torque from robot sensors (or external simulation)
             # TODO allows to switch between current and torque sensors
-            self.ac.readCurrentsFromRobot(self.robot, self.jointNames, (self.gripper.torque_constant,))
+            self.ac.readCurrentsFromRobot(self.robot, self.jointNames,
+                    (self.gripper.torque_constant,), filterCurrents)
             # self.ac.readTorquesFromRobot(self.robot, self.jointNames)
 
         from dynamic_graph.sot.core.operator import Mix_of_vector

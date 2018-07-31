@@ -286,8 +286,8 @@ class PositionAndAdmittanceControl(AdmittanceControl):
         super(PositionAndAdmittanceControl, self).setupFeedbackSimulation(mass, damping, spring, theta0)
         self.setCurrentConditionIn (delay.current)
 
-    def readCurrentsFromRobot (self, robot, jointNames, torque_constants):
-        super(PositionAndAdmittanceControl, self).readCurrentsFromRobot (robot, jointNames, torque_constants)
+    def readCurrentsFromRobot (self, robot, jointNames, torque_constants, first_order_filter = False):
+        super(PositionAndAdmittanceControl, self).readCurrentsFromRobot (robot, jointNames, torque_constants, first_order_filter)
         self.setCurrentConditionIn (self._multiply_by_torque_constants.sout)
 
     def readTorquesFromRobot (self, robot, jointNames):
