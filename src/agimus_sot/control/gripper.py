@@ -116,7 +116,9 @@ class AdmittanceControl(object):
         plug (robot.dynamic.position, self. _joint_selec.sin)
         self.setCurrentPositionIn(self._joint_selec.sout)
 
-    def readCurrentsFromRobot (self, robot, jointNames, torque_constants):
+    ## - param torque_constants: Should take into account the motor torque constant and the gear ratio.
+    ## - param first_order_filter: Add a first order filter to the current signal.
+    def readCurrentsFromRobot (self, robot, jointNames, torque_constants, first_order_filter = False):
         # Input formattting
         from dynamic_graph.sot.core.operator import Selec_of_vector
         self._current_selec = Selec_of_vector (self.name + "_current_selec")
@@ -133,7 +135,15 @@ class AdmittanceControl(object):
         plug (robot.device.currents, self._current_selec.sin)
         self._multiply_by_torque_constants = Multiply_of_vector (self.name + "_multiply_by_torque_constants")
         self._multiply_by_torque_constants.sin0.value = torque_constants
-        plug (self._current_selec.sout, self._multiply_by_torque_constants.sin1)
+
+        if first_order_filter:
+            from agimus_sot.control.controllers import Controller
+            self._first_order_current_filter = Controller (self.name + "_first_order_current_filter",
+                    (1.,), (1., 1./5.,), self.dt, [0. for _ in self.desired_torque])
+            plug (self._current_selec.sout, self._first_order_current_filter.reference)
+            plug (self._first_order_current_filter.output, self._multiply_by_torque_constants.sin1)
+        else:
+            plug (self._current_selec.sout, self._multiply_by_torque_constants.sin1)
 
         plug (self._multiply_by_torque_constants.sout, self.currentTorqueIn)
 
@@ -177,6 +187,8 @@ class AdmittanceControl(object):
         self._tracer.add (self.omega2theta.name + ".sout",        "_theta_desired")
         self._tracer.add (self.torque_controller.referenceName,   "_reference_torque")
         self._tracer.add (self.torque_controller.measurementName, "_measured_torque")
+        if hasattr(self, "_current_selec"):
+            self._tracer.add (self._current_selec.name + ".sout", "_measured_current")
 
         robot.device.after.addSignal(self._tracer.name + ".triger")
         return self._tracer
