@@ -8,6 +8,9 @@ def _hpTasks (sotrobot):
 def _lpTasks (sotrobot):
     return Posture ("posture", sotrobot)
 
+## Supervise the consecutive execution of several SoT.
+#
+# Typically, these sots are created via factory.Factory. They can also be added manually.
 class Supervisor(object):
     """
     Steps: P = placement, G = grasp, p = pre-P, g = pre-G
@@ -18,6 +21,10 @@ class Supervisor(object):
     4. GP <-> Gp
     5. Gp <-> G
     """
+    ## \param lpTasks function taking as input "sotrobot" and return low priority task
+    #         \todo this should not be a function but a set of tasks.
+    ## \param hpTasks function taking as input "sotrobot" and return high priority task (like balance)
+    #         \todo this should not be a function but a set of tasks.
     def __init__ (self, sotrobot, lpTasks = None, hpTasks = None):
         self.sotrobot = sotrobot
         self.hpTasks = hpTasks if hpTasks is not None else _hpTasks(sotrobot)
@@ -104,6 +111,10 @@ class Supervisor(object):
             topic_handler = _handlers[topic_info.get("handler","default")]
             topic_handler (name,topic_info,self.rosSusbcribe,self.rosTf)
 
+    ## Check consistency between two SoTs.
+    #
+    # This is not used anymore because it must be synchronized with the real-time thread.
+    # \todo Re-enable consistency check between two SoTs.
     def isSotConsistentWithCurrent(self, transitionName, thr = 1e-3):
         if self.currentSot is None or transitionName == self.currentSot:
             return True

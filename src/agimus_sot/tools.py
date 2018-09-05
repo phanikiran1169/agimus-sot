@@ -75,6 +75,7 @@ def computeControlSelection (robot, joint_to_be_removed):
     selection.reverse()
     return "".join(selection)
 
+## Abstraction of a task with a predefined gain.
 class Manifold(object):
     sep = "___"
 
@@ -120,6 +121,7 @@ class Manifold(object):
                 func (ic, sot = sot)
             plug (ic.sout, sot.q0)
 
+## Postural task
 class Posture(Manifold):
     def __init__ (self, name, sotrobot):
         super(Posture, self).__init__()
@@ -202,6 +204,8 @@ class OpFrame(object):
     @property
     def fullName  (self): return self.robotName + "/" + self.name
 
+## A pregrasp task
+# \todo document me
 class PreGrasp (Manifold):
     def __init__ (self, gripper, handle, otherGraspOnObject = None):
         super(PreGrasp, self).__init__()
@@ -460,6 +464,8 @@ class PreGrasp (Manifold):
         self.tasks = [ self.graspTask.task ]
         # TODO Add velocity
 
+## A grasp task
+# \todo document me
 class Grasp (Manifold):
     def __init__ (self, gripper, handle, otherGraspOnObject = None):
         super(Grasp, self).__init__()
@@ -517,6 +523,14 @@ class Grasp (Manifold):
             # - velocity of object attached to gripper.sotjoint, into self.graspTask.feature.dotposition
             # - velocity of object attached to otherGripper.sotjoint, into self.graspTask.feature.dotpositionRef
 
+## Control of the gripper motors.
+#
+# It can do:
+# \li position control
+# \li admittance control
+# \li a mixture between position and admittance control (position control before the impact, then admittance control).
+#     \todo At the time of writting, I (Joseph Mirabel) think the mixtured control is bugged. At least, there was a SEGV the last time
+#     I tried to use it. However, the SEGV might have a different cause.
 class EndEffector (Manifold):
     def __init__ (self, sotrobot, gripper, name_suffix):
         from dynamic_graph.sot.core import Task, GainAdaptive

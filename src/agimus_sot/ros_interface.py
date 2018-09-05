@@ -11,7 +11,19 @@ def wait_for_service (srv, time = 0.2):
         rospy.wait_for_service(srv)
     rospy.loginfo("Service {0} found.".format(srv))
 
+## Ros interface for \ref supervisor.Supervisor.
+#
+# There are two ways of communicating with SoT.
+# \li use this class directly inside the python interpreter in SoT,
+# \li use this class in a separate ROS node that communicates with SoT
+#     via the service "/run_command".
+#
+# The first method can be useful for debugging. However, **on the robot,
+# only the second method should be used**.
 class RosInterface(object):
+    ## \param supervisor if None, then communication with SoT is handled via
+    #
+    # \todo Service "run_command" should be used only when supervisor is None.
     def __init__ (self, supervisor = None):
         rospy.Service('plug_sot', PlugSot, self.plugSot)
         rospy.Service('run_post_action', PlugSot, self.runPostAction)

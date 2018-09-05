@@ -1,0 +1,3 @@
+FILE_PATTERNS          = *.hh *.cc *.py
+
+INPUT                  = @CMAKE_SOURCE_DIR@/src/
