@@ -34,6 +34,9 @@ class Supervisor(object):
         self.sot_switch = SwitchVector ("sot_supervisor_switch")
         plug(self.sot_switch.sout, self.sotrobot.device.control)
 
+        self.sot_switch.setSignalNumber(1)
+        self.sot_switch.signal("sin0").value = [0,] * sotrobot.dynamic.getDimension()
+
     def setupEvents (self):
         from dynamic_graph.sot.core.operator import Norm_of_vector, CompareDouble
         from dynamic_graph.sot.core.event import Event
@@ -82,6 +85,20 @@ class Supervisor(object):
         
         self.keep_posture.pushTo(sot)
         self.addSot ("", sot, sot.control)
+
+    ## Set the robot base pose in the world.
+    # \param basePose a list: [x,y,z,r,p,y]
+    def setBasePose (self, basePose):
+        if self.currentSot == "" or le(basePose) != 6:
+            # We are using the SOT to keep the current posture.
+            old_value = self.sot_switch.selection.value
+            self.sot_switch.selection.value = 0
+            robot.device.set(basePose + robot.device.state.value[6:])
+            self.keep_posture._signalPositionRef().value = self.sotrobot.device.state.value
+            self.sot_switch.selection.value = old_value
+            return True
+        else:
+            return False
 
     def addSot (self, name, sot, controlSignal):
         self.sots[name] = sot
