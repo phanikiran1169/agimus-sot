@@ -1,6 +1,6 @@
 import rospy
 from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse, Empty, EmptyResponse
-from agimus_sot_msgs.srv import PlugSot, PlugSotResponse, SetString, SetJointNames, GetInt, GetIntResponse, SetInt, SetIntRequest, SetIntResponse
+from agimus_sot_msgs.srv import PlugSot, PlugSotResponse, SetString, SetJointNames, SetInt, SetIntResponse, SetPose
 from dynamic_graph_bridge_msgs.srv import RunCommand
 
 def wait_for_service (srv, time = 0.2):
@@ -33,6 +33,7 @@ class RosInterface(object):
         rospy.Service('read_queue', SetInt, self.readQueue)
         rospy.Service('stop_reading_queue', Empty, self.stopReadingQueue)
         rospy.Service('publish_state', Empty, self.publishState)
+        rospy.Service('set_base_pose', SetPose, self.setBasePose)
         wait_for_service ("/run_command")
         self._runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor
@@ -177,3 +178,17 @@ class RosInterface(object):
                     handlers[kk] (t[k])
                     rospy.loginfo("Requested " + kk + " " + t[k])
         return TriggerResponse (True, "ok")
+
+    def setBasePose (self, req):
+        pose = [ req.x, req.y, req.z, req.roll, req.pitch, req.yaw ]
+        if self.supervisor is not None:
+            try:
+                self.supervisor.setBasePose(pose)
+            except Exception as e:
+                rospy.logerr(str(e))
+                return False, str(e)
+        else:
+            answer = self.runCommand ("supervisor.setBasePose('{}')".format(pose))
+            if len(answer.standarderror) != 0:
+                return False, answer.standarderror
+        return True, ""
