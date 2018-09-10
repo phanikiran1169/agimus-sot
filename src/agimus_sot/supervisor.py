@@ -34,9 +34,6 @@ class Supervisor(object):
         self.sot_switch = SwitchVector ("sot_supervisor_switch")
         plug(self.sot_switch.sout, self.sotrobot.device.control)
 
-        self.sot_switch.setSignalNumber(1)
-        self.sot_switch.signal("sin0").value = [0,] * sotrobot.dynamic.getDimension()
-
     def setupEvents (self):
         from dynamic_graph.sot.core.operator import Norm_of_vector, CompareDouble
         from dynamic_graph.sot.core.event import Event
@@ -87,15 +84,22 @@ class Supervisor(object):
         self.addSot ("", sot, sot.control)
 
     ## Set the robot base pose in the world.
-    # \param basePose a list: [x,y,z,r,p,y]
+    # \param basePose a list: [x,y,z,r,p,y] or [x,y,z,qx,qy,qz,qw]
+    # \return success True in case of success
     def setBasePose (self, basePose):
-        if self.currentSot == "" or le(basePose) != 6:
+        if len(basePose) == 7:
+            # Currently, this case never happens
+            from dynamic_graph.sot.tools.quaternion import Quaternion
+            from numpy.linalg import norm
+            q = Quaternion(basePose[6],basePose[3],basePose[4],basePose[5])
+            if abs(norm(q.array) - 1.) > 1e-2:
+              return False, "Quaternion is not normalized"
+            basePose = basePose[:3] + q.toRPY().tolist()
+        if self.currentSot == "" or len(basePose) != 6:
             # We are using the SOT to keep the current posture.
-            old_value = self.sot_switch.selection.value
-            self.sot_switch.selection.value = 0
-            robot.device.set(basePose + robot.device.state.value[6:])
+            # The 6 first DoF are not used by the task so we can change them safely.
+            self.sotrobot.device.set(tuple(basePose + list(self.sotrobot.device.state.value[6:])))
             self.keep_posture._signalPositionRef().value = self.sotrobot.device.state.value
-            self.sot_switch.selection.value = old_value
             return True
         else:
             return False
