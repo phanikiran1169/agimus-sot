@@ -2,7 +2,27 @@ from hpp.corbaserver.manipulation.constraint_graph_factory import ConstraintFact
 from tools import Manifold, Grasp, PreGrasp, OpFrame, EndEffector
 from dynamic_graph.sot.core import SOT
 
+## Affordance between a gripper and a handle.
+#
+# This class allows to tune the behaviour of the robot when grasping of
+# releasing an object. There are several behaviour already implemented.
 class Affordance(object):
+    ## Constructor
+    # \param gripper names of the gripper
+    # \param handle  names of the handle
+    # \param openControlType, closeControlType control type for releasing and
+    #        grasping the object. Must be one of \c "position", \c "torque" or 
+    #        \c "position_torque"
+    # \param refs a dictionnary of reference values.
+    #             Keys should be \c "angle_open", \c "angle_close" and \c "torque")
+    # \param controlParams parameters of the control:
+    # \param simuParams parameters of the torque feedback simulation.
+    #
+    # Control parameters depend on the control type.
+    # \li For \c "position", no parameters.
+    # \li For \c "torque", see control.AdmittanceControl constructor (torque_num, torque_denom)
+    # \li For \c "position_torque", see control.PositionAndAdmittanceControl constructor.
+    # (wn, z, torque_num, torque_denom)
     def __init__ (self, gripper, handle, openControlType, closeControlType,
             refs, controlParams = {}, simuParams = {}):
         self.gripper = gripper
@@ -12,6 +32,8 @@ class Affordance(object):
         self.controlParams = controlParams
         self.simuParams = simuParams
 
+    ## Very likely never used but who knows...
+    # \todo remove me
     def setControl (self, refOpen, refClose, openType = "position", closeType="position"):
         from warnings import warn
         warn("Method Affordance.getControl will be deleted soon!")
@@ -26,6 +48,7 @@ class Affordance(object):
                 "angle_close": refClose,
                 }
 
+    ## Get position control parameter
     def getControlParameter (self):
         wn    = self.controlParams.get("wn",    10.)
         z     = self.controlParams.get("z",     1. )
@@ -33,6 +56,11 @@ class Affordance(object):
         denoms_tor = self.controlParams.get("torque_denom", (1.,))
         return wn, z, nums_tor, denoms_tor
 
+    ## Simulation parameters
+    # \li mass    defaults to 0.
+    # \li damping defaults to 5.
+    # \li spring  defaults to 100.
+    # \li refPos  defaults to \c self.ref["angle_close"]
     def getSimulationParameters (self):
         mass    = self.simuParams.get("mass"   , 0.)
         damping = self.simuParams.get("damping", 5. )
@@ -40,6 +68,9 @@ class Affordance(object):
         refPos  = self.simuParams.get("refPos" , self.ref["angle_close"] )
         return mass,damping,spring,refPos
 
+## Create \ref tools.Manifold s
+# 
+# \sa manipulation.constraint_graph_factory.ConstraintFactoryAbstract
 class TaskFactory(ConstraintFactoryAbstract):
     gfields = ('grasp', 'pregrasp', 'gripper_open', 'gripper_close')
     pfields = ()
@@ -129,6 +160,75 @@ class TaskFactory(ConstraintFactoryAbstract):
         # Nothing to do
         return dict()
 
+## Create a set of controllers for a set of tasks.
+#
+# A controller is created for each transition of the graph of constraints.
+#
+# See the following example for usage.
+# \code{.py}
+# from agimus_sot import Supervisor
+# from agimus_sot.factory import Factory, Affordance
+# from agimus_sot.tools import Manifold
+# from agimus_sot.srdf_parser import parse_srdf
+# from hpp.corbaserver.manipulation import Rule
+#
+# # Constraint graph definition. Should be the same as the one used for planning
+# # in HPP.
+# grippers = [ "talos/left_gripper", ]
+# objects = [ "box" ]
+# handlesPerObjects = [ [ "box/handle1", "box/handle2" ], ]
+# contactPerObjects = [ [ "box/bottom_surface", ] ]
+# rules = [
+#           Rule([ "talos/left_gripper", ], [ "box/handle2", ], False),
+#           # Rule([ "talos/left_gripper", ], [ Object.handles[0], ], True),
+#           Rule([ "talos/left_gripper", ], [ ".*", ], True),
+#           # Rule([ "talos/right_gripper", ], [ Object.handles[1], ], True),
+#           ]
+#
+# # Parse SRDF files to extract gripper and handle information.
+# srdf = {}
+# srdfTalos = parse_srdf ("srdf/talos.srdf", packageName = "talos_data", prefix="talos")
+# srdfBox   = parse_srdf ("srdf/cobblestone.srdf", packageName = "gerard_bauzil", prefix="box")
+# srdfTable = parse_srdf ("srdf/pedestal_table.srdf", packageName = "gerard_bauzil", prefix="table")
+# for w in [ "grippers", "handles" ]:
+#     srdf[w] = dict()
+#     for d in [ srdfTalos, srdfBox, srdfTable ]:
+#         srdf[w].update (d[w])
+#
+#
+# supervisor = Supervisor (robot, hpTasks = hpTasks(robot))
+# factory = Factory(supervisor)
+#
+# # Define parameters
+# factory.parameters["period"] = robot.getTimeStep() # This must be made available for your robot
+# factory.parameters["simulateTorqueFeedback"] = simulateTorqueFeedbackForEndEffector
+# factory.parameters["addTracerToAdmittanceController"] = True
+# factory.parameters["useMeasurementOfObjectsPose"] = True
+#
+# factory.setGrippers (grippers)
+# factory.setObjects (objects, handlesPerObjects, contactPerObjects)
+# factory.environmentContacts (["table/support",])
+# factory.setRules (rules)
+# factory.setupFrames (srdf["grippers"], srdf["handles"], robot, disabledGrippers=["table/pose",])
+# factory.addAffordance (
+#     Affordance ("talos/left_gripper", "box/handle1",
+#         openControlType="torque", closeControlType="torque",
+#         refs = { "angle_open": (0,), "angle_close": (-0.5,), "torque": (-0.05,) },
+#         controlParams = { "torque_num": ( 5000., 1000.),
+#             "torque_denom": (0.01,) },
+#         simuParams = { "refPos": (-0.2,) }))
+# factory.addAffordance (
+#     Affordance ("talos/left_gripper", None,
+#         openControlType="position", closeControlType="position",
+#         refs = { "angle_open": (0,), "angle_close": (-0.5,), "torque": (-0.05,) },
+#         simuParams = { "refPos": (-0.2,) }))
+# factory.generate ()
+#
+# supervisor.makeInitialSot ()
+# \endcode
+# 
+# \sa manipulation.constraint_graph_factory.GraphFactoryAbstract, TaskFactory,
+#     Affordance
 class Factory(GraphFactoryAbstract):
     class State:
         def __init__ (self, tasks, grasps, factory):
