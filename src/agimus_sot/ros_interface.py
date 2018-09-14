@@ -1,6 +1,6 @@
 import rospy
 from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse, Empty, EmptyResponse
-from agimus_sot_msgs.srv import PlugSot, PlugSotResponse, SetString, SetJointNames, SetInt, SetIntResponse, SetPose
+from agimus_sot_msgs.srv import PlugSot, PlugSotResponse, SetString, SetJointNames, ReadQueue, ReadQueueResponse, SetPose
 from dynamic_graph_bridge_msgs.srv import RunCommand
 
 def wait_for_service (srv, time = 0.2):
@@ -30,7 +30,7 @@ class RosInterface(object):
         rospy.Service('run_pre_action', PlugSot, self.runPreAction)
         rospy.Service('request_hpp_topics', Trigger, self.requestHppTopics)
         rospy.Service('clear_queues', Trigger, self.clearQueues)
-        rospy.Service('read_queue', SetInt, self.readQueue)
+        rospy.Service('read_queue', ReadQueue, self.readQueue)
         rospy.Service('stop_reading_queue', Empty, self.stopReadingQueue)
         rospy.Service('publish_state', Empty, self.publishState)
         rospy.Service('set_base_pose', SetPose, self.setBasePose)
@@ -134,11 +134,11 @@ class RosInterface(object):
 
     def readQueue(self, req):
         if self.supervisor is not None:
-            self.supervisor.readQueue( req.data)
+            self.supervisor.readQueue(req.delay, req.minQueueSize)
         else:
-            cmd = "supervisor.readQueue(" + str(req.data) + ")"
+            cmd = "supervisor.readQueue({},{})".format(req.delay, req.minQueueSize)
             answer = self.runCommand (cmd)
-        return SetIntResponse ()
+        return ReadQueueResponse ()
 
     def stopReadingQueue(self, req):
         if self.supervisor is not None:

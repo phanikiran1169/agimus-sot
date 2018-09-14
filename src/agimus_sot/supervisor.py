@@ -159,10 +159,21 @@ class Supervisor(object):
         for s in tmp:
             self.rosSusbcribe.clearQueue(s)
 
-    def readQueue(self, read):
+    ## Start reading values received by the RosQueuedSubscribe entity.
+    # \param delay (integer) how many periods to wait before reading.
+    #              It allows to give some delay to network connection.
+    # \param minQueueSize (integer) waits to the queue size of rosSusbcribe
+    #                     to be greater or equal to \p minQueueSize
+    #
+    # \warning If \p minQueueSize is greater than the number of values to
+    #          be received by rosSusbcribe, this function does an infinite loop.
+    def readQueue(self, delay, minQueueSize):
+        from time import sleep
         if read < 0:
             print ("ReadQueue argument should be >= 0")
             return
+        while self.rosSusbcribe.queueSize() < minQueueSize:
+            sleep(0.001)
         t = self.sotrobot.device.control.time
         self.rosSusbcribe.readQueue (t + read)
 
