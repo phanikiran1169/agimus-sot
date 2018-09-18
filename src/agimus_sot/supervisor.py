@@ -155,6 +155,7 @@ class Supervisor(object):
         return True
 
     def clearQueues(self):
+        self.rosSusbcribe.readQueue (-1)
         exec ("tmp = " + self.rosSusbcribe.list())
         for s in tmp:
             self.rosSusbcribe.clearQueue(s)
@@ -169,13 +170,13 @@ class Supervisor(object):
     #          be received by rosSusbcribe, this function does an infinite loop.
     def readQueue(self, delay, minQueueSize):
         from time import sleep
-        if read < 0:
-            print ("ReadQueue argument should be >= 0")
+        if delay < 0:
+            print ("Delay argument should be >= 0")
             return
-        while self.rosSusbcribe.queueSize() < minQueueSize:
+        while self.rosSusbcribe.queueSize("posture") < minQueueSize:
             sleep(0.001)
         t = self.sotrobot.device.control.time
-        self.rosSusbcribe.readQueue (t + read)
+        self.rosSusbcribe.readQueue (t + delay)
 
     def stopReadingQueue(self):
         self.rosSusbcribe.readQueue (-1)
@@ -190,7 +191,6 @@ class Supervisor(object):
         sot = self.sots[transitionName]
         n = self.sots_indexes[sot.name]
         # Start reading queues
-        self.readQueue(10)
         self.sot_switch.selection.value = n
         print("Current sot:", transitionName, "\n", sot.display())
         self.currentSot = transitionName
