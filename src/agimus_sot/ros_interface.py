@@ -188,7 +188,7 @@ class RosInterface(object):
                 rospy.logerr(str(e))
                 return False, str(e)
         else:
-            answer = self.runCommand ("supervisor.setBasePose('{}')".format(pose))
+            answer = self.runCommand ("supervisor.setBasePose({})".format(pose))
             if len(answer.standarderror) != 0:
                 return False, answer.standarderror
         return True, ""
