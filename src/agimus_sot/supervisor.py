@@ -123,14 +123,14 @@ class Supervisor(object):
 
     def plugTopicsToRos (self):
         from dynamic_graph.ros.ros_queued_subscribe import RosQueuedSubscribe
-        self.rosSusbcribe = RosQueuedSubscribe ('ros_queued_subscribe')
+        self.rosSubscribe = RosQueuedSubscribe ('ros_queued_subscribe')
         from dynamic_graph.ros.ros_tf_listener import RosTfListener
         self.rosTf = RosTfListener ('ros_tf_listener')
         topics = self.topics()
 
         for name, topic_info in topics.items():
             topic_handler = _handlers[topic_info.get("handler","default")]
-            topic_handler (name,topic_info,self.rosSusbcribe,self.rosTf)
+            topic_handler (name,topic_info,self.rosSubscribe,self.rosTf)
 
     ## Check consistency between two SoTs.
     #
@@ -155,31 +155,31 @@ class Supervisor(object):
         return True
 
     def clearQueues(self):
-        self.rosSusbcribe.readQueue (-1)
-        exec ("tmp = " + self.rosSusbcribe.list())
+        self.rosSubscribe.readQueue (-1)
+        exec ("tmp = " + self.rosSubscribe.list())
         for s in tmp:
-            self.rosSusbcribe.clearQueue(s)
+            self.rosSubscribe.clearQueue(s)
 
     ## Start reading values received by the RosQueuedSubscribe entity.
     # \param delay (integer) how many periods to wait before reading.
     #              It allows to give some delay to network connection.
-    # \param minQueueSize (integer) waits to the queue size of rosSusbcribe
+    # \param minQueueSize (integer) waits to the queue size of rosSubscribe
     #                     to be greater or equal to \p minQueueSize
     #
     # \warning If \p minQueueSize is greater than the number of values to
-    #          be received by rosSusbcribe, this function does an infinite loop.
+    #          be received by rosSubscribe, this function does an infinite loop.
     def readQueue(self, delay, minQueueSize):
         from time import sleep
         if delay < 0:
             print ("Delay argument should be >= 0")
             return
-        while self.rosSusbcribe.queueSize("posture") < minQueueSize:
+        while self.rosSubscribe.queueSize("posture") < minQueueSize:
             sleep(0.001)
         t = self.sotrobot.device.control.time
-        self.rosSusbcribe.readQueue (t + delay)
+        self.rosSubscribe.readQueue (t + delay)
 
     def stopReadingQueue(self):
-        self.rosSusbcribe.readQueue (-1)
+        self.rosSubscribe.readQueue (-1)
 
     def plugSot(self, transitionName, check = False):
         if check and not self.isSotConsistentWithCurrent (transitionName):
@@ -238,31 +238,31 @@ class Supervisor(object):
         self.ros_publish_state.add ("vector", "state", "/agimus/sot/state")
         self.ros_publish_state.add ("vector", "reference_state", "/agimus/sot/reference_state")
         plug (self.sotrobot.device.state, self.ros_publish_state.state)
-        plug (self.rosSusbcribe.posture, self.ros_publish_state.reference_state)
+        plug (self.rosSubscribe.posture, self.ros_publish_state.reference_state)
         self.sotrobot.device.after.addDownsampledSignal ("ros_publish_state.trigger", subsampling)
 
-def _defaultHandler(name,topic_info,rosSusbcribe,rosTf):
+def _defaultHandler(name,topic_info,rosSubscribe,rosTf):
     topic = topic_info["topic"]
-    rosSusbcribe.add (topic_info["type"], name, topic)
+    rosSubscribe.add (topic_info["type"], name, topic)
     for s in topic_info['signalGetters']:
-        plug (rosSusbcribe.signal(name), s())
+        plug (rosSubscribe.signal(name), s())
     print (topic, "plugged to", name, ', ', len(topic_info['signalGetters']), 'times')
 
-def _handleTfListener (name,topic_info,rosSusbcribe,rosTf):
+def _handleTfListener (name,topic_info,rosSubscribe,rosTf):
     signame = topic_info["frame1"] + "_wrt_" + topic_info["frame0"]
     rosTf.add (topic_info["frame0"], topic_info["frame1"], signame)
     for s in topic_info['signalGetters']:
         plug (rosTf.signal(signame), s())
     print (topic_info["frame1"], "wrt", topic_info["frame0"], "plugged to", signame, ', ', len(topic_info['signalGetters']), 'times')
 
-def _handleHppJoint (name,topic_info,rosSusbcribe,rosTf):
+def _handleHppJoint (name,topic_info,rosSubscribe,rosTf):
     if topic_info["velocity"]: topic = "velocity/op_frame"
     else:                      topic = "op_frame"
     ti = dict(topic_info)
     ti["topic"] = "/hpp/target/" + topic + '/' + topic_info['hppjoint']
-    _defaultHandler (name,ti,rosSusbcribe,rosTf)
+    _defaultHandler (name,ti,rosSubscribe,rosTf)
 
-def _handleHppCom (name,topic_info,rosSusbcribe,rosTf):
+def _handleHppCom (name,topic_info,rosSubscribe,rosTf):
     if topic_info["velocity"]: topic = "velocity/com"
     else:                      topic = "com"
     ti = dict(topic_info)
@@ -270,7 +270,7 @@ def _handleHppCom (name,topic_info,rosSusbcribe,rosTf):
         ti["topic"] = "/hpp/target/" + topic
     else:
         ti["topic"] = "/hpp/target/" + topic + '/' + topic_info['hppcom']
-    _defaultHandler (name,ti,rosSusbcribe,rosTf)
+    _defaultHandler (name,ti,rosSubscribe,rosTf)
 
 _handlers = {
         "hppjoint": _handleHppJoint,
