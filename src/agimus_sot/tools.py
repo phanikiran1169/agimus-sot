@@ -79,7 +79,7 @@ def computeControlSelection (robot, joint_to_be_removed):
 class Manifold(object):
     sep = "___"
 
-    def __init__ (self, tasks = [], constraints = [], topics = {}, initial_control = []):
+    def __init__ (self, tasks = [], constraints = [], topics = {}):
         ## Task to be added to a SoT solver
         self.tasks = list(tasks)
         ## Constraints
@@ -105,9 +105,6 @@ class Manifold(object):
         #
         #
         self.topics = dict(topics)
-        ## A list of functions to initialize the SoT initial control (signal q0).
-        # This is likely not used anymore.
-        self.initial_control = list(initial_control)
 
     def __add__ (self, other):
         res = Manifold(list(self.tasks), list(self.constraints), dict(self.topics))
@@ -127,7 +124,6 @@ class Manifold(object):
                 # print k, "has", len(a["signalGetters"]), "signals"
             else:
                 self.topics[k] = dict(v)
-        self.initial_control += other.initial_control
         return self
 
     def setControlSelection (self, selection):
@@ -137,13 +133,6 @@ class Manifold(object):
     def pushTo (self, sot):
         for t in self.tasks:
             sot.push(t.name)
-        if len(self.initial_control)>0:
-            from dynamic_graph.sot.core.operator import Mix_of_vector
-            ic = Mix_of_vector (sot.name + "_initial_control")
-            ic.default.value = tuple ([0,] * sot.getSize())
-            for func in self.initial_control:
-                func (ic, sot = sot)
-            plug (ic.sout, sot.q0)
 
 ## Postural task
 class Posture(Manifold):
