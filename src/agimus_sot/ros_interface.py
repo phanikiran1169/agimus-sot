@@ -66,7 +66,7 @@ class RosInterface(object):
                 rsp.msg = answer.standarderror
                 return rsp
             else:
-                success = bool (answer.result)
+                exec ("success = " + answer.result)
         rsp.success = success
         rsp.msg = "Successfully called supervisor."
         return rsp
@@ -107,7 +107,7 @@ class RosInterface(object):
                 rsp.msg = answer.standarderror
                 return rsp
             else:
-                success = bool (answer.result)
+                exec ("success = " + answer.result)
         rsp.success = success
         rsp.msg = "Successfully called supervisor."
         return rsp
