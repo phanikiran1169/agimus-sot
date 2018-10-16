@@ -1,6 +1,5 @@
 from __future__ import print_function
 from tools import Manifold, Posture
-from dynamic_graph.sot.core import SOT
 from dynamic_graph import plug
 
 def _hpTasks (sotrobot):
@@ -34,32 +33,18 @@ class Supervisor(object):
         self.sot_switch = SwitchVector ("sot_supervisor_switch")
         plug(self.sot_switch.sout, self.sotrobot.device.control)
 
-    def setupEvents (self):
-        from dynamic_graph.sot.core.operator import Norm_of_vector, CompareDouble
-        from dynamic_graph.sot.core.event import Event
-        from dynamic_graph.ros import RosPublish
-        self.norm = Norm_of_vector ("control_norm")
-        plug (self.sotrobot.device.control, self.norm.sin)
-
-        self.norm_comparision = CompareDouble ("control_norm_comparison")
-        plug (self.norm.sout, self.norm_comparision.sin1)
-        self.norm_comparision.sin2.value = 1e-2
-
-        self.norm_event = Event ("control_norm_event")
-        plug (self.norm_comparision.sout, self.norm_event.condition)
-        # self.sotrobot.device.after.addSignal (self.norm_event.check.name)
-        self.sotrobot.device.after.addSignal ("control_norm_event.check")
-
-        self.ros_publish = RosPublish ('ros_publish_control_norm')
-        self.ros_publish.add ('double', 'event_control_norm', '/agimus_sot/control_norm_changed')
-        plug (self.norm.sout, self.ros_publish.event_control_norm)
-        # plug (self.norm_event.trigger, self.ros_publish.trigger)
-        self.norm_event.addSignal ("ros_publish_control_norm.trigger")
+        from agimus_sot.events import Events
+        self. done_events = Events ("done" , sotrobot)
+        self.error_events = Events ("error", sotrobot)
+        self. done_events.setupNormOfControl (sotrobot.device.control, 1e-4)
+        self. done_events.setupTime () # For signal self. done_events.timeEllapsedSignal
+        self.error_events.setupTime () # For signal self.error_events.timeEllapsedSignal
 
     def makeInitialSot (self):
         # Create the initial sot (keep)
-        sot = SOT ('sot_keep')
-        sot.setSize(self.sotrobot.dynamic.getDimension())
+        from .solver import Solver
+        sot = Solver ('sot_keep', self.sotrobot.dynamic.getDimension())
+
         self.keep_posture = Posture ("posture_keep", self.sotrobot)
         self.keep_posture.tp.setWithDerivative (False)
         
@@ -81,7 +66,9 @@ class Supervisor(object):
         self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         
         self.keep_posture.pushTo(sot)
-        self.addSot ("", sot, sot.control)
+        sot. doneSignal = self.controlNormConditionSignal()
+        sot.errorSignal = False
+        self.addSolver ("", sot)
 
     ## Set the robot base pose in the world.
     # \param basePose a list: [x,y,z,r,p,y] or [x,y,z,qx,qy,qz,qw]
@@ -104,15 +91,48 @@ class Supervisor(object):
         else:
             return False
 
-    def addSot (self, name, sot, controlSignal):
-        self.sots[name] = sot
-        self.addSignalToSotSwitch (sot.name, controlSignal)
+    ## \name SoT managements
+    ##  \{
 
-    def addSignalToSotSwitch (self, name, controlSignal):
+    def addPreAction (self, name, preActionSolver):
+        self.preActions[name] = preActionSolver
+        self._addSignalToSotSwitch (preActionSolver)
+
+    def addSolver (self, name, solver):
+        self.sots[name] = solver
+        self._addSignalToSotSwitch (solver)
+
+    def addPostActions (self, name, postActionSolvers):
+        self.postActions[name] = postActionSolvers
+        for targetState, pa_sot in postActionSolvers.iteritems():
+            self._addSignalToSotSwitch (pa_sot)
+
+    ## This is for internal purpose
+    def _addSignalToSotSwitch (self, solver):
         n = self.sot_switch.getSignalNumber()
         self.sot_switch.setSignalNumber(n+1)
-        self.sots_indexes[name] = n
-        plug (controlSignal, self.sot_switch.signal("sin" + str(n)))
+        self.sots_indexes[solver.name] = n
+        plug (solver.control, self.sot_switch.signal("sin" + str(n)))
+
+        def _plug (e, events, n):
+            assert events.getSignalNumber() == n, "Wrong number of events."
+            events.setSignalNumber(n+1)
+            if isinstance(e, (bool,int)): events.conditionSignal(n).value = int(e)
+            else: plug (e, events.conditionSignal(n))
+
+        _plug (solver. doneSignal, self. done_events, n)
+        _plug (solver.errorSignal, self.error_events, n)
+
+    def _selectSolver (self, solver):
+        n = self.sots_indexes[solver.name]
+        self.  sot_switch.selection.value = n
+        self. done_events.setSelectedSignal(n)
+        self.error_events.setSelectedSignal(n)
+
+    ## \}
+
+    def controlNormConditionSignal (self):
+        return self. done_events.controlNormSignal
 
     def topics (self):
         c = self.hpTasks + self.lpTasks
@@ -192,24 +212,29 @@ class Supervisor(object):
         if transitionName == "":
             # TODO : Explanation and linked TODO in the function makeInitialSot
             self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
-        sot = self.sots[transitionName]
-        n = self.sots_indexes[sot.name]
-        # Start reading queues
-        self.sot_switch.selection.value = n
-        print("Current sot:", transitionName, "\n", sot.display())
+        solver = self.sots[transitionName]
+
+        # No done events should be triggered before call
+        # to readQueue. We expect it to happen with 1e6 milli-seconds
+        # from now...
+        devicetime = self.sotrobot.device.control.time
+        self. done_events.setFutureTime (devicetime + 100000)
+
+        self._selectSolver (solver)
+        print("{0}: Current solver {1}\n{2}"
+                .format(devicetime, transitionName, solver.sot.display()))
         self.currentSot = transitionName
 
     def runPreAction(self, transitionName):
         if self.preActions.has_key(transitionName):
-            sot = self.preActions[transitionName]
-            print("Running pre action", transitionName,
-                    "\n", sot.display())
-            # t = self.sotrobot.device.control.time
-            # This is not safe since it would be run concurrently with the
-            # real time thread.
-            # sot.control.recompute(t-1)
-            n = self.sots_indexes[sot.name]
-            self.sot_switch.selection.value = n
+            solver = self.preActions[transitionName]
+
+            t = self.sotrobot.device.control.time + 2
+            self. done_events.setFutureTime (t)
+
+            self._selectSolver (solver)
+            print("{0}: Running pre action {1}\n{2}"
+                    .format(t, transitionName, solver.sot.display()))
             return True
         print ("No pre action", transitionName)
         return False
@@ -218,17 +243,18 @@ class Supervisor(object):
         if self.postActions.has_key(self.currentSot):
             d = self.postActions[self.currentSot]
             if d.has_key(targetStateName):
-                sot = d[targetStateName]
-                print( "Running post action", self.currentSot, targetStateName,
-                    "\n", sot.display())
-                # t = self.sotrobot.device.control.time
-                # This is not safe since it would be run concurrently with the
-                # real time thread.
-                # sot.control.recompute(t-1)
-                n = self.sots_indexes[sot.name]
-                self.sot_switch.selection.value = n
+                solver = d[targetStateName]
+
+                devicetime = self.sotrobot.device.control.time
+                self. done_events.setFutureTime (devicetime + 2)
+
+                self._selectSolver (solver)
+
+                print("{0}: Running post action {1} --> {2}\n{3}"
+                        .format(devicetime, self.currentSot, targetStateName,
+                            solver.sot.display()))
                 return True
-        print ("No post action", self.currentSot, targetStateName)
+        print ("No post action {0} --> {1}".format(self.currentSot, targetStateName))
         return False
 
     def getJointList (self, prefix = ""):
