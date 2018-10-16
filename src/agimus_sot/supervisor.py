@@ -165,18 +165,22 @@ class Supervisor(object):
     #              It allows to give some delay to network connection.
     # \param minQueueSize (integer) waits to the queue size of rosSubscribe
     #                     to be greater or equal to \p minQueueSize
+    # \param duration expected duration (in seconds) of the queue.
     #
     # \warning If \p minQueueSize is greater than the number of values to
     #          be received by rosSubscribe, this function does an infinite loop.
-    def readQueue(self, delay, minQueueSize):
+    def readQueue(self, delay, minQueueSize, duration):
         from time import sleep
         if delay < 0:
             print ("Delay argument should be >= 0")
             return
         while self.rosSubscribe.queueSize("posture") < minQueueSize:
             sleep(0.001)
-        t = self.sotrobot.device.control.time
-        self.rosSubscribe.readQueue (t + delay)
+        durationStep = int(duration / self.sotrobot.device.getTimeStep())
+        t = self.sotrobot.device.control.time + delay
+        self.rosSubscribe.readQueue (t)
+        self. done_events.setFutureTime (t + durationStep)
+        self.error_events.setFutureTime (t + durationStep)
 
     def stopReadingQueue(self):
         self.rosSubscribe.readQueue (-1)

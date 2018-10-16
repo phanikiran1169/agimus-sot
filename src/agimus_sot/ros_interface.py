@@ -134,9 +134,9 @@ class RosInterface(object):
 
     def readQueue(self, req):
         if self.supervisor is not None:
-            self.supervisor.readQueue(req.delay, req.minQueueSize)
+            self.supervisor.readQueue(req.delay, req.minQueueSize, req.duration)
         else:
-            cmd = "supervisor.readQueue({},{})".format(req.delay, req.minQueueSize)
+            cmd = "supervisor.readQueue({},{},{})".format(req.delay, req.minQueueSize, req.duration)
             answer = self.runCommand (cmd)
         return ReadQueueResponse ()
 

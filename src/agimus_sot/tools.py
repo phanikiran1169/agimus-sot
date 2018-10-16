@@ -326,7 +326,6 @@ class PreGrasp (Manifold):
         assert self.handle.link      == self.otherHandle.link
         name = PreGrasp.sep.join(["", "pregrasp", self.gripper.name, self.handle.fullName,
             "based", self.otherGripper.name, self.handle.fullName])
-        print(name)
         self.graspTask = MetaTaskKine6dRel (name, sotrobot.dynamic,
                 self.gripper.joint, self.otherGripper.joint,
                 self.gripper.joint, self.otherGripper.joint)
@@ -687,7 +686,8 @@ class Foot (Manifold):
                         "hppjoint": footname,
                         "signalGetters": [ self._signalVelocityRef ] },
                     })
-        self.taskFoot.gain.value = 5
+        # plug(self.taskFoot.gain.gain, self.taskFoot.task.controlGain)
+        self.taskFoot.task.controlGain.value = 5
 
     def _signalPositionRef (self): return self.taskFoot.featureDes.position
     def _signalVelocityRef (self): return self.taskFoot.featureDes.velocity
