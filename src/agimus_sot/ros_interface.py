@@ -177,6 +177,9 @@ class RosInterface(object):
                     kk = k if not t["velocity"] else ("vel_" + k)
                     handlers[kk] (t[k])
                     rospy.loginfo("Requested " + kk + " " + t[k])
+        # This sleep is mandatory to let some time to ROS to connect
+        # topic publisher and susbcriber. Otherwise, the first message is dropped.
+        rospy.sleep(1)
         return TriggerResponse (True, "ok")
 
     def setBasePose (self, req):
