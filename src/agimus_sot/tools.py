@@ -3,6 +3,7 @@ from dynamic_graph.sot.core.meta_tasks_kine_relative import MetaTaskKine6dRel
 from dynamic_graph.sot.core.meta_tasks import setGain
 from dynamic_graph.sot.core import FeaturePosture, Multiply_of_matrixHomo, Inverse_of_matrixHomo
 from dynamic_graph import plug
+import numpy as np
 
 def getTimerType (type):
     from dynamic_graph.sot.core.timer import TimerDouble, TimerMatrix, TimerMatrixHomo, TimerVector
@@ -130,9 +131,12 @@ class Manifold(object):
         for t in self.tasks:
             t.controlSelec.value = selection
 
-    def pushTo (self, sot):
+    def pushTo (self, solver):
+        """
+        \param solver an object of type agimus_sot.solver.Solver
+        """
         for t in self.tasks:
-            sot.push(t.name)
+            solver.sot.push(t.name)
 
 ## Postural task
 class Posture(Manifold):
@@ -593,6 +597,7 @@ class EndEffector (Manifold):
             filterCurrents = True):
         # Make the admittance controller
         from agimus_sot.control.gripper import AdmittanceControl, PositionAndAdmittanceControl
+        from .events import norm_superior_to
         # type = "open" or "close"
         desired_torque = affordance.ref["torque"]
         estimated_theta_close = affordance.ref["angle_close"]
@@ -651,6 +656,12 @@ class EndEffector (Manifold):
         # This integration does not know the initial point so
         # there might be some drift (removed the position controller at the beginning)
 
+        n, c = norm_superior_to (self.name + "_torquecmp",
+                self.ac.currentTorqueIn, 0.9 * np.linalg.norm(desired_torque))
+        self.events = {
+                "done_close": c.sout,
+                }
+
     def makePositionControl (self, position):
         q = list(self.tp.feature.state.value)
         # Define the reference
@@ -661,6 +672,14 @@ class EndEffector (Manifold):
         assert ip == len(position)
         self.tp.feature.posture.value = q
         setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
+
+        from .events import norm_inferior_to
+        n, c = norm_inferior_to (self.name + "_positioncmp",
+                self.tp.error, 0.001)
+        self.events = {
+                "done_close": c.sout,
+                "done_open": c.sout,
+                }
 
 class Foot (Manifold):
     def __init__ (self, footname, sotrobot, selec='111111'):
