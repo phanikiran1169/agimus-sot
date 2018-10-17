@@ -86,6 +86,9 @@ class Supervisor(object):
         self.sots[name] = solver
         self._addSignalToSotSwitch (solver)
 
+    def duplicateSolver (self, existingSolver, newSolver):
+        self.sots[newSolver] = self.sots[existingSolver]
+
     def addPostActions (self, name, postActionSolvers):
         self.postActions[name] = postActionSolvers
         for targetState, pa_sot in postActionSolvers.iteritems():
