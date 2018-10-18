@@ -36,7 +36,7 @@ class Supervisor(object):
         from agimus_sot.events import Events
         self. done_events = Events ("done" , sotrobot)
         self.error_events = Events ("error", sotrobot)
-        self. done_events.setupNormOfControl (sotrobot.device.control, 1e-4)
+        self. done_events.setupNormOfControl (sotrobot.device.control, 1e-2)
         self. done_events.setupTime () # For signal self. done_events.timeEllapsedSignal
         self.error_events.setupTime () # For signal self.error_events.timeEllapsedSignal
 
