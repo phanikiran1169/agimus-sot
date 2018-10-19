@@ -15,7 +15,7 @@ rospy.init_node ('start_supervisor')
 
 input                                = rospy.get_param("~input",None)
 prefix                               = rospy.get_param("~prefix","")
-simulateTorqueFeedbackForEndEffector = rospy.get_param("~simulate-torque-feedback",False)
+simulateTorqueFeedbackForEndEffector = rospy.get_param("~simulate_torque_feedback",False)
 
 if not input:
     usage()
