@@ -26,8 +26,31 @@ def _read_position (xml):
     positionsTag = xml.findall('position')
     if len(positionsTag) != 1:
         raise ValueError ("Gripper needs exactly one tag position")
-    xyz_wxyz = [ float(x) for x in positionsTag[0].text.split() ]
-    xyz_xyzw = xyz_wxyz[0:3] + xyz_wxyz[4:7] + xyz_wxyz[3:4]
+    try:
+        xyz_wxyz = [ float(x) for x in positionsTag[0].text.split() ]
+    except AttributeError:
+        xyz_wxyz = []
+        pass
+    if len(xyz_wxyz) > 0:
+        xyz_xyzw = xyz_wxyz[0:3] + xyz_wxyz[4:7] + xyz_wxyz[3:4]
+    else:
+        attribs = positionsTag[0].attrib
+        xyz_xyzw = [ float(x) for x in attribs.get ("xyz", "0 0 0").split() ]
+        if int("xyzw" in attribs) + int("wxyz" in attribs) + int("rpy" in attribs) > 1:
+            raise ValueError ("Tag position must have only one of rpy, wxyz, xyzw")
+        if "xyzw" in attribs:
+            xyz_xyzw += [ float(x) for x in attribs["xyzw"].split() ]
+        elif "wxyz" in attribs:
+            w, x, y, z = [ float(x) for x in attribs["wxyz"].split() ]
+            xyz_xyzw += [x, y, z, w]
+        elif "rpy" in attribs:
+            from math import cos, sin, sqrt
+            r, p, y = [ float(x) for x in attribs["rpy"].split() ]
+            x = sin(r/2.) * cos(p/2.) * cos(y/2.) - cos(r/2.) * sin(p/2.) * sin(y/2.)
+            y = cos(r/2.) * sin(p/2.) * cos(y/2.) + sin(r/2.) * cos(p/2.) * sin(y/2.)
+            z = cos(r/2.) * cos(p/2.) * sin(y/2.) - sin(r/2.) * sin(p/2.) * cos(y/2.)
+            w = cos(r/2.) * cos(p/2.) * cos(y/2.) + sin(r/2.) * sin(p/2.) * sin(y/2.)
+            xyz_xyzw += [x, y, z, w]
     return tuple (xyz_xyzw)
 
 def _read_link (xml):
