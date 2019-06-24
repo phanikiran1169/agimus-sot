@@ -137,6 +137,7 @@ class Manifold(object):
         """
         for t in self.tasks:
             solver.sot.push(t.name)
+            solver.tasks.append(t)
 
 ## Postural task
 class Posture(Manifold):

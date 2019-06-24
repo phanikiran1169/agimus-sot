@@ -6,6 +6,7 @@ class Solver(object):
         if damping is not None: sot.damping.value = damping
 
         self.sot = sot
+        self.tasks = []
         if timer:
             from .tools import insertTimerOnOutput
             self.timer = insertTimerOnOutput (sot.control, "vector")
