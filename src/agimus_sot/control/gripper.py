@@ -43,7 +43,7 @@ class AdmittanceControl(object):
     def setupFeedbackSimulation (self, mass, damping, spring, theta0):
         from agimus_sot.control.controllers import Controller
         from dynamic_graph.sot.core import Add_of_vector
-        from agimus_sot import DelayVector
+        from agimus_sot.sot import DelayVector
 
         ## omega -> theta
         # Done in _makeControllerSwich

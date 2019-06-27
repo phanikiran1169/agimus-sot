@@ -69,6 +69,7 @@ ADD_LIBRARY(${LIBRARY_NAME}
   SHARED
   holonomic-constraint.cc
   delay.cc
+  time.cc
   )
 
 PKG_CONFIG_USE_DEPENDENCY (${LIBRARY_NAME} dynamic-graph-python)
@@ -88,6 +89,8 @@ INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/agimus_sot/__init__.py
 SET(FILES
   supervisor.py
   tools.py
+  solver.py
+  events.py
   ros_interface.py
   factory.py
   srdf_parser.py

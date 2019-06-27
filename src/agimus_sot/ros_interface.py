@@ -66,7 +66,7 @@ class RosInterface(object):
                 rsp.msg = answer.standarderror
                 return rsp
             else:
-                success = bool (answer.result)
+                exec ("success = " + answer.result)
         rsp.success = success
         rsp.msg = "Successfully called supervisor."
         return rsp
@@ -107,7 +107,7 @@ class RosInterface(object):
                 rsp.msg = answer.standarderror
                 return rsp
             else:
-                success = bool (answer.result)
+                exec ("success = " + answer.result)
         rsp.success = success
         rsp.msg = "Successfully called supervisor."
         return rsp
@@ -134,9 +134,9 @@ class RosInterface(object):
 
     def readQueue(self, req):
         if self.supervisor is not None:
-            self.supervisor.readQueue(req.delay, req.minQueueSize)
+            self.supervisor.readQueue(req.delay, req.minQueueSize, req.duration)
         else:
-            cmd = "supervisor.readQueue({},{})".format(req.delay, req.minQueueSize)
+            cmd = "supervisor.readQueue({},{},{})".format(req.delay, req.minQueueSize, req.duration)
             answer = self.runCommand (cmd)
         return ReadQueueResponse ()
 
@@ -177,6 +177,9 @@ class RosInterface(object):
                     kk = k if not t["velocity"] else ("vel_" + k)
                     handlers[kk] (t[k])
                     rospy.loginfo("Requested " + kk + " " + t[k])
+        # This sleep is mandatory to let some time to ROS to connect
+        # topic publisher and susbcriber. Otherwise, the first message is dropped.
+        rospy.sleep(1)
         return TriggerResponse (True, "ok")
 
     def setBasePose (self, req):

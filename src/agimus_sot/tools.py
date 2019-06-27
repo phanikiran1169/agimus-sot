@@ -3,6 +3,7 @@ from dynamic_graph.sot.core.meta_tasks_kine_relative import MetaTaskKine6dRel
 from dynamic_graph.sot.core.meta_tasks import setGain
 from dynamic_graph.sot.core import FeaturePosture, Multiply_of_matrixHomo, Inverse_of_matrixHomo
 from dynamic_graph import plug
+import numpy as np
 
 def getTimerType (type):
     from dynamic_graph.sot.core.timer import TimerDouble, TimerMatrix, TimerMatrixHomo, TimerVector
@@ -79,7 +80,7 @@ def computeControlSelection (robot, joint_to_be_removed):
 class Manifold(object):
     sep = "___"
 
-    def __init__ (self, tasks = [], constraints = [], topics = {}, initial_control = []):
+    def __init__ (self, tasks = [], constraints = [], topics = {}):
         ## Task to be added to a SoT solver
         self.tasks = list(tasks)
         ## Constraints
@@ -105,9 +106,6 @@ class Manifold(object):
         #
         #
         self.topics = dict(topics)
-        ## A list of functions to initialize the SoT initial control (signal q0).
-        # This is likely not used anymore.
-        self.initial_control = list(initial_control)
 
     def __add__ (self, other):
         res = Manifold(list(self.tasks), list(self.constraints), dict(self.topics))
@@ -127,23 +125,19 @@ class Manifold(object):
                 # print k, "has", len(a["signalGetters"]), "signals"
             else:
                 self.topics[k] = dict(v)
-        self.initial_control += other.initial_control
         return self
 
     def setControlSelection (self, selection):
         for t in self.tasks:
             t.controlSelec.value = selection
 
-    def pushTo (self, sot):
+    def pushTo (self, solver):
+        """
+        \param solver an object of type agimus_sot.solver.Solver
+        """
         for t in self.tasks:
-            sot.push(t.name)
-        if len(self.initial_control)>0:
-            from dynamic_graph.sot.core.operator import Mix_of_vector
-            ic = Mix_of_vector (sot.name + "_initial_control")
-            ic.default.value = tuple ([0,] * sot.getSize())
-            for func in self.initial_control:
-                func (ic, sot = sot)
-            plug (ic.sout, sot.q0)
+            solver.sot.push(t.name)
+            solver.tasks.append(t)
 
 ## Postural task
 class Posture(Manifold):
@@ -279,57 +273,89 @@ class PreGrasp (Manifold):
         # G*_r = G_p * M = G_p     * h^-1 * O_p^-1 * O_r * h
         #                = J_p * g * h^-1 * O_p^-1 * O_r * h
         self.gripper_desired_pose = Multiply_of_matrixHomo (name + "_desired")
+        nsignals = 2
+        if withMeasurementOfGripperPos: nsignals += 1
+        if withMeasurementOfObjectPos:  nsignals += 5
+        self.gripper_desired_pose.setSignalNumber(nsignals)
+
+        isignal = 0
+        def sig (i): return self.gripper_desired_pose.signal("sin"+str(i))
+
+        # Object calibration
         if withMeasurementOfObjectPos:
+            h = self.handle .pose
+
             # TODO Integrate measurement of h_r: position error of O_r^-1 * G_r
             # (for the release phase and computed only at time 0)
-            self.gripper_desired_pose.setSignalNumber (5)
-            # self.gripper_desired_pose.sin0 -> plug to joint planning pose
-            self.gripper_desired_pose.sin1.value = se3ToTuple (self.gripper.pose * self.handle.pose.inverse())
-            self._invert_planning_pose = Inverse_of_matrixHomo (self.handle.fullLink + "_invert_planning_pose")
-            # self._invert_planning_pose.sin -> plug to object planning pose
-            plug (self._invert_planning_pose.sout, self.gripper_desired_pose.sin2)
-            # self.gripper_desired_pose.sin3 -> plug to object real pose
-            self.gripper_desired_pose.sin4.value = se3ToTuple (self.handle.pose)
 
-            plug(self.gripper_desired_pose.sout, self.graspTask.featureDes.position)
-            self.topics = {
-                    self.gripper.fullJoint: {
-                        "velocity": False,
-                        "type": "matrixHomo",
-                        "handler": "hppjoint",
-                        "hppjoint": self.gripper.fullJoint,
-                        "signalGetters": [ lambda: self.gripper_desired_pose.sin0, ] },
-                    self.handle.fullLink: {
-                        "velocity": False,
-                        "type": "matrixHomo",
-                        "handler": "hppjoint",
-                        "hppjoint": self.handle.fullLink,
-                        "signalGetters": [ lambda: self._invert_planning_pose.sin, ] },
-                    "measurement_" + self.handle.fullLink: {
-                        "velocity": False,
-                        "type": "matrixHomo",
-                        "handler": "tf_listener",
-                        "frame0": "world",
-                        "frame1": self.handle.fullLink,
-                        "signalGetters": [ lambda: self.gripper_desired_pose.sin3, ] },
-                    }
-        else:
-            # G*_r = J_p * G
-            self.gripper_desired_pose.setSignalNumber (2)
-            # self.gripper_desired_pose.sin0 -> plug to joint planning pose
-            self.gripper_desired_pose.sin1.value = se3ToTuple (self.gripper.pose)
-            self.topics = {
-                    self.gripper.fullJoint : {
-                        "velocity": False,
-                        "type": "matrixHomo",
-                        "handler": "hppjoint",
-                        "hppjoint": self.gripper.fullJoint,
-                        "signalGetters": [ lambda: self.gripper_desired_pose.sin0, ] },
-                    }
+            # self.gripper_desired_pose.sin0 -> plug to handle link planning pose
+            self.topics[self.handle.fullLink] = {
+                    "velocity": False,
+                    "type": "matrixHomo",
+                    "handler": "hppjoint",
+                    "hppjoint": self.handle.fullLink,
+                    "signalGetters": [ lambda: self.gripper_desired_pose.sin0],
+                    },
+            isignal += 1
 
+            sig(isignal).value = se3ToTuple(h.inverse())
+            isignal += 1
+
+            delta_h = sig(isignal)
+            self.topics[ "delta_" + self.handle.fullLink ] = {
+                    "velocity": False,
+                    "type": "matrixHomo",
+                    "handler": "tf_listener",
+                    "frame0": self.handle.fullLink,
+                    "frame1": self.handle.fullLink + "_estimated",
+                    "signalGetters": [lambda: delta_h],
+                },
+            isignal += 1
+
+            sig(isignal).value = se3ToTuple(h)
+            isignal += 1
+
+            self._oMh_p_inv = Inverse_of_matrixHomo(
+                self.handle.fullLink + "_invert_planning_pose"
+            )
+            self.topics[self.handle.fullLink]["signalGetters"] \
+                    .append (lambda: self._oMh_p_inv.sin)
+            plug(self._oMh_p_inv.sout, sig(isignal))
+            isignal += 1
+
+        # Joint planning pose
+        joint_planning_pose = sig(isignal)
+        self.topics[self.gripper.fullJoint] = {
+                "velocity": False,
+                "type": "matrixHomo",
+                "handler": "hppjoint",
+                "hppjoint": self.gripper.fullJoint,
+                "signalGetters": [lambda: joint_planning_pose],
+                },
+        isignal += 1
+
+        # Joint calibration
+        if withMeasurementOfGripperPos:
+            self._delta_g_inv = Inverse_of_matrixHomo(
+                self.gripper.fullJoint + "_delta_inv"
+            )
+            self.topics["delta_" + self.gripper.fullJoint] = {
+                    "velocity": False,
+                    "type": "matrixHomo",
+                    "handler": "tf_listener",
+                    "frame0": self.gripper.fullJoint,
+                    "frame1": self.gripper.fullJoint + "_estimated",
+                    "signalGetters": [lambda: self._delta_g_inv.sin],
+                },
+            plug(self._delta_g_inv.sout, self.gripper_desired_pose.sin6)
+            isignal += 1
+
+        sig(isignal).value = se3ToTuple(self.gripper.pose)
+        isignal += 1
+
+        assert isignal == nsignals
         plug(self.gripper_desired_pose.sout, self.graspTask.featureDes.position)
-
-        self.tasks = [ self.graspTask.task ]
+        self.tasks = [self.graspTask.task]
         # TODO Add velocity
     
     def _makeRelativeTask (self, sotrobot, withMeasurementOfObjectPos):
@@ -337,7 +363,6 @@ class PreGrasp (Manifold):
         assert self.handle.link      == self.otherHandle.link
         name = PreGrasp.sep.join(["", "pregrasp", self.gripper.name, self.handle.fullName,
             "based", self.otherGripper.name, self.handle.fullName])
-        print(name)
         self.graspTask = MetaTaskKine6dRel (name, sotrobot.dynamic,
                 self.gripper.joint, self.otherGripper.joint,
                 self.gripper.joint, self.otherGripper.joint)
@@ -605,6 +630,7 @@ class EndEffector (Manifold):
             filterCurrents = True):
         # Make the admittance controller
         from agimus_sot.control.gripper import AdmittanceControl, PositionAndAdmittanceControl
+        from .events import norm_superior_to
         # type = "open" or "close"
         desired_torque = affordance.ref["torque"]
         estimated_theta_close = affordance.ref["angle_close"]
@@ -663,6 +689,12 @@ class EndEffector (Manifold):
         # This integration does not know the initial point so
         # there might be some drift (removed the position controller at the beginning)
 
+        n, c = norm_superior_to (self.name + "_torquecmp",
+                self.ac.currentTorqueIn, 0.9 * np.linalg.norm(desired_torque))
+        self.events = {
+                "done_close": c.sout,
+                }
+
     def makePositionControl (self, position):
         q = list(self.tp.feature.state.value)
         # Define the reference
@@ -673,6 +705,14 @@ class EndEffector (Manifold):
         assert ip == len(position)
         self.tp.feature.posture.value = q
         setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
+
+        from .events import norm_inferior_to
+        n, c = norm_inferior_to (self.name + "_positioncmp",
+                self.tp.error, 0.001)
+        self.events = {
+                "done_close": c.sout,
+                "done_open": c.sout,
+                }
 
 class Foot (Manifold):
     def __init__ (self, footname, sotrobot, selec='111111'):
@@ -698,7 +738,8 @@ class Foot (Manifold):
                         "hppjoint": footname,
                         "signalGetters": [ self._signalVelocityRef ] },
                     })
-        self.taskFoot.gain.value = 5
+        # plug(self.taskFoot.gain.gain, self.taskFoot.task.controlGain)
+        self.taskFoot.task.controlGain.value = 5
 
     def _signalPositionRef (self): return self.taskFoot.featureDes.position
     def _signalVelocityRef (self): return self.taskFoot.featureDes.velocity

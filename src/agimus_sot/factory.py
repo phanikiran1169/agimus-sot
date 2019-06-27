@@ -1,6 +1,6 @@
 from hpp.corbaserver.manipulation.constraint_graph_factory import ConstraintFactoryAbstract, GraphFactoryAbstract
 from tools import Manifold, Grasp, PreGrasp, OpFrame, EndEffector
-from dynamic_graph.sot.core import SOT
+from .solver import Solver
 
 ## Affordance between a gripper and a handle.
 #
@@ -155,6 +155,14 @@ class TaskFactory(ConstraintFactoryAbstract):
 
     def g (self, gripper, handle, what, otherGrasp=None):
         return self.getGrasp(gripper, handle, otherGrasp)[what]
+    # \}
+
+    def event (self, gripper, handle, what, default):
+        if handle is None:
+            ee = self._buildGripper ("open", gripper, handle)
+        else:
+            ee = self._buildGripper ("close", gripper, handle)
+        return ee.events.get(what, default)
 
     def buildPlacement (self, o):
         # Nothing to do
@@ -269,7 +277,6 @@ class Factory(GraphFactoryAbstract):
         # - value: sot representing the pre-action
         self.preActions = dict()
 
-        self.timers = {}
         self.tracers = {}
         self.controllers = {}
         self.supervisor = supervisor
@@ -290,15 +297,23 @@ class Factory(GraphFactoryAbstract):
                 }
 
     def _newSoT (self, name):
-        sot = SOT (name)
-        sot.setSize(self.sotrobot.dynamic.getDimension())
-        sot.damping.value = 0.001
+        # Create a solver
+        sot = Solver (name, 
+                self.sotrobot.dynamic.getDimension(),
+                damping = 0.001,
+                timer = self.parameters["addTimerToSotControl"]
+                )
+        # Make default event signals
+        # sot. doneSignal = self.supervisor.controlNormConditionSignal()
+        from .events import logical_and_entity
+        sot. doneSignal = logical_and_entity ("ade_sot_"+sot.name,
+                [ self.supervisor.controlNormConditionSignal(),
+                  self.supervisor. done_events.timeEllapsedSignal])
+        sot.errorSignal = False
 
         if self.parameters["addTimerToSotControl"]:
-            from .tools import insertTimerOnOutput
-            self.timers[name] = insertTimerOnOutput (sot.control, "vector")
-            self.SoTtracer.add (self.timers[name].name + ".timer", str(len(self.timerIds)) + ".timer")
-            self.timerIds.append(name)
+            id = len(self.SoTtracer.signals()) - 1
+            self.SoTtracer.add (sot.timer.name + ".timer", str(id) + ".timer")
         return sot
 
     def addAffordance (self, aff, simulateTorqueFeedback = False):
@@ -311,21 +326,18 @@ class Factory(GraphFactoryAbstract):
             from dynamic_graph.tracer_real_time import TracerRealTime
             SoTtracer = TracerRealTime ("tracer_of_timers")
             self.tracers[SoTtracer.name] = SoTtracer
-            self.timerIds = []
             SoTtracer.setBufferSize (10 * 1048576) # 10 Mo
             SoTtracer.open ("/tmp", "sot-control-trace", ".txt")
             self.sotrobot.device.after.addSignal("tracer_of_timers.triger")
             self.supervisor.SoTtracer = SoTtracer
-            self.supervisor.SoTtimerIds = self.timerIds
         super(Factory, self).generate ()
 
-        self.supervisor.sots = self.sots
+        self.supervisor.sots = {}
         self.supervisor.grasps = { (gh, w): t for gh, ts in self.tasks._grasp.items() for w, t in ts.items() }
         self.supervisor.hpTasks = self.hpTasks
         self.supervisor.lpTasks = self.lpTasks
-        self.supervisor.postActions = self.postActions
-        self.supervisor.preActions  = self.preActions
-        self.supervisor.SoTtimers = self.timers
+        self.supervisor.postActions = {}
+        self.supervisor.preActions  = {}
         self.supervisor.tracers = self.tracers
         self.supervisor.controllers = self.controllers
 
@@ -334,18 +346,12 @@ class Factory(GraphFactoryAbstract):
         for tn,sot in self.sots.iteritems():
             # Pre action
             if self.preActions.has_key(tn):
-                pa_sot = self.preActions[tn]
-                self.supervisor.addSignalToSotSwitch (pa_sot.name, pa_sot.control)
+                self.supervisor.addPreAction (tn, self.preActions[tn])
             # Action
-            if self.timers.has_key (sot.name):
-                self.supervisor.addSignalToSotSwitch (sot.name, self.timers[sot.name].sout)
-            else:
-                self.supervisor.addSignalToSotSwitch (sot.name, sot.control)
+            self.supervisor.addSolver (tn, sot)
             # Post action
             if self.postActions.has_key(tn):
-                d = self.postActions[tn]
-                for targetState, pa_sot in d.iteritems():
-                    self.supervisor.addSignalToSotSwitch (pa_sot.name, pa_sot.control)
+                self.supervisor.addPostActions (tn, self.postActions[tn])
 
     def setupFrames (self, srdfGrippers, srdfHandles, sotrobot, disabledGrippers = ()):
         self.sotrobot = sotrobot
@@ -377,6 +383,10 @@ class Factory(GraphFactoryAbstract):
     def makeLoopTransition (self, state):
         n = self._loopTransitionName(state.grasps)
         sot = self._newSoT ('sot_'+n)
+        from .events import logical_and_entity
+        sot. doneSignal = logical_and_entity("ade_sot_"+n,
+                [   self.supervisor. done_events.timeEllapsedSignal,
+                    self.supervisor.controlNormConditionSignal() ])
 
         self.hpTasks.pushTo(sot)
         state.manifold.pushTo(sot)
@@ -416,6 +426,11 @@ class Factory(GraphFactoryAbstract):
 
             for n in ns:
                 s = self._newSoT('sot_'+n)
+                from .events import logical_and_entity
+                s. doneSignal = logical_and_entity("ade_sot_"+n,
+                        [   self.supervisor. done_events.timeEllapsedSignal,
+                            self.supervisor.controlNormConditionSignal() ])
+
                 self.hpTasks.pushTo(s)
 
                 if pregrasp and i == 1:
@@ -441,6 +456,13 @@ class Factory(GraphFactoryAbstract):
         self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp', otherGrasp).pushTo (sot)
         st.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
+        from .events import logical_and_entity
+        sot. doneSignal = logical_and_entity ("ade_sot_"+sot.name,
+                [ self.tasks.event (self.grippers[ig], self.handles[st.grasps[ig]],
+                    'done_close',
+                    self.supervisor.controlNormConditionSignal()),
+                    self.supervisor. done_events.timeEllapsedSignal])
+        #TODO add error_events "gripper_closed_failed"
         if not self.postActions.has_key(key):
             self.postActions[ key ] = dict()
         self.postActions[ key ] [ st.name ] = sot
@@ -450,6 +472,7 @@ class Factory(GraphFactoryAbstract):
         # Force the re-alignment with planning.
         key = sots[2*(M-1)+1]
         sot = self._newSoT ("postAction_" + key)
+        # TODO Any events ?
         self.hpTasks.pushTo (sot)
         sf.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
@@ -471,6 +494,15 @@ class Factory(GraphFactoryAbstract):
         self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp', otherGrasp).pushTo (sot)
         sf.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
+        # sot. doneSignal = self.tasks.event (self.grippers[ig], self.handles[st.grasps[ig]],
+                # 'done_open', self.supervisor.controlNormConditionSignal())
+
+        sot. doneSignal = logical_and_entity ("ade_sot_"+sot.name,
+                [ self.tasks.event (self.grippers[ig], None,
+                    'done_open',
+                    self.supervisor.controlNormConditionSignal()),
+                    self.supervisor. done_events.timeEllapsedSignal])
+        #TODO add error_events "gripper_open_failed"
         self.preActions[ key ] = sot
 
         # 2. pregrasp to intersec:
@@ -482,4 +514,5 @@ class Factory(GraphFactoryAbstract):
         self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp', otherGrasp).pushTo (sot)
         sf.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
+        # Default events should be fine.
         self.preActions[ key ] = sot
