@@ -30,6 +30,7 @@
 namespace dynamicgraph {
   namespace agimus {
       /// Holonomic constraints
+      /// Implements command law from section IV.4.3 of http://homepages.laas.fr/florent/publi/these.pdf
       class AGIMUS_SOT_DLLAPI HolonomicConstraint : public dynamicgraph::Entity
       {
         DYNAMIC_GRAPH_ENTITY_DECL();
