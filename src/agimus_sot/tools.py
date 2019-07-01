@@ -236,21 +236,21 @@ class PreGrasp (Manifold):
             self.otherGripper = None
             self.otherHandle  = None
 
-    def makeTasks(self, sotrobot, withMeasurementOfObjectPos):
+    def makeTasks(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos):
         if self.gripper.enabled:
             if self.otherGripper is not None and self.otherGripper.enabled:
-                self._makeRelativeTask (sotrobot, withMeasurementOfObjectPos)
+                self._makeRelativeTask (sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos)
             else:
-                self._makeAbsolute (sotrobot, withMeasurementOfObjectPos)
+                self._makeAbsolute (sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos)
         else:
             if self.otherGripper is not None and self.otherGripper.enabled:
-                self._makeAbsoluteBasedOnOther (sotrobot, withMeasurementOfObjectPos)
+                self._makeAbsoluteBasedOnOther (sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos)
             else:
                 # TODO Both grippers are disabled so nothing can be done...
                 # add a warning ?
                 pass
 
-    def _makeAbsolute(self, sotrobot, withMeasurementOfObjectPos):
+    def _makeAbsolute(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos):
         name = PreGrasp.sep.join(["", "pregrasp", self.gripper.name, self.handle.fullName])
         self.graspTask = MetaTaskKine6d (name, sotrobot.dynamic,
                 self.gripper.joint, self.gripper.joint)
@@ -295,7 +295,7 @@ class PreGrasp (Manifold):
                     "handler": "hppjoint",
                     "hppjoint": self.handle.fullLink,
                     "signalGetters": [ lambda: self.gripper_desired_pose.sin0],
-                    },
+                    }
             isignal += 1
 
             sig(isignal).value = se3ToTuple(h.inverse())
@@ -309,7 +309,7 @@ class PreGrasp (Manifold):
                     "frame0": self.handle.fullLink,
                     "frame1": self.handle.fullLink + "_estimated",
                     "signalGetters": [lambda: delta_h],
-                },
+                }
             isignal += 1
 
             sig(isignal).value = se3ToTuple(h)
@@ -331,7 +331,7 @@ class PreGrasp (Manifold):
                 "handler": "hppjoint",
                 "hppjoint": self.gripper.fullJoint,
                 "signalGetters": [lambda: joint_planning_pose],
-                },
+                }
         isignal += 1
 
         # Joint calibration
@@ -346,7 +346,7 @@ class PreGrasp (Manifold):
                     "frame0": self.gripper.fullJoint,
                     "frame1": self.gripper.fullJoint + "_estimated",
                     "signalGetters": [lambda: self._delta_g_inv.sin],
-                },
+                }
             plug(self._delta_g_inv.sout, self.gripper_desired_pose.sin6)
             isignal += 1
 
@@ -358,7 +358,7 @@ class PreGrasp (Manifold):
         self.tasks = [self.graspTask.task]
         # TODO Add velocity
     
-    def _makeRelativeTask (self, sotrobot, withMeasurementOfObjectPos):
+    def _makeRelativeTask (self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos):
         assert self.handle.robotName == self.otherHandle.robotName
         assert self.handle.link      == self.otherHandle.link
         name = PreGrasp.sep.join(["", "pregrasp", self.gripper.name, self.handle.fullName,
@@ -413,7 +413,7 @@ class PreGrasp (Manifold):
         self.tasks = [ self.graspTask.task ]
         # TODO Add velocity
 
-    def _makeAbsoluteBasedOnOther (self, sotrobot, withMeasurementOfObjectPos):
+    def _makeAbsoluteBasedOnOther (self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos):
         assert self.handle.robotName == self.otherHandle.robotName
         assert self.handle.link      == self.otherHandle.link
         name = PreGrasp.sep.join(["", "pregrasp", self.gripper.fullName, self.handle.fullName,
