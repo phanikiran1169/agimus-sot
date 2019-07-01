@@ -205,6 +205,8 @@ class OpFrame(object):
         else:
             ## Only for handles
             self.pose = pose
+        # TODO See note in README.md
+        self.hasVisualTag = False
 
     def _setupParentJoint (self, link, pose, model):
         frameid = model.getFrameId (link)
