@@ -68,6 +68,16 @@ class Affordance(object):
         refPos  = self.simuParams.get("refPos" , self.ref["angle_close"] )
         return mass,damping,spring,refPos
 
+    ## \todo Provide a way of fine granularity visual feedback specification.
+    #        For instance, via an attribute disableGripperVisualFeedback
+    def useMeasurementOfGripperPose (self, gripperFrame):
+        return gripperFrame.hasVisualTag
+
+    ## \todo Provide a way of fine granularity visual feedback specification.
+    #        For instance, via an attribute disableObjectVisualFeedback
+    def useMeasurementOfObjectPose (self, handleFrame):
+        return handleFrame.hasVisualTag
+
 ## Create \ref tools.Manifold s
 # 
 # \sa manipulation.constraint_graph_factory.ConstraintFactoryAbstract
@@ -120,9 +130,20 @@ class TaskFactory(ConstraintFactoryAbstract):
         gripper = gf.gripperFrames[g]
         handle  = gf.handleFrames [h]
 
+        # get affordance
+        try:
+            aff = gf.affordances[(g, h)]
+            useMeasurementOfObjectPose  = aff. useMeasurementOfObjectPose(handle)
+            useMeasurementOfGripperPose = aff.useMeasurementOfGripperPose(gripper)
+        except KeyError:
+            useMeasurementOfObjectPose  = handle .hasVisualTag
+            useMeasurementOfGripperPose = gripper.hasVisualTag
+
         gripper_close = self._buildGripper ("close", g, h)
         pregrasp = PreGrasp (gripper, handle, otherGrasp)
-        pregrasp.makeTasks (gf.sotrobot, gf.parameters["useMeasurementOfObjectsPose"])
+        pregrasp.makeTasks (gf.sotrobot,
+                useMeasurementOfObjectPose,
+                useMeasurementOfGripperPose)
 
         if not gripper.enabled:
             # TODO If otherGrasp is not None,
@@ -211,13 +232,15 @@ class TaskFactory(ConstraintFactoryAbstract):
 # factory.parameters["period"] = robot.getTimeStep() # This must be made available for your robot
 # factory.parameters["simulateTorqueFeedback"] = simulateTorqueFeedbackForEndEffector
 # factory.parameters["addTracerToAdmittanceController"] = True
-# factory.parameters["useMeasurementOfObjectsPose"] = True
 #
 # factory.setGrippers (grippers)
 # factory.setObjects (objects, handlesPerObjects, contactPerObjects)
 # factory.environmentContacts (["table/support",])
 # factory.setRules (rules)
 # factory.setupFrames (srdf["grippers"], srdf["handles"], robot, disabledGrippers=["table/pose",])
+# # At the moment, one must manually enable visual feedback
+# factory.gripperFrames["talos/left_gripper"].hasVisualTag = True
+# factory.handleFrames["box/handle1"].hasVisualTag = True
 # factory.addAffordance (
 #     Affordance ("talos/left_gripper", "box/handle1",
 #         openControlType="torque", closeControlType="torque",
@@ -287,13 +310,10 @@ class Factory(GraphFactoryAbstract):
         ## - simulateTorqueFeedback: [boolean, False]
         ##                           do not use torque feedback from the robot
         ##                           but simulate it instead.
-        ## - useMeasurementOfObjectsPose: [boolean, False]
-        ##                                whether SoT should use tf_listener to get the real position of objects.
         self.parameters = {
                 "addTracerToAdmittanceController": False,
                 "addTimerToSotControl": False,
                 "simulateTorqueFeedback": False,
-                "useMeasurementOfObjectsPose": False,
                 }
 
     def _newSoT (self, name):
