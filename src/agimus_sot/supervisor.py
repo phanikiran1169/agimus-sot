@@ -101,14 +101,15 @@ class Supervisor(object):
         self.sots_indexes[solver.name] = n
         plug (solver.control, self.sot_switch.signal("sin" + str(n)))
 
-        def _plug (e, events, n):
+        def _plug (e, events, n, name):
             assert events.getSignalNumber() == n, "Wrong number of events."
             events.setSignalNumber(n+1)
+            events.setConditionString(n, name)
             if isinstance(e, (bool,int)): events.conditionSignal(n).value = int(e)
             else: plug (e, events.conditionSignal(n))
 
-        _plug (solver. doneSignal, self. done_events, n)
-        _plug (solver.errorSignal, self.error_events, n)
+        _plug (solver. doneSignal, self. done_events, n, solver.name)
+        _plug (solver.errorSignal, self.error_events, n, solver.name)
 
     def _selectSolver (self, solver):
         n = self.sots_indexes[solver.name]

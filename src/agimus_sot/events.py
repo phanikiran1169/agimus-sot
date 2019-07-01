@@ -54,6 +54,7 @@ class Events:
         self.ros_publish.add ('int', name, '/agimus/sot/event/' + name)
 
         self.event.addSignal (name + "_ros_publish.trigger")
+        self.switch_string = {}
 
     def getSignalNumber (self):
         return self.switch.getSignalNumber()
@@ -63,6 +64,7 @@ class Events:
 
     def setSelectedSignal (self, n):
         self.switch.selection.value = n
+        #self.idSignal.value = n
 
     ## Creates entities to check whether the norm is
     ## superior to the threshold \c thr
@@ -86,6 +88,12 @@ class Events:
     def conditionSignal (self, i):
         return self.switch.signal("sin"+str(i))
 
+    def setConditionString (self, i, name):
+        self.switch_string[i] = name
+
+    def getConditionString (self, i):
+        return self.switch_string.get (i, None)
+
     @property
     def controlNormSignal (self):
         return self.norm_comparision.sout
@@ -97,3 +105,7 @@ class Events:
     @property
     def remainsTimeSignal (self):
         return self.time.before
+
+    @property
+    def idSignal (self):
+        return self.ros_publish.signal(self.name)
