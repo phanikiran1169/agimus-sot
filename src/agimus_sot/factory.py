@@ -28,27 +28,27 @@ from hpp.corbaserver.manipulation.constraint_graph_factory import ConstraintFact
 from tools import Manifold, Grasp, PreGrasp, OpFrame, EndEffector
 from .solver import Solver
 
-## Affordance between a gripper and a handle.
+## Affordance between a gripper and a handle.
 #
 # This class allows to tune the behaviour of the robot when grasping of
-# releasing an object. There are several behaviour already implemented.
+# releasing an object. There are several behaviour already implemented.
 class Affordance(object):
-    ## Constructor
-    # \param gripper names of the gripper
-    # \param handle  names of the handle
-    # \param openControlType, closeControlType control type for releasing and
-    #        grasping the object. Must be one of \c "position", \c "torque" or 
+    ## Constructor
+    # \param gripper names of the gripper
+    # \param handle  names of the handle
+    # \param openControlType, closeControlType control type for releasing and
+    #        grasping the object. Must be one of \c "position", \c "torque" or
     #        \c "position_torque"
-    # \param refs a dictionnary of reference values.
+    # \param refs a dictionnary of reference values.
     #             Keys should be \c "angle_open", \c "angle_close" and \c "torque")
-    # \param controlParams parameters of the control:
-    # \param simuParams parameters of the torque feedback simulation.
+    # \param controlParams parameters of the control:
+    # \param simuParams parameters of the torque feedback simulation.
     #
     # Control parameters depend on the control type.
-    # \li For \c "position", no parameters.
-    # \li For \c "torque", see control.AdmittanceControl constructor (torque_num, torque_denom)
-    # \li For \c "position_torque", see control.PositionAndAdmittanceControl constructor.
-    # (wn, z, torque_num, torque_denom)
+    # \li For \c "position", no parameters.
+    # \li For \c "torque", see control.AdmittanceControl constructor (torque_num, torque_denom)
+    # \li For \c "position_torque", see control.PositionAndAdmittanceControl constructor.
+    # (wn, z, torque_num, torque_denom)
     def __init__ (self, gripper, handle, openControlType, closeControlType,
             refs, controlParams = {}, simuParams = {}):
         self.gripper = gripper
@@ -58,8 +58,8 @@ class Affordance(object):
         self.controlParams = controlParams
         self.simuParams = simuParams
 
-    ## Very likely never used but who knows...
-    # \todo remove me
+    ## Very likely never used but who knows...
+    # \todo remove me
     def setControl (self, refOpen, refClose, openType = "position", closeType="position"):
         from warnings import warn
         warn("Method Affordance.getControl will be deleted soon!")
@@ -74,7 +74,7 @@ class Affordance(object):
                 "angle_close": refClose,
                 }
 
-    ## Get position control parameter
+    ## Get position control parameter
     def getControlParameter (self):
         wn    = self.controlParams.get("wn",    10.)
         z     = self.controlParams.get("z",     1. )
@@ -104,8 +104,8 @@ class Affordance(object):
     def useMeasurementOfObjectPose (self, handleFrame):
         return handleFrame.hasVisualTag
 
-## Create \ref tools.Manifold s
-# 
+## Create \ref tools.Manifold s
+# 
 # \sa manipulation.constraint_graph_factory.ConstraintFactoryAbstract
 class TaskFactory(ConstraintFactoryAbstract):
     gfields = ('grasp', 'pregrasp', 'gripper_open', 'gripper_close')
@@ -215,11 +215,11 @@ class TaskFactory(ConstraintFactoryAbstract):
         # Nothing to do
         return dict()
 
-## Create a set of controllers for a set of tasks.
+## Create a set of controllers for a set of tasks.
 #
-# A controller is created for each transition of the graph of constraints.
+# A controller is created for each transition of the graph of constraints.
 #
-# See the following example for usage.
+# See the following example for usage.
 # \code{.py}
 # from agimus_sot import Supervisor
 # from agimus_sot.factory import Factory, Affordance
@@ -227,7 +227,7 @@ class TaskFactory(ConstraintFactoryAbstract):
 # from agimus_sot.srdf_parser import parse_srdf
 # from hpp.corbaserver.manipulation import Rule
 #
-# # Constraint graph definition. Should be the same as the one used for planning
+# # Constraint graph definition. Should be the same as the one used for planning
 # # in HPP.
 # grippers = [ "talos/left_gripper", ]
 # objects = [ "box" ]
@@ -240,7 +240,7 @@ class TaskFactory(ConstraintFactoryAbstract):
 #           # Rule([ "talos/right_gripper", ], [ Object.handles[1], ], True),
 #           ]
 #
-# # Parse SRDF files to extract gripper and handle information.
+# # Parse SRDF files to extract gripper and handle information.
 # srdf = {}
 # srdfTalos = parse_srdf ("srdf/talos.srdf", packageName = "talos_data", prefix="talos")
 # srdfBox   = parse_srdf ("srdf/cobblestone.srdf", packageName = "gerard_bauzil", prefix="box")
@@ -255,7 +255,7 @@ class TaskFactory(ConstraintFactoryAbstract):
 # factory = Factory(supervisor)
 #
 # # Define parameters
-# factory.parameters["period"] = robot.getTimeStep() # This must be made available for your robot
+# factory.parameters["period"] = robot.getTimeStep() # This must be made available for your robot
 # factory.parameters["simulateTorqueFeedback"] = simulateTorqueFeedbackForEndEffector
 # factory.parameters["addTracerToAdmittanceController"] = True
 #
@@ -282,8 +282,8 @@ class TaskFactory(ConstraintFactoryAbstract):
 # factory.generate ()
 #
 # supervisor.makeInitialSot ()
-# \endcode
-# 
+# \endcode
+# 
 # \sa manipulation.constraint_graph_factory.GraphFactoryAbstract, TaskFactory,
 #     Affordance
 class Factory(GraphFactoryAbstract):

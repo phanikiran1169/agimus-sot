@@ -56,7 +56,7 @@ class AdmittanceControl(object):
         self.torque_controller.addFeedback()
         self.torque_controller.reference.value = self.desired_torque
 
-    ### Internal method
+    ### Internal method
     def _makeIntegrationOfVelocity (self):
         from dynamic_graph.sot.core import Add_of_vector
         self.omega2theta = Add_of_vector (self.name + "_omega2theta")
@@ -129,7 +129,7 @@ class AdmittanceControl(object):
 
     def readPositionsFromRobot (self, robot, jointNames):
         # TODO Compare current position to self.est_theta_closed and
-        # so as not to overshoot this position.
+        # so as not to overshoot this position.
         # Input formattting
         from dynamic_graph.sot.core.operator import Selec_of_vector
         self. _joint_selec = Selec_of_vector (self.name + "_joint_selec")

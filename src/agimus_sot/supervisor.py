@@ -80,12 +80,12 @@ class Supervisor(object):
         sot.errorSignal = False
         self.addSolver ("", sot)
 
-    ## Set the robot base pose in the world.
-    # \param basePose a list: [x,y,z,r,p,y] or [x,y,z,qx,qy,qz,qw]
+    ## Set the robot base pose in the world.
+    # \param basePose a list: [x,y,z,r,p,y] or [x,y,z,qx,qy,qz,qw]
     # \return success True in case of success
     def setBasePose (self, basePose):
         if len(basePose) == 7:
-            # Currently, this case never happens
+            # Currently, this case never happens
             from dynamic_graph.sot.tools.quaternion import Quaternion
             from numpy.linalg import norm
             q = Quaternion(basePose[6],basePose[3],basePose[4],basePose[5])
@@ -94,7 +94,7 @@ class Supervisor(object):
             basePose = basePose[:3] + q.toRPY().tolist()
         if self.currentSot == "" or len(basePose) != 6:
             # We are using the SOT to keep the current posture.
-            # The 6 first DoF are not used by the task so we can change them safely.
+            # The 6 first DoF are not used by the task so we can change them safely.
             self.sotrobot.device.set(tuple(basePose + list(self.sotrobot.device.state.value[6:])))
             self.keep_posture._signalPositionRef().value = self.sotrobot.device.state.value
             return True
@@ -198,15 +198,15 @@ class Supervisor(object):
         for s in tmp:
             self.rosSubscribe.clearQueue(s)
 
-    ## Start reading values received by the RosQueuedSubscribe entity.
+    ## Start reading values received by the RosQueuedSubscribe entity.
     # \param delay (integer) how many periods to wait before reading.
     #              It allows to give some delay to network connection.
     # \param minQueueSize (integer) waits to the queue size of rosSubscribe
     #                     to be greater or equal to \p minQueueSize
     # \param duration expected duration (in seconds) of the queue.
     #
-    # \warning If \p minQueueSize is greater than the number of values to
-    #          be received by rosSubscribe, this function does an infinite loop.
+    # \warning If \p minQueueSize is greater than the number of values to
+    #          be received by rosSubscribe, this function does an infinite loop.
     def readQueue(self, delay, minQueueSize, duration):
         from time import sleep
         if delay < 0:

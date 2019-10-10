@@ -107,18 +107,18 @@ class Manifold(object):
     sep = "___"
 
     def __init__ (self, tasks = [], constraints = [], topics = {}):
-        ## Task to be added to a SoT solver
+        ## Task to be added to a SoT solver
         self.tasks = list(tasks)
-        ## Constraints
-        # This is likely not used anymore.
+        ## Constraints
+        # This is likely not used anymore.
         self.constraints = list(constraints)
-        ## The ROS topics where to read references.
-        # It is a dictionary. The key is the output signal name of a
-        # RosQueuedSubscribe entity. The value is a dictionary with:
-        # \li "type": "vector", "matrixHomo", "vector3" ...,
-        # \li "topic": the ROS topic name,
-        # \li "signalGetters": a list of functions returning the input signals to be plugged.
-        # \li "handler": [optional] some specific topics have specific handlers.
+        ## The ROS topics where to read references.
+        # It is a dictionary. The key is the output signal name of a
+        # RosQueuedSubscribe entity. The value is a dictionary with:
+        # \li "type": "vector", "matrixHomo", "vector3" ...,
+        # \li "topic": the ROS topic name,
+        # \li "signalGetters": a list of functions returning the input signals to be plugged.
+        # \li "handler": [optional] some specific topics have specific handlers.
         #     - "hppjoint": needs two more keys
         #       - "velocity": boolean
         #       - "hppjoint": HPP joint name
