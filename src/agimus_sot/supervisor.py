@@ -46,10 +46,9 @@ class Supervisor(object):
     4. GP <-> Gp
     5. Gp <-> G
     """
-    ## \param lpTasks function taking as input "sotrobot" and return low priority task
-    #         \todo this should not be a function but a set of tasks.
-    ## \param hpTasks function taking as input "sotrobot" and return high priority task (like balance)
-    #         \todo this should not be a function but a set of tasks.
+    ##
+    # \param lpTasks list of low priority tasks. If None, a Posture task will be used.
+    # \param hpTasks list of high priority tasks (like balance)
     def __init__ (self, sotrobot, lpTasks = None, hpTasks = None):
         self.sotrobot = sotrobot
         self.hpTasks = hpTasks if hpTasks is not None else _hpTasks(sotrobot)

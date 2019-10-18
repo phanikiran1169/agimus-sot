@@ -102,7 +102,9 @@ def computeControlSelection (robot, joint_to_be_removed):
     selection.reverse()
     return "".join(selection)
 
-## Abstraction of a task with a predefined gain.
+## Abstraction of a task.
+#
+# Each child class sets a default value for the gain.
 class Manifold(object):
     sep = "___"
 
@@ -170,8 +172,6 @@ class Posture(Manifold):
     def __init__ (self, name, sotrobot):
         super(Posture, self).__init__()
         from dynamic_graph.sot.core import Task, FeatureGeneric, GainAdaptive
-        from dynamic_graph.sot.core.matrix_util import matrixToTuple
-        from numpy import identity
 
         n = Posture.sep + name
         self.tp = Task ('task' + n)
@@ -192,6 +192,7 @@ class Posture(Manifold):
         plug(sotrobot.dynamic.position, self.tp.feature.state)
 
         self.tp.setWithDerivative (True)
+        #self.tp.setWithDerivative (False)
 
         # Set the gain of the posture task
         setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
@@ -276,7 +277,7 @@ class PreGrasp (Manifold):
             else:
                 # TODO Both grippers are disabled so nothing can be done...
                 # add a warning ?
-                pass
+                print("Both grippers are disabled so nothing can be done")
 
     def _makeAbsolute(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos):
         name = PreGrasp.sep.join(["", "pregrasp", self.gripper.name, self.handle.fullName])

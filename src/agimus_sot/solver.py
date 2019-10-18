@@ -25,7 +25,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 class Solver(object):
-    def __init__ (self, name, dimension, damping = None, timer = None):
+    def __init__ (self, name, dimension, damping = None, timer = False):
         from dynamic_graph.sot.core import SOT
         sot = SOT(name)
         sot.setSize(dimension)
@@ -64,6 +64,11 @@ class Solver(object):
     def control (self):
         if self.timer is None: return self.sot.control
         else                 : return self.timer.sout
+
+    @property
+    def controlname (self):
+        if self.timer is None: return self.sot.name + ".control"
+        else                 : return self.timer.name + ".sout"
 
     @property
     def name (self): return self.sot.name

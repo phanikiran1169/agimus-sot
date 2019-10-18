@@ -339,15 +339,16 @@ class Factory(GraphFactoryAbstract):
         self.parameters = {
                 "addTracerToAdmittanceController": False,
                 "addTimerToSotControl": False,
+                "addTracerToSotControl": False,
                 "simulateTorqueFeedback": False,
                 }
 
     def _newSoT (self, name):
         # Create a solver
-        sot = Solver (name, 
+        sot = Solver (name,
                 self.sotrobot.dynamic.getDimension(),
                 damping = 0.001,
-                timer = self.parameters["addTimerToSotControl"]
+                timer = self.parameters["addTimerToSotControl"],
                 )
         # Make default event signals
         # sot. doneSignal = self.supervisor.controlNormConditionSignal()
@@ -359,7 +360,10 @@ class Factory(GraphFactoryAbstract):
 
         if self.parameters["addTimerToSotControl"]:
             id = len(self.SoTtracer.signals()) - 1
-            self.SoTtracer.add (sot.timer.name + ".timer", str(id) + ".timer")
+            self.SoTtracer.add (sot.timer.name + ".timer", "solver_"+str(id) + ".timer")
+        if self.parameters["addTracerToSotControl"]:
+            id = len(self.SoTtracer.signals()) - 1
+            self.SoTtracer.add (sot.controlname, "solver_"+str(id) + ".control")
         return sot
 
     def addAffordance (self, aff, simulateTorqueFeedback = False):
@@ -367,15 +371,16 @@ class Factory(GraphFactoryAbstract):
         self.affordances [(aff.gripper, aff.handle)] = aff
 
     def generate (self):
-        if self.parameters["addTimerToSotControl"]:
+        if self.parameters["addTimerToSotControl"] or self.parameters["addTracerToSotControl"]:
             # init tracer
             from dynamic_graph.tracer_real_time import TracerRealTime
-            SoTtracer = TracerRealTime ("tracer_of_timers")
+            SoTtracer = TracerRealTime ("tracer_of_solvers")
             self.tracers[SoTtracer.name] = SoTtracer
             SoTtracer.setBufferSize (10 * 1048576) # 10 Mo
             SoTtracer.open ("/tmp", "sot-control-trace", ".txt")
-            self.sotrobot.device.after.addSignal("tracer_of_timers.triger")
+            self.sotrobot.device.after.addSignal("tracer_of_solvers.triger")
             self.supervisor.SoTtracer = SoTtracer
+            self.SoTtracer = SoTtracer
         super(Factory, self).generate ()
 
         self.supervisor.sots = {}
