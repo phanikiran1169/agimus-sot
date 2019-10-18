@@ -195,7 +195,26 @@ class Supervisor(object):
         self.rosSubscribe.readQueue (-1)
         exec ("tmp = " + self.rosSubscribe.list())
         for s in tmp:
+            print ('{} queue size: {}'.format(s, self.rosSubscribe.queueSize(s)))
             self.rosSubscribe.clearQueue(s)
+
+    ## Wait for the queue to be of a given size.
+    # \param minQueueSize (integer) waits to the queue size of rosSubscribe
+    #                     to be greater or equal to \c minQueueSize
+    # \param timeout time in seconds after which to return a failure.
+    # \return True on success, False on timeout.
+    def waitForQueue(self, minQueueSize, timeout):
+        ts = self.sotrobot.device.getTimeStep()
+        to = int(timeout / self.sotrobot.device.getTimeStep())
+        from time import sleep
+        start_it = self.sotrobot.device.control.time
+        exec ("queues = " + self.rosSubscribe.list())
+        for queue in queues:
+            while self.rosSubscribe.queueSize(queue) < minQueueSize:
+                if self.sotrobot.device.control.time > start_it + to:
+                    return False
+                sleep(ts)
+        return True
 
     ## Start reading values received by the RosQueuedSubscribe entity.
     # \param delay (integer) how many periods to wait before reading.
@@ -203,21 +222,25 @@ class Supervisor(object):
     # \param minQueueSize (integer) waits to the queue size of rosSubscribe
     #                     to be greater or equal to \p minQueueSize
     # \param duration expected duration (in seconds) of the queue.
+    # \param timeout time in seconds after which to return a failure.
     #
     # \warning If \p minQueueSize is greater than the number of values to
     #          be received by rosSubscribe, this function does an infinite loop.
-    def readQueue(self, delay, minQueueSize, duration):
+    def readQueue(self, delay, minQueueSize, duration, timeout):
         from time import sleep
+        print("Current solver {0}".format(self.currentSot))
         if delay < 0:
             print ("Delay argument should be >= 0")
-            return
-        while self.rosSubscribe.queueSize("posture") < minQueueSize:
-            sleep(0.001)
+            return False
+        minSizeReached = self.waitForQueue (minQueueSize, timeout)
+        if not minSizeReached:
+            return False
         durationStep = int(duration / self.sotrobot.device.getTimeStep())
         t = self.sotrobot.device.control.time + delay
         self.rosSubscribe.readQueue (t)
         self. done_events.setFutureTime (t + durationStep)
         self.error_events.setFutureTime (t + durationStep)
+        return True
 
     def stopReadingQueue(self):
         self.rosSubscribe.readQueue (-1)

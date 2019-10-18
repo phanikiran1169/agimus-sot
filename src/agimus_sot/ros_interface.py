@@ -26,7 +26,7 @@
 
 import rospy
 from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse, Empty, EmptyResponse
-from agimus_sot_msgs.srv import PlugSot, PlugSotResponse, SetString, SetJointNames, ReadQueue, ReadQueueResponse, SetPose
+from agimus_sot_msgs.srv import PlugSot, PlugSotResponse, SetString, SetJointNames, ReadQueue, ReadQueueResponse, WaitForMinQueueSize, WaitForMinQueueSizeResponse, SetPose
 from dynamic_graph_bridge_msgs.srv import RunCommand
 
 def wait_for_service (srv, time = 0.2):
@@ -56,6 +56,7 @@ class RosInterface(object):
         rospy.Service('run_pre_action', PlugSot, self.runPreAction)
         rospy.Service('request_hpp_topics', Trigger, self.requestHppTopics)
         rospy.Service('clear_queues', Trigger, self.clearQueues)
+        rospy.Service('wait_for_min_queue_size', WaitForMinQueueSize, self.waitForMinQueueSize)
         rospy.Service('read_queue', ReadQueue, self.readQueue)
         rospy.Service('stop_reading_queue', Empty, self.stopReadingQueue)
         rospy.Service('publish_state', Empty, self.publishState)
@@ -63,6 +64,11 @@ class RosInterface(object):
         wait_for_service ("/run_command")
         self._runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor
+
+    def _isNotError (self, runCommandAnswer):
+        if len(runCommandAnswer.standarderror) != 0:
+            return False, runCommandAnswer.standarderror
+        return True, ""
 
     def runCommand (self, cmd):
         rospy.loginfo (">> " + cmd)
@@ -159,12 +165,36 @@ class RosInterface(object):
         return TriggerResponse (True, "ok")
 
     def readQueue(self, req):
+        rsp = ReadQueueResponse()
         if self.supervisor is not None:
-            self.supervisor.readQueue(req.delay, req.minQueueSize, req.duration)
+            rsp.success = self.supervisor.readQueue(req.delay, req.minQueueSize, req.duration, req.timeout)
         else:
-            cmd = "supervisor.readQueue({},{},{})".format(req.delay, req.minQueueSize, req.duration)
+            cmd = "supervisor.readQueue({},{},{},{})".format(req.delay, req.minQueueSize, req.duration, req.timeout)
             answer = self.runCommand (cmd)
-        return ReadQueueResponse ()
+            rsp.success, rsp.message = self._isNotError (answer)
+            if rsp.success:
+                exec ("rsp.success = " + answer.result)
+            else:
+                return rsp
+        if not rsp.success:
+            rsp.message = "Timeout reached"
+        return rsp
+
+    def waitForMinQueueSize(self, req):
+        rsp = WaitForMinQueueSizeResponse()
+        if self.supervisor is not None:
+            rsp.success = self.supervisor.waitForQueue(req.minQueueSize, req.timeout)
+        else:
+            cmd = "supervisor.waitForQueue({},{})".format(req.minQueueSize, req.timeout)
+            answer = self.runCommand (cmd)
+            rsp.success, rsp.message = self._isNotError (answer)
+            if rsp.success:
+                exec ("rsp.success = " + answer.result)
+            else:
+                return rsp
+        if not rsp.success:
+            rsp.message = "Timeout reached"
+        return rsp
 
     def stopReadingQueue(self, req):
         if self.supervisor is not None:
