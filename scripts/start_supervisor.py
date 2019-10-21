@@ -37,7 +37,7 @@ from std_srvs.srv import Empty
 from dynamic_graph_bridge_msgs.srv import RunCommand
 from dynamic_graph_bridge_msgs.msg import Vector
 from os.path import isfile
-from hpp import Quaternion
+from eigenpy import Quaternion, toEulerAngles
 
 def usage():
     rospy.logerr ("Parameters are input (required, a python script), prefix (optional, a string) and"
@@ -119,20 +119,20 @@ try:
     ri = makeRosInterface ()
 
     ## Initialize pose of robot root_joint
-    # read SE(2) motion from ROS parameter
-    moveRootJoint = rospy.get_param ("/robot_initial_pose")
-    x, y, z, X, Y, Z, W = map (float, moveRootJoint.split (' '))
+    # read SE(3) pose from ROS parameter
+    rootJointPose = rospy.get_param ("/robot_initial_pose")
+    x, y, z, X, Y, Z, W = map (float, rootJointPose.split (' '))
     # request SoT to publish robot state
     ri.publishState (Empty)
     runCommandStartDynamicGraph()
     # read current value of state signal in SoT
     res = rospy.wait_for_message ("/agimus/sot/state", Vector, 5.)
     q = res.data
-    orientation = Quaternion (X, Y, Z, W)
-    rx, ry, rz = orientation.toRPY ()
+    orientation = Quaternion (W, X, Y, Z)
+    rz, ry, rx = toEulerAngles (orientation.matrix (), 2, 1, 0)
     code = ["q = list (robot.device.state.value)"]
     code += ["x={0}; y={1}; z={2}".format (x, y, z)]
-    code += ["rx={0}; ry={1}; rz={2}".format (rx, ry, rz)]
+    code += ["rx={0}; ry={1}; rz={2}".format (rx[0,0], ry[0,0], rz[0,0])]
     code += ["q [0:3] = x, y, z"]
     code += ["q [3:6] = rx, ry, rz"]
     code += ["robot.device.set (q)"]
