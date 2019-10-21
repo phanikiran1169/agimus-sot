@@ -241,6 +241,7 @@ class Supervisor(object):
         print("{0}: Current solver {1}\n{2}"
                 .format(devicetime, transitionName, solver.sot.display()))
         self.currentSot = transitionName
+        self.ros_publish_state.transition_name.value = transitionName
 
     def runPreAction(self, transitionName):
         if self.preActions.has_key(transitionName):
@@ -284,6 +285,9 @@ class Supervisor(object):
         self.ros_publish_state = RosPublish ("ros_publish_state")
         self.ros_publish_state.add ("vector", "state", "/agimus/sot/state")
         self.ros_publish_state.add ("vector", "reference_state", "/agimus/sot/reference_state")
+        self.ros_publish_state.add ("string", "transition_name",
+                                    "/agimus/sot/transition_name")
+        self.ros_publish_state.transition_name.value = ""
         plug (self.sotrobot.device.state, self.ros_publish_state.state)
         plug (self.rosSubscribe.posture, self.ros_publish_state.reference_state)
         self.sotrobot.device.after.addDownsampledSignal ("ros_publish_state.trigger", subsampling)
