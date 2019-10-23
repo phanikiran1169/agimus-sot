@@ -173,11 +173,13 @@ class Simulation (object):
         if transitionChanged:
             self.q_rhs = self.q
             self.transitionId = self.graphDict [self.transitionName]
+            print ("new transition: " + self.transitionName)
+            print ("q_rhs = " + str (self.q_rhs))
         elif self.q_rhs:
             # if transition has not changed and right hand side has been stored,
             # apply transition constraints
             res, self.q, err = \
-              self.client.manip ().problem.applyConstraintsWithOffset \
+              self.client.manip ().graph.applyEdgeLeafConstraints \
               (self.transitionId, self.q_rhs, self.q)
             self.q = list (self.q)
             for o in self.objects:
