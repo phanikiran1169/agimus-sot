@@ -241,7 +241,8 @@ class Supervisor(object):
         print("{0}: Current solver {1}\n{2}"
                 .format(devicetime, transitionName, solver.sot.display()))
         self.currentSot = transitionName
-        self.ros_publish_state.transition_name.value = transitionName
+        if hasattr (self, 'ros_publish_state'):
+            self.ros_publish_state.transition_name.value = transitionName
 
     def runPreAction(self, transitionName):
         if self.preActions.has_key(transitionName):
