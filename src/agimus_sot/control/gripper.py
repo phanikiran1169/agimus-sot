@@ -65,27 +65,17 @@ class AdmittanceControl(object):
         # self.omega2theta.sin2 <- desired velocity
         plug (self.torque_controller.output, self.omega2theta.sin2)
 
-    ### Setup event to tell when object is grasped
+    ### Setup event to tell when object is grasped and simulate torque feedback.
     def setupFeedbackSimulation (self, mass, damping, spring, theta0):
         from agimus_sot.control.controllers import Controller
         from dynamic_graph.sot.core import Add_of_vector
         from agimus_sot.sot import DelayVector
 
-        ## omega -> theta
-        # Done in _makeControllerSwich
-        # A delay is necessary to avoid loops in SoT
-
-        delayTheta = DelayVector (self.name + "_sim_theta_delay")
-        delayTheta.setMemory (tuple([0. for _ in self.est_theta_closed]))
-        plug (self.omega2theta.sout, delayTheta.sin)
-        self.setCurrentPositionIn(delayTheta.previous)
-
         ## theta -> phi = theta - theta0
-        self.theta2phi = Add_of_vector(self.name + "_sim_theta2phi")
-        self.theta2phi.setCoeff1 ( 1)
-        self.theta2phi.setCoeff2 (-1)
-        plug (delayTheta.current, self.theta2phi.sin1)
-        self.theta2phi.sin2.value = theta0
+        self._sim_theta2phi = Add_of_vector(self.name + "_sim_theta2phi")
+        self._sim_theta2phi.setCoeff1 ( 1)
+        self._sim_theta2phi.setCoeff2 (-1)
+        self._sim_theta2phi.sin2.value = theta0
 
         ## phi -> torque
         from dynamic_graph.sot.core.switch import SwitchVector
@@ -95,37 +85,35 @@ class AdmittanceControl(object):
         self.sim_contact_condition = CompareVector(self.name + "_sim_contact_condition")
         self.sim_contact_condition.setTrueIfAny(False)
 
-        self.sim_switch = SwitchVector (self.name + "_sim_torque")
-        self.sim_switch.setSignalNumber(2)
+        self._sim_torque = SwitchVector (self.name + "_sim_torque")
+        self._sim_torque.setSignalNumber(2)
 
-        plug (self.sim_contact_condition.sout, self.sim_switch.boolSelection)
+        plug (self.sim_contact_condition.sout, self._sim_torque.boolSelection)
 
-        # Non contact phase
+        # If phi < 0 (i.e. sim_contact_condition.sout == 1) -> non contact phase
+        # else          contact phase
         if reverse:
-            plug (self.theta2phi.sout, self.sim_contact_condition.sin2)
+            plug (self._sim_theta2phi.sout, self.sim_contact_condition.sin2)
             self.sim_contact_condition.sin1.value = [0. for _ in self.est_theta_closed]
         else:
-            plug (self.theta2phi.sout, self.sim_contact_condition.sin1)
+            plug (self._sim_theta2phi.sout, self.sim_contact_condition.sin1)
             self.sim_contact_condition.sin2.value = [0. for _ in self.est_theta_closed]
+        # Non contact phase
+        # torque = 0, done above
         # Contact phase
         self.phi2torque = Controller (self.name + "_sim_phi2torque",
                 (spring, damping, mass,), (1.,),
                 self.dt, [0. for _ in self.est_theta_closed])
         #TODO if M != 0: phi2torque.pushNumCoef(((M,),))
-        plug (self.theta2phi.sout, self.phi2torque.reference)
+        plug (self._sim_theta2phi.sout, self.phi2torque.reference)
 
         # Condition
         # if phi < 0 -> no contact -> torque = 0
-        self.sim_switch.sin1.value = [0. for _ in self.est_theta_closed]
+        self._sim_torque.sin1.value = [0. for _ in self.est_theta_closed]
         # else       ->    contact -> phi2torque
-        plug (self.phi2torque.output, self.sim_switch.sin0)
+        plug (self.phi2torque.output, self._sim_torque.sin0)
 
-        delay = DelayVector (self.name + "_sim_torque_delay")
-        delay.setMemory (tuple([0. for _ in self.est_theta_closed]))
-        # plug (self.phi2torque.output, delay.sin)
-        plug (self.sim_switch.sout, delay.sin)
-        # self.setCurrentConditionIn (delay.current)
-        plug (delay.previous, self.currentTorqueIn)
+        plug (self._sim_torque.sout, self.currentTorqueIn)
 
     def readPositionsFromRobot (self, robot, jointNames):
         # TODO Compare current position to self.est_theta_closed and
@@ -209,7 +197,7 @@ class AdmittanceControl(object):
         self._tracer.open ("/tmp", filename_escape(self.name), ".txt")
 
         self._tracer.add (self.omega2theta.name + ".sin1",        "_theta_current")
-        self._tracer.add (self.omega2theta.name + ".sin2",        "_omega")
+        self._tracer.add (self.omega2theta.name + ".sin2",        "_omega_desired")
         self._tracer.add (self.omega2theta.name + ".sout",        "_theta_desired")
         self._tracer.add (self.torque_controller.referenceName,   "_reference_torque")
         self._tracer.add (self.torque_controller.measurementName, "_measured_torque")
@@ -233,6 +221,8 @@ class AdmittanceControl(object):
 
     def setCurrentPositionIn (self, sig):
         plug (sig, self.omega2theta.sin1)
+        if hasattr(self, "_sim_theta2phi"):
+            plug(sig, self._sim_theta2phi.sin1)
 
     @property
     def currentTorqueIn (self):
@@ -310,7 +300,7 @@ class PositionAndAdmittanceControl(AdmittanceControl):
     ### Setup event to tell when object is grasped
     def setupFeedbackSimulation (self, mass, damping, spring, theta0):
         super(PositionAndAdmittanceControl, self).setupFeedbackSimulation(mass, damping, spring, theta0)
-        self.setCurrentConditionIn (delay.current)
+        self.setCurrentConditionIn (self._sim_torque.sout)
 
     def readCurrentsFromRobot (self, robot, jointNames, torque_constants, first_order_filter = False):
         super(PositionAndAdmittanceControl, self).readCurrentsFromRobot (robot, jointNames, torque_constants, first_order_filter)
@@ -322,7 +312,7 @@ class PositionAndAdmittanceControl(AdmittanceControl):
 
     def addTracerRealTime (self, robot):
         tracer = super(PositionAndAdmittanceControl, self).addTracerRealTime (robot)
-        # self._tracer.add (self.theta2phi.sout,                    "_phi")
+        # self._tracer.add (self._sim_theta2phi.sout,                    "_phi")
         # self._tracer.add (self.currentConditionIn.name,   # Measured torque
                 # filename_escape(self.name + "_"))
 
