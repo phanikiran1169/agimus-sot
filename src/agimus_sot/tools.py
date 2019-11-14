@@ -652,6 +652,8 @@ class EndEffector (Manifold):
         if len(self.jointNames) > 0:
             self.tasks = [ self.tp ]
 
+        self.thr_task_error = 0.0001
+
     ### \param type equals "open" or "close"
     ### \param period interval between two integration of SoT
     def makeAdmittanceControl (self, affordance, type, period,
@@ -718,10 +720,13 @@ class EndEffector (Manifold):
         # This integration does not know the initial point so
         # there might be some drift (removed the position controller at the beginning)
 
-        n, c = norm_superior_to (self.name + "_torquecmp",
-                self.ac.currentTorqueIn, 0.9 * np.linalg.norm(desired_torque))
+        from .events import norm_superior_to, norm_inferior_to, logical_and_entity
+        tnorm, tcomp = norm_superior_to (self.name + "_torquecmp",
+                self.ac.currentTorqueIn, 0.95 * np.linalg.norm(desired_torque))
+        pnorm, pcomp = norm_inferior_to (self.name + "_positioncmp",
+                self.tp.error, self.thr_task_error)
         self.events = {
-                "done_close": c.sout,
+                "done_close": logical_and_entity (self.name + '_done_close_and', [tcomp.sout, pcomp.sout]),
                 }
 
     def makePositionControl (self, position):
@@ -737,7 +742,7 @@ class EndEffector (Manifold):
 
         from .events import norm_inferior_to
         n, c = norm_inferior_to (self.name + "_positioncmp",
-                self.tp.error, 0.001)
+                self.tp.error, self.thr_task_error)
         self.events = {
                 "done_close": c.sout,
                 "done_open": c.sout,

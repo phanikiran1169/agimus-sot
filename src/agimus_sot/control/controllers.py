@@ -123,9 +123,8 @@ def secondOrderClosedLoop (name, wn, z, period, initialValue):
     - z : damping
     """
     from math import sqrt
-    wn_ol = wn / sqrt(2)
-    z_ol  = z * sqrt(2)
-    control = secondOrderOpenLoop (name, wn_ol, z_ol, period, initialValue)
+    nums =   ( wn**2 ,)
+    denoms = ( 0, 2*z*wn, 1. )
+    control = Controller (name, nums, denoms, period, initialValue)
     control.addFeedback()
-    control.ref_m_meas.setCoeff1(2)
     return control
