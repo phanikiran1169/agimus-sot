@@ -212,10 +212,6 @@ class AdmittanceControl(object):
         return self.omega2theta.sout
 
     @property
-    def outputVelocity (self):
-        return self.torque_controller.output
-
-    @property
     def referenceTorqueIn (self):
         return self.torque_controller.reference
 
@@ -288,14 +284,10 @@ class PositionAndAdmittanceControl(AdmittanceControl):
         from agimus_sot.control.switch import ControllerSwitch
         from agimus_sot.control.controllers import Controller
 
+        # Outputs a position
         self.switch = ControllerSwitch (self.name + "_switch",
-                # Outputs a velocity
-                (self.position_controller.outputDerivative, self.torque_controller.output),
-                # Outputs a position
-                # (self.position_controller.output, self.torque_controller.output),
+                (self.position_controller.output, self.omega2theta.sout),
                 self.threshold_up, self.threshold_down)
-
-        plug (self.switch.signalOut, self.omega2theta.sin2)
 
     ### Setup event to tell when object is grasped
     def setupFeedbackSimulation (self, mass, damping, spring, theta0):
@@ -321,7 +313,7 @@ class PositionAndAdmittanceControl(AdmittanceControl):
         return tracer
 
     @property
-    def outputVelocity (self):
+    def outputPosition (self):
         return self.switch.signalOut
 
     @property
