@@ -27,6 +27,7 @@
 from __future__ import print_function
 from tools import Manifold, Posture
 from dynamic_graph import plug
+import sys
 
 def _hpTasks (sotrobot):
     return Manifold()
@@ -212,6 +213,9 @@ class Supervisor(object):
         for queue in queues:
             while self.rosSubscribe.queueSize(queue) < minQueueSize:
                 if self.sotrobot.device.control.time > start_it + to:
+                    print("Queue {} has received {} points."
+                            .format(queue, self.rosSubscribe.queueSize(queue)),
+                        file=sys.stderr)
                     return False
                 sleep(ts)
         return True
