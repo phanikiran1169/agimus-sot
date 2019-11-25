@@ -102,8 +102,8 @@ def createGraphDict (client):
         return res
 
 class Simulation (object):
-    objectPose = {'box' : [0.45891797741593393, -0.15, 0.8374964472840138,
-                            -0.5, 0.5, 0.5, 0.5],
+    objectPose = {'box' : [0.000, -0.000, 0.857,
+                           0.500, -0.500, -0.500, -0.500],
                    'table' : [0,0,0,0,0,0,1]
                    }
     objects = {'box', 'table'}
