@@ -201,7 +201,7 @@ class Manifold(object):
 
 ## Postural task
 class Posture(Manifold):
-    def __init__ (self, name, sotrobot):
+    def __init__ (self, name, sotrobot, withDerivative = False):
         super(Posture, self).__init__()
         from dynamic_graph.sot.core import Task, FeatureGeneric, GainAdaptive
 
@@ -223,8 +223,7 @@ class Posture(Manifold):
         # Connects the dynamics to the current feature of the posture task
         plug(sotrobot.dynamic.position, self.tp.feature.state)
 
-        self.tp.setWithDerivative (True)
-        #self.tp.setWithDerivative (False)
+        self.tp.setWithDerivative (withDerivative)
 
         # Set the gain of the posture task
         setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
@@ -236,11 +235,13 @@ class Posture(Manifold):
                         "type": "vector",
                         "topic": "/hpp/target/position",
                         "signalGetters": frozenset([ self._signalPositionRef ]) },
-                    "vel_" + name: {
-                        "type": "vector",
-                        "topic": "/hpp/target/velocity",
-                        "signalGetters": frozenset([ self._signalVelocityRef ]) },
                 }
+        if withDerivative:
+            self.topics["vel_" + name] = {
+                    "type": "vector",
+                    "topic": "/hpp/target/velocity",
+                    "signalGetters": frozenset([ self._signalVelocityRef ])
+                    }
 
     def _signalPositionRef (self): return self.tp.feature.posture
     def _signalVelocityRef (self): return self.tp.feature.postureDot
@@ -302,21 +303,21 @@ class PreGrasp (Manifold):
             self.otherGripper = None
             self.otherHandle  = None
 
-    def makeTasks(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos):
+    def makeTasks(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative = False):
         if self.gripper.enabled:
             if self.otherGripper is not None and self.otherGripper.enabled:
-                self._makeRelativeTask (sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos)
+                self._makeRelativeTask (sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative)
             else:
-                self._makeAbsolute (sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos)
+                self._makeAbsolute (sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative)
         else:
             if self.otherGripper is not None and self.otherGripper.enabled:
-                self._makeAbsoluteBasedOnOther (sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos)
+                self._makeAbsoluteBasedOnOther (sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative)
             else:
                 # TODO Both grippers are disabled so nothing can be done...
                 # add a warning ?
                 print("Both grippers are disabled so nothing can be done")
 
-    def _makeAbsolute(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos):
+    def _makeAbsolute(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative):
         name = PreGrasp.sep.join(["", "pregrasp", self.gripper.name, self.handle.fullName])
 
         from dynamic_graph.sot.core.feature_pose import FeaturePose
@@ -382,12 +383,14 @@ class PreGrasp (Manifold):
         plug(self.gain.gain, self.task.controlGain)
         plug(self.task.error, self.gain.error)
 
+        if withDerivative:
+            print("Relative pose constraint with derivative is not implemented yet.")
         self.task.setWithDerivative (False)
 
         self.tasks = [ self.task, ]
         # TODO Add velocity
     
-    def _makeRelativeTask (self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos):
+    def _makeRelativeTask (self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative):
         assert self.handle.robotName == self.otherHandle.robotName
         assert self.handle.link      == self.otherHandle.link
         name = PreGrasp.sep.join(["", "pregrasp", self.gripper.name, self.handle.fullName,
@@ -405,6 +408,8 @@ class PreGrasp (Manifold):
         # self.graspTask.opPointModif.setEndEffector(True)
 
         setGain(self.graspTask.gain,(4.9,0.9,0.01,0.9))
+        if withDerivative:
+            print("Relative pose constraint with derivative is not implemented yet.")
         self.graspTask.task.setWithDerivative (False)
 
         self.gripper_desired_pose      = Multiply_of_matrixHomo (name + "_desired1")
@@ -442,7 +447,7 @@ class PreGrasp (Manifold):
         self.tasks = [ self.graspTask.task ]
         # TODO Add velocity
 
-    def _makeAbsoluteBasedOnOther (self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos):
+    def _makeAbsoluteBasedOnOther (self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative):
         assert self.handle.robotName == self.otherHandle.robotName
         assert self.handle.link      == self.otherHandle.link
         name = PreGrasp.sep.join(["", "pregrasp", self.gripper.fullName, self.handle.fullName,
@@ -451,6 +456,8 @@ class PreGrasp (Manifold):
                 self.otherGripper.joint, self.otherGripper.joint)
 
         setGain(self.graspTask.gain,(4.9,0.9,0.01,0.9))
+        if withDerivative:
+            print("Relative pose constraint with derivative is not implemented yet.")
         self.graspTask.task.setWithDerivative (False)
 
         # Current gripper position
@@ -560,7 +567,7 @@ class Grasp (Manifold):
             self.otherGripper = otherGraspOnObject[0]
             self.otherHandle = otherGraspOnObject[1]
 
-    def makeTasks(self, sotrobot):
+    def makeTasks(self, sotrobot, withDerivative = False):
         if self.relative:
             basename = Grasp.sep.join([self.gripper.name, self.otherGripper.name])
 
@@ -594,6 +601,8 @@ class Grasp (Manifold):
             plug (self.graspGain.gain , self.graspTask.controlGain)
 
             setGain(self.graspGain,(4.9,0.9,0.01,0.9))
+            if withDerivative:
+                print("Grasp constraint with derivative is not implemented yet.")
             self.graspTask.setWithDerivative (False)
 
             self.tasks = [ self.graspTask ]
@@ -752,7 +761,9 @@ class EndEffector (Manifold):
                 }
 
 class Foot (Manifold):
-    def __init__ (self, footname, sotrobot, selec='111111'):
+    def __init__ (self, footname, sotrobot, selec='111111', withDerivative = False):
+        super(Foot, self).__init__()
+
         robotname, sotjoint = parseHppName (footname)
         basename = Foot.sep + footname
 
@@ -776,54 +787,44 @@ class Foot (Manifold):
         plug (self.gain.gain , self.task.controlGain)
 
         setGain(self.gain,(4.9,0.9,0.01,0.9))
-        self.task.setWithDerivative (False)
+        self.task.setWithDerivative (withDerivative)
 
         if selec!='111111':
             self.feature.selec.value = selec
 
-        super(Foot, self).__init__(
-                tasks = [ self.task, ],
-                topics = {
-                    footname: {
-                        "velocity": False,
-                        "type": "matrixHomo",
-                        "handler": "hppjoint",
-                        "hppjoint": footname,
-                        "signalGetters": frozenset([ self._signalPositionRef ]) },
-                    # "vel_" + self.gripper.name: {
-                    "vel_" + footname: {
-                        "velocity": True,
-                        "type": "vector",
-                        "handler": "hppjoint",
-                        "hppjoint": footname,
-                        "signalGetters": frozenset([ self._signalVelocityRef ]) },
-                    })
+        self.tasks = [ self.task, ]
+        self.addHppJointTopic (footname, signalGetters=[ self._signalPositionRef ])
+        if withDerivative:
+            self.addHppJointTopic ("vel_" + footname, footname,
+                    velocity = True,
+                    signalGetters=[ self._signalVelocityRef ])
 
     def _signalPositionRef (self): return self.feature.faMfbDes
     def _signalVelocityRef (self): return self.feature.faNufafbDes
 
 class COM (Manifold):
     sep = "_com_"
-    def __init__ (self, comname, sotrobot):
+    def __init__ (self, comname, sotrobot, withDerivative = False):
         self.taskCom = MetaTaskKineCom (sotrobot.dynamic,
                 name = COM.sep + comname)
-        self.taskCom.task.setWithDerivative (True)
-        super(COM, self).__init__(
-                tasks = [ self.taskCom.task, ],
-                topics = {
-                    comname: {
-                        "velocity": False,
-                        "type": "vector3",
-                        "handler": "hppcom",
-                        "hppcom": comname,
-                        "signalGetters": frozenset([ self._signalPositionRef ]) },
-                    "vel_" + comname: {
-                        "velocity": True,
-                        "type": "vector3",
-                        "handler": "hppcom",
-                        "hppcom": comname,
-                        "signalGetters": frozenset([ self._signalVelocityRef ]) },
-                    })
+        super(COM, self).__init__()
+        self.taskCom.task.setWithDerivative (withDerivative)
+        self.tasks = [ self.taskCom.task, ]
+        self.topics[comname] = {
+                "velocity": False,
+                "type": "vector3",
+                "handler": "hppcom",
+                "hppcom": comname,
+                "signalGetters": frozenset([ self._signalPositionRef ])
+                }
+        if withDerivative:
+            self.topics["vel_" + comname] = {
+                    "velocity": True,
+                    "type": "vector3",
+                    "handler": "hppcom",
+                    "hppcom": comname,
+                    "signalGetters": frozenset([ self._signalVelocityRef ])
+                    }
         self.taskCom.task.controlGain.value = 5
 
     def _signalPositionRef (self): return self.taskCom.featureDes.errorIN
