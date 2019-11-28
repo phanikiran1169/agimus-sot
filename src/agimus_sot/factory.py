@@ -488,6 +488,9 @@ class Factory(GraphFactoryAbstract):
                     # Add pregrasp task
                     pregraspT = self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp', otherGrasp = otherGrasp)
                     pregraspT.pushTo (s)
+                if preplace and i == nTransitions - 2:
+                    # TODO Add preplace task
+                    pass
                 if i < M: sf.manifold.pushTo(s)
                 else:     st.manifold.pushTo(s)
 
