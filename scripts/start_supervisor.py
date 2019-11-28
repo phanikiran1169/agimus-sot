@@ -138,8 +138,14 @@ try:
     code += ["robot.device.set (q)"]
     launchScript(code,'move robot root_joint to pose specified by ros param')
 
+    del runCommandClient
+    del runCommandStartDynamicGraph
+
 except rospy.ServiceException, e:
     rospy.logerr("Service call failed: %s" % e)
 
 # We need to spin to provide the SoT ros interface.
-rospy.spin()
+try:
+    rospy.spin()
+except rospy.ROSInterruptException:
+    pass
