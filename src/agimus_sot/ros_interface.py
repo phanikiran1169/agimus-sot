@@ -224,7 +224,7 @@ class RosInterface(object):
         if self.supervisor is not None:
             topics = self.supervisor.topics()
         else:
-            cmd = "{ n: { k: v for k, v in t.items() if k != 'signalGetters' } for n, t in supervisor.topics().items() }"
+            cmd = "{ n: { k: v for k, v in t.items() if k in ['hppjoint', 'hppcom', 'velocity'] } for n, t in supervisor.topics().items() }"
             answer = self.runCommand (cmd)
             exec ("topics = " + answer.result)
         for n, t in topics.items():

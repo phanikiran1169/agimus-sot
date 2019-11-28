@@ -149,10 +149,10 @@ class Manifold(object):
                 assert a["type"] == v["type"]
                 if a.has_key('topic'): assert a["topic"] == v["topic"]
                 else: assert a["handler"] == v["handler"]
-                a["signalGetters"] += list(v["signalGetters"])
+                self.extendSignalGetters(k, v["signalGetters"])
                 # print k, "has", len(a["signalGetters"]), "signals"
             else:
-                self.topics[k] = dict(v)
+                self.topics[k] = v
         return self
 
     def setControlSelection (self, selection):
@@ -166,6 +166,38 @@ class Manifold(object):
         for t in self.tasks:
             solver.sot.push(t.name)
             solver.tasks.append(t)
+
+    def extendSignalGetters (self, topicName, signalGetters):
+        """Add signal getters to a topic"""
+        sgs = signalGetters if isinstance(signalGetters, (list, tuple, set, frozenset)) else [signalGetters,]
+        topic =  self.topics[topicName]
+        topic["signalGetters"] = topic["signalGetters"].union (sgs)
+
+    def addHppJointTopic (self, topicName, jointName=None, velocity=False, signalGetters=frozenset()):
+        """
+        Add a topic that will received the pose (or velocity) of a joint from HPP
+        - param jointName: When None, uses topicName as the joint name in HPP.
+        """
+        self.topics[topicName] = {
+                "velocity": velocity,
+                "type": "vector" if velocity else "matrixHomo",
+                "handler": "hppjoint",
+                "hppjoint": jointName if jointName is not None else topicName,
+                "signalGetters": frozenset(signalGetters),
+                }
+
+    def addTfListenerTopic (self, topicName, frame0, frame1,
+            defaultValue=None, signalGetters=frozenset()):
+        self.topics[topicName] = {
+                "velocity": False,
+                "type": "matrixHomo",
+                "handler": "tf_listener",
+                "frame0": frame0,
+                "frame1": frame1,
+                "signalGetters": frozenset(signalGetters),
+                }
+        if defaultValue is not None:
+            self.topics[topicName]["defaultValue"] = defaultValue
 
 ## Postural task
 class Posture(Manifold):
@@ -203,11 +235,11 @@ class Posture(Manifold):
                     name: {
                         "type": "vector",
                         "topic": "/hpp/target/position",
-                        "signalGetters": [ self._signalPositionRef ] },
+                        "signalGetters": frozenset([ self._signalPositionRef ]) },
                     "vel_" + name: {
                         "type": "vector",
                         "topic": "/hpp/target/velocity",
-                        "signalGetters": [ self._signalVelocityRef ] },
+                        "signalGetters": frozenset([ self._signalVelocityRef ]) },
                 }
 
     def _signalPositionRef (self): return self.tp.feature.posture
@@ -430,13 +462,13 @@ class PreGrasp (Manifold):
                     "type": "matrixHomo",
                     "handler": "hppjoint",
                     "hppjoint": self.gripper.fullJoint,
-                    "signalGetters": [ lambda: self.gripper_desired_pose.sin0, ] },
+                    "signalGetters": frozenset([ lambda: self.gripper_desired_pose.sin0, ]) },
                 self.otherGripper.fullJoint : {
                     "velocity": False,
                     "type": "matrixHomo",
                     "handler": "hppjoint",
                     "hppjoint": self.otherGripper.fullJoint,
-                    "signalGetters": [ lambda: self.otherGripper_desired_pose.sin0, ] },
+                    "signalGetters": frozenset([ lambda: self.otherGripper_desired_pose.sin0, ]) },
                 }
 
         self.tasks = [ self.graspTask.task ]
@@ -501,20 +533,20 @@ class PreGrasp (Manifold):
                         "type": "matrixHomo",
                         "handler": "hppjoint",
                         "hppjoint": self.handle.fullLink,
-                        "signalGetters": [ lambda: self.gripper_desired_pose.sin0, ] },
+                        "signalGetters": frozenset([ lambda: self.gripper_desired_pose.sin0, ]) },
                     self.gripper.fullLink: {
                         "velocity": False,
                         "type": "matrixHomo",
                         "handler": "hppjoint",
                         "hppjoint": self.gripper.fullLink,
-                        "signalGetters": [ lambda: self._invert_planning_pose.sin, ] },
+                        "signalGetters": frozenset([ lambda: self._invert_planning_pose.sin, ]) },
                     "measurement_" + self.gripper.fullLink: {
                         "velocity": False,
                         "type": "matrixHomo",
                         "handler": "tf_listener",
                         "frame0": "world",
                         "frame1": self.gripper.fullLink,
-                        "signalGetters": [ lambda: self.gripper_desired_pose.sin3, ] },
+                        "signalGetters": frozenset([ lambda: self.gripper_desired_pose.sin3, ]) },
                     ## "measurement_" + self.otherHandle.fullLink: {
                         ## "velocity": False,
                         ## "type": "matrixHomo",
@@ -534,7 +566,7 @@ class PreGrasp (Manifold):
                         "type": "matrixHomo",
                         "handler": "hppjoint",
                         "hppjoint": self.otherGripper.fullJoint,
-                        "signalGetters": [ lambda: self.gripper_desired_pose.sin0, ] },
+                        "signalGetters": frozenset([ lambda: self.gripper_desired_pose.sin0, ]) },
                     }
 
         plug(self.gripper_desired_pose.sout, self.graspTask.featureDes.position)
@@ -763,17 +795,15 @@ class Foot (Manifold):
                         "type": "matrixHomo",
                         "handler": "hppjoint",
                         "hppjoint": footname,
-                        "signalGetters": [ self._signalPositionRef ] },
+                        "signalGetters": frozenset([ self._signalPositionRef ]) },
                     # "vel_" + self.gripper.name: {
                     "vel_" + footname: {
                         "velocity": True,
                         "type": "vector",
                         "handler": "hppjoint",
                         "hppjoint": footname,
-                        "signalGetters": [ self._signalVelocityRef ] },
+                        "signalGetters": frozenset([ self._signalVelocityRef ]) },
                     })
-        # plug(self.taskFoot.gain.gain, self.taskFoot.task.controlGain)
-        self.taskFoot.task.controlGain.value = 5
 
     def _signalPositionRef (self): return self.taskFoot.featureDes.position
     def _signalVelocityRef (self): return self.taskFoot.featureDes.velocity
@@ -792,13 +822,13 @@ class COM (Manifold):
                         "type": "vector3",
                         "handler": "hppcom",
                         "hppcom": comname,
-                        "signalGetters": [ self._signalPositionRef ] },
+                        "signalGetters": frozenset([ self._signalPositionRef ]) },
                     "vel_" + comname: {
                         "velocity": True,
                         "type": "vector3",
                         "handler": "hppcom",
                         "hppcom": comname,
-                        "signalGetters": [ self._signalVelocityRef ] },
+                        "signalGetters": frozenset([ self._signalVelocityRef ]) },
                     })
         self.taskCom.task.controlGain.value = 5
 
