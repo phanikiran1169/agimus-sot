@@ -187,7 +187,8 @@ class Manifold(object):
                 }
 
     def addTfListenerTopic (self, topicName, frame0, frame1,
-            defaultValue=None, signalGetters=frozenset()):
+            defaultValue=None, signalGetters=frozenset(),
+            maxDelay=0.3):
         self.topics[topicName] = {
                 "velocity": False,
                 "type": "matrixHomo",
@@ -195,6 +196,7 @@ class Manifold(object):
                 "frame0": frame0,
                 "frame1": frame1,
                 "signalGetters": frozenset(signalGetters),
+                "maxDelay": maxDelay
                 }
         if defaultValue is not None:
             self.topics[topicName]["defaultValue"] = defaultValue

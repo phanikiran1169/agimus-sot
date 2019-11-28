@@ -338,6 +338,8 @@ def _handleTfListener (name,topic_info,rosSubscribe,rosTf):
             plug(dv, rosTf.signal(signame+"_failback"))
         else:
             rosTf.signal(signame+"_failback").value = dv
+    if "maxDelay" in topic_info:
+        rosTf.setMaximumDelay (signame, topic_info["maxDelay"])
     print (topic_info["frame1"], "wrt", topic_info["frame0"], "plugged to", signame, ', ', len(topic_info['signalGetters']), 'times')
 
 def _handleHppJoint (name,topic_info,rosSubscribe,rosTf):
