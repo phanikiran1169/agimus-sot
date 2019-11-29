@@ -331,6 +331,15 @@ def _handleTfListener (name,topic_info,rosSubscribe,rosTf):
     rosTf.add (topic_info["frame0"], topic_info["frame1"], signame)
     for s in topic_info['signalGetters']:
         plug (rosTf.signal(signame), s())
+    if "defaultValue" in topic_info:
+        dv = topic_info["defaultValue"]
+        from dynamic_graph.signal_base import SignalBase
+        if isinstance(dv, SignalBase):
+            plug(dv, rosTf.signal(signame+"_failback"))
+        else:
+            rosTf.signal(signame+"_failback").value = dv
+    if "maxDelay" in topic_info:
+        rosTf.setMaximumDelay (signame, topic_info["maxDelay"])
     print (topic_info["frame1"], "wrt", topic_info["frame0"], "plugged to", signame, ', ', len(topic_info['signalGetters']), 'times')
 
 def _handleHppJoint (name,topic_info,rosSubscribe,rosTf):

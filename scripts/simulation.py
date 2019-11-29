@@ -126,8 +126,10 @@ class Simulation (object):
                 rank += size
 
     def __init__ (self):
+        from threading import Lock
         # Client to HPP
         self.client = HppClient (context = "simulation")
+        self.mutex = Lock()
         # Initialize configuration of robot and objects from HPP
         self.q = self.client.hpp ().robot.getConfigSize () * [0.,]
         self.configSize = len (self.q)
@@ -144,6 +146,10 @@ class Simulation (object):
             self.objectPublisher [o] = PublishObjectPose \
                                        ('world', o+'/base_link')
             self.objectPublisher [o].broadcast (self.objectPose [o])
+
+            pose = self.objectPose [o]
+            r = self.rankInConfiguration [o + '/root_joint']
+            self.q [r:r+7] = pose
         # Create subscribers
         self.subscribers = ros_tools.createSubscribers (self, "/agimus",
                                                         self.subscriberDict)
@@ -152,39 +158,49 @@ class Simulation (object):
         self.graphDict = createGraphDict (self.client)
 
     def getRobotState (self, msg) :
-        # Convert RPY to quaternion
-        self.q [:7] = sotTransRPYToHppPose (msg.data [:6])
-        convertTalosConfigReducedToFull (msg.data, self.q)
-        # update poses of objects
-        for o in self.objects:
-            pose = self.objectPose [o]
-            r = self.rankInConfiguration [o + '/root_joint']
-            self.q [r:r+7] = pose
-        for o in self.objects:
-            pose = self.objectPose [o]
-            self.objectPublisher [o].broadcast (pose)
+        self.mutex.acquire()
+        try:
+            # Convert RPY to quaternion
+            self.q [:7] = sotTransRPYToHppPose (msg.data [:6])
+            convertTalosConfigReducedToFull (msg.data, self.q)
+            # update poses of objects
+            rospy.loginfo(str(self.q))
+            for o in self.objects:
+                pose = self.objectPose [o]
+                self.objectPublisher [o].broadcast (pose)
+                rospy.loginfo(o + " " + str(pose))
+        except Exception as e:
+            rospy.logerr(e)
+        finally:
+            self.mutex.release()
 
     def computeObjectPositions (self, msg) :
         if msg.data == "" : return
-        transitionChanged = msg.data != self.transitionName
-        self.transitionName = msg.data
-        # if transition changed, record configuration for transition constraint
-        # right hand side
-        if transitionChanged:
-            self.q_rhs = self.q
-            self.transitionId = self.graphDict [self.transitionName]
-            print ("new transition: " + self.transitionName)
-            print ("q_rhs = " + str (self.q_rhs))
-        elif self.q_rhs:
-            # if transition has not changed and right hand side has been stored,
-            # apply transition constraints
-            res, self.q, err = \
-              self.client.manip ().graph.applyEdgeLeafConstraints \
-              (self.transitionId, self.q_rhs, self.q)
-            self.q = list (self.q)
-            for o in self.objects:
-                r = self.rankInConfiguration [o + '/root_joint']
-                self.objectPose [o] = self.q [r:r + 7]
+        self.mutex.acquire()
+        try:
+            transitionChanged = msg.data != self.transitionName
+            self.transitionName = msg.data
+            # if transition changed, record configuration for transition constraint
+            # right hand side
+            if transitionChanged:
+                self.q_rhs = self.q
+                self.transitionId = self.graphDict [self.transitionName]
+                print ("new transition: " + self.transitionName)
+                print ("q_rhs = " + str (self.q_rhs))
+            elif self.q_rhs:
+                # if transition has not changed and right hand side has been stored,
+                # apply transition constraints
+                res, self.q, err = \
+                  self.client.manip ().graph.applyEdgeLeafConstraints \
+                  (self.transitionId, self.q_rhs, self.q)
+                self.q = list (self.q)
+                for o in self.objects:
+                    r = self.rankInConfiguration [o + '/root_joint']
+                    self.objectPose [o] = self.q [r:r + 7]
+        except Exception as e:
+            rospy.logerr(e)
+        finally:
+            self.mutex.release()
 
 ## Create a simulation node that computes the pose of objects from the
 #  robot configuration in the Stack of Tasks.

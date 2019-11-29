@@ -2,11 +2,13 @@
   <arg name="script_file" doc="Full path to the script which initializes the SoT supervisor" />
   <arg name="robot_prefix"            />
   <arg name="simulate_torque_feedback"/>
+  <arg name="required" value="true"/>
 
   <group ns="agimus" >
     <group ns="sot">
       <node name="start_supervisor" pkg="agimus_sot"
         type="start_supervisor.py"
+        required="$(arg required)"
         output="screen" >
         <param name="input"  value="$(arg script_file)" />
         <param name="prefix" value="$(arg robot_prefix)" />
