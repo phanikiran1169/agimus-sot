@@ -423,11 +423,11 @@ class Factory(GraphFactoryAbstract):
                 timer = self.parameters["addTimerToSotControl"],
                 )
         # Make default event signals
-        # sot. doneSignal = self.supervisor.controlNormConditionSignal()
+        # sot. doneSignal = self.supervisor.done_events.controlNormSignal
         from .events import logical_and_entity
-        sot. doneSignal = logical_and_entity ("ade_sot_"+sot.name,
-                [ self.supervisor.controlNormConditionSignal(),
-                  self.supervisor. done_events.timeEllapsedSignal])
+        sot. doneSignal = logical_and_entity ("ade_"+sot.name,
+                [ self.supervisor.done_events.controlNormSignal,
+                  self.supervisor.done_events.timeEllapsedSignal])
         sot.errorSignal = False
 
         if self.parameters["addTimerToSotControl"]:
@@ -491,20 +491,6 @@ class Factory(GraphFactoryAbstract):
         self.gripperFrames = { g: OpFrame(srdfGrippers[g], sotrobot.dynamic.model, g not in disabledGrippers) for g in self.grippers }
         self.handleFrames  = { h: OpFrame(srdfHandles [h]                                                   ) for h in self.handles  }
 
-        # Compute the DoF which should not be affected by the
-        # task not related to end-effectors.
-        gripper_joints = []
-        for g,gripper in self.gripperFrames.iteritems():
-            try:
-                gripper_joints += gripper.joints
-            except:
-                print "Gripper", gripper.name, "has not joints. Cannot be controlled."
-        from .tools import computeControlSelection
-        # print "Remove gripper_joints from solvers", gripper_joints
-        self.dof_selection = computeControlSelection (sotrobot,gripper_joints)
-        self.hpTasks.setControlSelection (self.dof_selection)
-        self.lpTasks.setControlSelection (self.dof_selection)
-
     def setupContactFrames (self, srdfContacts):
         def addPose(c):
             if 'position' not in c:
@@ -521,8 +507,8 @@ class Factory(GraphFactoryAbstract):
         sot = self._newSoT ('sot_'+n)
         from .events import logical_and_entity
         sot. doneSignal = logical_and_entity("ade_sot_"+n,
-                [   self.supervisor. done_events.timeEllapsedSignal,
-                    self.supervisor.controlNormConditionSignal() ])
+                [   self.supervisor.done_events.timeEllapsedSignal,
+                    self.supervisor.done_events.controlNormSignal])
 
         self.hpTasks.pushTo(sot)
         state.manifold.pushTo(sot)
@@ -565,8 +551,8 @@ class Factory(GraphFactoryAbstract):
                 s = self._newSoT('sot_'+n)
                 from .events import logical_and_entity
                 s. doneSignal = logical_and_entity("ade_sot_"+n,
-                        [   self.supervisor. done_events.timeEllapsedSignal,
-                            self.supervisor.controlNormConditionSignal() ])
+                        [   self.supervisor.done_events.timeEllapsedSignal,
+                            self.supervisor.done_events.controlNormSignal ])
 
                 self.hpTasks.pushTo(s)
 
@@ -601,8 +587,8 @@ class Factory(GraphFactoryAbstract):
         sot. doneSignal = logical_and_entity ("ade_sot_"+sot.name,
                 [ self.tasks.event (self.grippers[ig], self.handles[st.grasps[ig]],
                     'done_close',
-                    self.supervisor.controlNormConditionSignal()),
-                    self.supervisor. done_events.timeEllapsedSignal])
+                    self.supervisor.done_events.controlNormSignal),
+                    self.supervisor.done_events.timeEllapsedSignal])
         #TODO add error_events "gripper_closed_failed"
         if not self.postActions.has_key(key):
             self.postActions[ key ] = dict()
@@ -636,13 +622,13 @@ class Factory(GraphFactoryAbstract):
         sf.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
         # sot. doneSignal = self.tasks.event (self.grippers[ig], self.handles[st.grasps[ig]],
-                # 'done_open', self.supervisor.controlNormConditionSignal())
+                # 'done_open', self.supervisor.done_events.controlNormSignal)
 
         sot. doneSignal = logical_and_entity ("ade_sot_"+sot.name,
                 [ self.tasks.event (self.grippers[ig], None,
                     'done_open',
-                    self.supervisor.controlNormConditionSignal()),
-                    self.supervisor. done_events.timeEllapsedSignal])
+                    self.supervisor.done_events.controlNormSignal),
+                    self.supervisor.done_events.timeEllapsedSignal])
         #TODO add error_events "gripper_open_failed"
         self.preActions[ key ] = sot
 

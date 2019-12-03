@@ -431,7 +431,7 @@ class PreGrasp (Manifold):
                     # defaultValue = ...,
                     )
         else:
-            self.extendSignalGetters(linkName, lambda: outSignal)
+            self.extendSignalGetters(linkName, outSignal)
 
     ## Compute desired pose between gripper and handle.
     #  It is decomposed as \f$ jgMg^-1 * oMjg^-1 * oMlh * lhMh \f$.
@@ -449,7 +449,7 @@ class PreGrasp (Manifold):
             handle.lMf,            # lhMh
             )
         # oMlh -> HPP joint
-        self.extendSignalGetters(handle.fullLink, lambda: self.faMfbDes.sin2)
+        self.extendSignalGetters(handle.fullLink, self.faMfbDes.sin2)
 
     def _createTaskAndGain (self, name):
         # Create a task
@@ -560,7 +560,7 @@ class PreGrasp (Manifold):
                     self.jbMfb.sin1, withMeasurementOfObjectPos)
             # Plug it to FeaturePose
             plug(self.jbMfb.sout, self.feature.jbMfb)
-        elif method == 2:
+        elif method == 2: # Seems to work
             # jbMfb        = ogMo * oMh
             self.jbMfb = matrixHomoProduct (name + "_jbMfb",
                 None,                    # ogMo -> HPP joint
@@ -570,8 +570,8 @@ class PreGrasp (Manifold):
             # ogMo
             self.addTfListenerTopic (
                     self.otherHandle.fullLink + "_wrt_" + self.otherGripper.link + "_measured",
-                    frame0 = self.otherGripper.link,
-                    frame1 = self.otherHandle.fullLink,
+                    frame0 = self.otherGripper.link + "_measured",
+                    frame1 = self.otherHandle.fullLink + "_measured",
                     defaultValue = se3ToTuple (self.otherGripper.lMf * self.otherHandle.lMf.inverse()),
                     signalGetters = [ self.jbMfb.sin0, ],
                     )
@@ -609,33 +609,55 @@ class PreGrasp (Manifold):
         # Create the operational point
         _createOpPoint (sotrobot, self.otherGripper.link)
 
+        # Joint A is the gripper link
         self.addHppJointTopic (self.gripper.fullLink)
         self._plugObjectLink (self.gripper.fullLink,
                 self.feature.oMja, withMeasurementOfGripperPos)
+        # Frame A is the gripper frame
         self.feature.jaMfa.value = se3ToTuple(self.gripper.lMf)
         self.feature.jaJja.value = np.zeros((6, sotrobot.dynamic.getDimension()))
 
-        # Frame B is the handle frame
+        # Joint B is the other gripper link
         self._plugRobotLink (sotrobot, self.otherGripper.link,
                 self.feature.oMjb, self.feature.jbJjb,
                 withMeasurementOfOtherGripperPos)
-        # jbMfb = ogMh = ogMw * wMo * oMh
-        # wMog^-1
-        self.wMog_inv = matrixHomoInverse (name + "_wMog_inv")
-        self._plugRobotLink (sotrobot, self.otherGripper.link,
-                self.wMog_inv.sin, None,
-                withMeasurementOfOtherGripperPos)
-        self.jbMfb = matrixHomoProduct (name + "_jbMfb",
-            self.wMog_inv.sout,      # oMjg^-1 -> HPP joint
-            None,                    # oMlh -> HPP joint
-            self.handle.lMf,         # lhMh
-            )
-        # wMo
-        self.addHppJointTopic (self.handle.fullLink)
-        self._plugObjectLink (self.handle.fullLink,
-                self.jbMfb.sin1, withMeasurementOfObjectPos)
-        # Plug it to FeaturePose
-        plug(self.jbMfb.sout, self.feature.jbMfb)
+        # Frame B is the handle frame
+        method = 1
+        if method == 0: # Does not work
+            # jbMfb = ogMh = ogMw * wMo * oMh
+            # wMog^-1
+            self.wMog_inv = matrixHomoInverse (name + "_wMog_inv")
+            self._plugRobotLink (sotrobot, self.otherGripper.link,
+                    self.wMog_inv.sin, None,
+                    withMeasurementOfOtherGripperPos)
+            self.jbMfb = matrixHomoProduct (name + "_jbMfb",
+                self.wMog_inv.sout,      # wMog^-1 -> HPP joint
+                None,                    # wMo -> HPP joint
+                self.handle.lMf,         # oMh
+                )
+            # wMo
+            self.addHppJointTopic (self.handle.fullLink)
+            self._plugObjectLink (self.handle.fullLink,
+                    self.jbMfb.sin1, withMeasurementOfObjectPos)
+            # Plug it to FeaturePose
+            plug(self.jbMfb.sout, self.feature.jbMfb)
+        elif method == 1:
+            # jbMfb        = ogMo * oMh
+            self.jbMfb = matrixHomoProduct (name + "_jbMfb",
+                None,                    # ogMo -> TF
+                self.handle.lMf,         # oMh
+                )
+            plug(self.jbMfb.sout, self.feature.jbMfb)
+            # ogMo
+            self.addTfListenerTopic (
+                    self.otherHandle.fullLink + "_wrt_" + self.otherGripper.link + "_measured",
+                    frame0 = self.otherGripper.link + "_measured",
+                    frame1 = self.otherHandle.fullLink + "_measured",
+                    defaultValue = se3ToTuple (self.otherGripper.lMf * self.otherHandle.lMf.inverse()),
+                    signalGetters = [ self.jbMfb.sin0, ],
+                    )
+
+            self.addHppJointTopic (self.handle.fullLink)
 
         # Compute desired pose between gripper and handle.
         # Creates the entity faMfbDes

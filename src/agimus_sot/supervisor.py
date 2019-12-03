@@ -76,7 +76,7 @@ class Supervisor(object):
         self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         
         self.keep_posture.pushTo(sot)
-        sot. doneSignal = self.controlNormConditionSignal()
+        sot. doneSignal = self.done_events.controlNormSignal
         sot.errorSignal = False
         self.addSolver ("", sot)
 
@@ -144,9 +144,6 @@ class Supervisor(object):
         self.error_events.setSelectedSignal(n)
 
     ## \}
-
-    def controlNormConditionSignal (self):
-        return self. done_events.controlNormSignal
 
     def topics (self):
         c = self.hpTasks + self.lpTasks
