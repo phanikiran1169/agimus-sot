@@ -34,8 +34,8 @@ from .solver import Solver
 # releasing an object. There are several behaviour already implemented.
 class Affordance(object):
     ## Constructor
-    # \param gripper names of the gripper
-    # \param handle  names of the handle
+    # \param gripper name of the gripper
+    # \param handle  name of the handle
     # \param openControlType, closeControlType control type for releasing and
     #        grasping the object. Must be one of \c "position", \c "torque" or
     #        \c "position_torque"
@@ -104,16 +104,35 @@ class Affordance(object):
     def useMeasurementOfObjectPose (self, handleFrame):
         return handleFrame.hasVisualTag
 
+class ObjectAffordance(object):
+    ## Constructor
+    # \param object name of the object
+    # \param handles names of the object's handles
+    def __init__ (self, object, handles, enableVisualFeedback=None):
+        self.object = object
+        self.handles = handles
+        self.enableVisualFeedback = enableVisualFeedback
+
+    def useMeasurementOfObjectPose (self, objContactFrame):
+        if self.enableVisualFeedback is None:
+            return objContactFrame.hasVisualTag
+        return self.enableVisualFeedback
+
+    def useMeasurementOfEnvContactPose (self, envContactFrame):
+        return envContactFrame.hasVisualTag
+
 ## Create \ref tools.Manifold s
 # 
 # \sa manipulation.constraint_graph_factory.ConstraintFactoryAbstract
 class TaskFactory(ConstraintFactoryAbstract):
     gfields = ('grasp', 'pregrasp', 'gripper_open', 'gripper_close')
-    pfields = ()
+    pfields = ('preplace',)
 
     def __init__ (self, graphfactory):
         super(TaskFactory, self).__init__ (graphfactory)
         self._grippers = dict()
+        self._grasps = dict()
+        self._placements = dict()
 
     def _buildGripper (self, type, gripper, handle):
         key = (type, gripper, handle)
@@ -164,12 +183,20 @@ class TaskFactory(ConstraintFactoryAbstract):
         except KeyError:
             useMeasurementOfObjectPose  = handle .hasVisualTag
             useMeasurementOfGripperPose = gripper.hasVisualTag
+        try:
+            aff = gf.affordances[(otherGrasp[0].name, otherGrasp[1].name)]
+            useMeasurementOfOtherGripperPose = aff.useMeasurementOfGripperPose(otherGrasp[0])
+        except KeyError:
+            useMeasurementOfOtherGripperPose = otherGrasp[0].hasVisualTag
+        except TypeError:
+            useMeasurementOfOtherGripperPose = False
 
         gripper_close = self._buildGripper ("close", g, h)
         pregrasp = PreGrasp (gripper, handle, otherGrasp)
         pregrasp.makeTasks (gf.sotrobot,
                 useMeasurementOfObjectPose,
-                useMeasurementOfGripperPose)
+                useMeasurementOfGripperPose,
+                useMeasurementOfOtherGripperPose)
 
         if not gripper.enabled:
             # TODO If otherGrasp is not None,
@@ -181,6 +208,39 @@ class TaskFactory(ConstraintFactoryAbstract):
         return { 'grasp': grasp,
                  'pregrasp': pregrasp,
                  'gripper_close': gripper_close }
+
+    ## Build the constraint for pre-placement (6D)
+    # \todo The pre-placement only relies on the first shape on
+    # the object and the first shape on the environment.
+    # Maybe we should add the possibility to constrain only tz, rx and ry.
+    def buildPlacement (self, o, grasp):
+        gf = self.graphfactory
+        io = gf.objects.index(o)
+        obj = gf.contactFrames[gf.contactsPerObjects[io][0]]
+        env = gf.contactFrames[gf.envContacts[0]]
+
+        # get affordance to determine when to use vision.
+        try:
+            aff = gf.affordances[(grasp[0].name, grasp[1].name)]
+            useMeasOfOtherGripper = aff.useMeasurementOfGripperPose(grasp[0])
+        except KeyError:
+            useMeasOfOtherGripper = grasp[0].hasVisualTag
+        try:
+            aff = gf.objectAffordances[obj.name]
+            useMeasOfObject     = aff. useMeasurementOfObjectPose(obj)
+            useMeasOfEnvContact = aff.useMeasurementOfEnvContactPose(env)
+        except KeyError:
+            useMeasOfObject     = obj.hasVisualTag
+            useMeasOfEnvContact = env.hasVisualTag
+
+        #                   (gripper, handle)
+        preplace = PreGrasp (env    , obj   , grasp)
+        preplace.makeTasks (gf.sotrobot,
+                useMeasOfObject,
+                useMeasOfEnvContact,
+                useMeasOfOtherGripper)
+
+        return { 'preplace': preplace }
 
     ## \name Accessors to the different elementary constraints
     # \{
@@ -202,6 +262,21 @@ class TaskFactory(ConstraintFactoryAbstract):
 
     def g (self, gripper, handle, what, otherGrasp=None):
         return self.getGrasp(gripper, handle, otherGrasp)[what]
+
+    def getPlacement(self, object, grasp):
+        if isinstance(object, str): io = self.graphfactory.objects.index(object)
+        else: io = object
+        ig = self.graphfactory.grippers.index(grasp[0].key)
+        ih = self.graphfactory.handles .index(grasp[1].key)
+        k = (io, ig, ih,)
+        if not self._placements.has_key(k):
+            self._placements[k] = self.buildPlacement(self.graphfactory.objects[io], grasp)
+            assert isinstance (self._placements[k], dict)
+        return self._placements[k]
+
+    def p (self, object, grasp, what):
+        return self.getPlacement(object, grasp)[what]
+
     # \}
 
     def event (self, gripper, handle, what, default):
@@ -210,10 +285,6 @@ class TaskFactory(ConstraintFactoryAbstract):
         else:
             ee = self._buildGripper ("close", gripper, handle)
         return ee.events.get(what, default)
-
-    def buildPlacement (self, o):
-        # Nothing to do
-        return dict()
 
 ## Create a set of controllers for a set of tasks.
 #
@@ -314,6 +385,7 @@ class Factory(GraphFactoryAbstract):
         self.hpTasks = supervisor.hpTasks
         self.lpTasks = supervisor.lpTasks
         self.affordances = dict()
+        self.objectAffordances = dict()
         self.sots = dict()
         ## A dictionnary
         # - key: name of the transition after which an action must be done
@@ -366,9 +438,14 @@ class Factory(GraphFactoryAbstract):
             self.SoTtracer.add (sot.controlname, "solver_"+str(id) + ".control")
         return sot
 
-    def addAffordance (self, aff, simulateTorqueFeedback = False):
-        assert isinstance(aff, Affordance)
-        self.affordances [(aff.gripper, aff.handle)] = aff
+    ## Add an Affordance or ObjectAffordance
+    def addAffordance (self, aff):
+        if isinstance(aff, Affordance):
+            self.affordances [(aff.gripper, aff.handle)] = aff
+        elif isinstance(aff, ObjectAffordance):
+            self.objectAffordances [aff.object] = aff
+        else:
+            raise TypeError ("Argument should be of type Affordance or ObjectAffordance")
 
     def generate (self):
         if self.parameters["addTimerToSotControl"] or self.parameters["addTracerToSotControl"]:
@@ -385,6 +462,7 @@ class Factory(GraphFactoryAbstract):
 
         self.supervisor.sots = {}
         self.supervisor.grasps = { (gh, w): t for gh, ts in self.tasks._grasp.items() for w, t in ts.items() }
+        self.supervisor.placements = { (ogh, w): t for ogh, ts in self.tasks._placements.items() for w, t in ts.items() }
         self.supervisor.hpTasks = self.hpTasks
         self.supervisor.lpTasks = self.lpTasks
         self.supervisor.postActions = {}
@@ -427,6 +505,13 @@ class Factory(GraphFactoryAbstract):
         self.hpTasks.setControlSelection (self.dof_selection)
         self.lpTasks.setControlSelection (self.dof_selection)
 
+    def setupContactFrames (self, srdfContacts):
+        def addPose(c):
+            if 'position' not in c:
+                c.update ({'position': (0,0,0, 0,0,0,1)})
+            return c
+        self.contactFrames = { name: OpFrame(addPose(contact)) for name, contact in srdfContacts.items() }
+
     def makeState (self, grasps, priority):
         # Nothing to do here
         return Factory.State(self.tasks, grasps, self)
@@ -455,6 +540,7 @@ class Factory(GraphFactoryAbstract):
         noPlace = self._isObjectGrasped (sf.grasps, iobj)
         #TODO compute other grasp on iobj
         # it must be a grasp or pregrasp task
+        grasp = ( self.gripperFrames[self.grippers[ig]], self.handleFrames[self.handles[st.grasps[ig]]] )
         otherGrasp = sf.objectsAlreadyGrasped.get(iobj ,None)
 
         # The different cases:
@@ -489,8 +575,9 @@ class Factory(GraphFactoryAbstract):
                     pregraspT = self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp', otherGrasp = otherGrasp)
                     pregraspT.pushTo (s)
                 if preplace and i == nTransitions - 2:
-                    # TODO Add preplace task
-                    pass
+                    # Add preplace task
+                    preplaceT = self.tasks.p (obj, grasp, "preplace")
+                    preplaceT.pushTo (s)
                 if i < M: sf.manifold.pushTo(s)
                 else:     st.manifold.pushTo(s)
 

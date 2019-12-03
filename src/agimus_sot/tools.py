@@ -27,7 +27,7 @@
 from dynamic_graph.sot.core.meta_tasks_kine import MetaTaskKine6d, MetaTaskKineCom
 from dynamic_graph.sot.core.meta_tasks_kine_relative import MetaTaskKine6dRel
 from dynamic_graph.sot.core.meta_tasks import setGain
-from dynamic_graph.sot.core import FeaturePosture, Multiply_of_matrixHomo, Inverse_of_matrixHomo
+from dynamic_graph.sot.core import FeaturePosture
 from dynamic_graph import plug
 import numpy as np
 
@@ -101,6 +101,42 @@ def computeControlSelection (robot, joint_to_be_removed):
         selection[j.idx_v:j.idx_v+j.nv] = ["0",] * j.nv
     selection.reverse()
     return "".join(selection)
+
+def _createOpPoint (robot, name):
+    if not robot.dynamic.hasSignal(name):
+        robot.dynamic.createOpPoint(name, name)
+
+def plugMatrixHomo(sigout, sigin):
+    from dynamic_graph.signal_base import SignalBase
+    from pinocchio import SE3
+    if isinstance(sigout, tuple):
+        sigin.value = sigout
+    elif isinstance(sigout, SE3):
+        sigin.value = se3ToTuple(sigout)
+    elif isinstance(sigout, SignalBase):
+        plug(sigout, sigin)
+
+## \todo this should move to dynamic-graph-python
+def assertEntityDoesNotExist(name):
+    from dynamic_graph.entity import Entity
+    assert name not in Entity.entities, "Entity " + name + " already exists."
+
+def matrixHomoProduct(name, *args):
+    from dynamic_graph.sot.core import Multiply_of_matrixHomo
+    assertEntityDoesNotExist(name)
+    ent = Multiply_of_matrixHomo (name)
+    ent.setSignalNumber(len(args))
+    for i, valueOrSignal in enumerate(args):
+        if valueOrSignal is None: continue
+        plugMatrixHomo (valueOrSignal, ent.signal('sin'+str(i)))
+    return ent
+
+def matrixHomoInverse(name, valueOrSignal=None):
+    from dynamic_graph.sot.core import Inverse_of_matrixHomo
+    assertEntityDoesNotExist(name)
+    ent = Inverse_of_matrixHomo (name)
+    plugMatrixHomo(valueOrSignal, ent.sout)
+    return ent
 
 ## Abstraction of a task.
 #
@@ -178,6 +214,14 @@ class Manifold(object):
         Add a topic that will received the pose (or velocity) of a joint from HPP
         - param jointName: When None, uses topicName as the joint name in HPP.
         """
+        if topicName in self.topics:
+            tp=self.topics[topicName]
+            assert "velocity" in tp and tp['velocity'] ==  velocity
+            assert "type"     in tp and tp["type"    ] ==  "matrixHomo"
+            assert "handler"  in tp and tp["handler" ] ==  "hppjoint"
+            assert "hppjoint" in tp and tp["hppjoint"] ==  jointName if jointName is not None else topicName
+            self.extendSignalGetters(topicName, signalGetters)
+            return
         self.topics[topicName] = {
                 "velocity": velocity,
                 "type": "vector" if velocity else "matrixHomo",
@@ -189,6 +233,16 @@ class Manifold(object):
     def addTfListenerTopic (self, topicName, frame0, frame1,
             defaultValue=None, signalGetters=frozenset(),
             maxDelay=0.3):
+        if topicName in self.topics:
+            tp=self.topics[topicName]
+            assert "velocity" in tp and tp['velocity'] ==  False
+            assert "type"     in tp and tp["type"    ] ==  "matrixHomo"
+            assert "handler"  in tp and tp["handler" ] ==  "tf_listener"
+            assert "frame0"   in tp and tp["frame0"  ] ==  frame0
+            assert "frame1"   in tp and tp["frame1"  ] ==  frame1
+            assert "maxDelay" in tp and tp["maxDelay"] ==  maxDelay
+            self.extendSignalGetters(topicName, signalGetters)
+            return
         self.topics[topicName] = {
                 "velocity": False,
                 "type": "matrixHomo",
@@ -250,25 +304,28 @@ class Posture(Manifold):
 
 ## Represents a gripper or a handle
 class OpFrame(object):
-    def __init__ (self, srdf, model = None, enabled = True):
+    def __init__ (self, srdf, model = None, enabled = None):
         self.robotName = srdf["robot"]
         self.name = srdf["name"]
         self.key = self.robotName + "/" + self.name
         self.link = srdf["link"]
-        pose = transQuatToSE3 (srdf["position"])
+        self.lMf = transQuatToSE3 (srdf["position"])
+        self.enabled = enabled
         if srdf.has_key ("joints"):
             assert model is not None
             ## Only for grippers
             self.joints = srdf["joints"]
-            self._setupParentJoint (self.link, pose, model)
-            self.enabled = enabled
+            self._setupParentJoint (self.link, self.lMf, model)
+            if self.enabled is None:
+                self.enabled = True
             if srdf.has_key("torque_constant"):
                 self.torque_constant = srdf["torque_constant"]
         else:
             ## Only for handles
             # kept for backward compat
-            self.pose = pose
-            self.lMf = pose
+            self.pose = self.lMf
+            if self.enabled is None:
+                self.enabled = False
         # TODO See note in README.md
         self.hasVisualTag = False
 
@@ -278,7 +335,6 @@ class OpFrame(object):
             raise ValueError("Link " + self.link + " not found")
         frame = model.frames[frameid]
 
-        self.lMf = pose
         # kept for backward compat
         self.pose = frame.placement * pose
         self.jMf = self.pose
@@ -291,9 +347,27 @@ class OpFrame(object):
     @property
     def fullName  (self): return self.robotName + "/" + self.name
 
-## A pregrasp task
-# \todo document me
+## \brief A pregrasp (and preplace) task.
+# It creates a task to pose of the gripper with respect to the handle.
+# This pose should follow the relative pose from planning.
+# If the \c handle is attached to the joint tree (by another grasp) then,
+# provide the \c otherGraspOnObject.
+#
+# There are 3 cases:
+# - \c gripper enabled and \c otherGripper disabled or not provided:
+#   Absolute pose of the \c gripper with respect to the \c handle.
+# - \c gripper and \c otherGripper enabled:
+#   Relative pose of the \c gripper with respect to the \c otherGripper.
+# - \c gripper disabled and \c otherGripper enabled:
+#   Absolute pose of the \c otherGripper with respect to the \c handle.
+#
+# \note For preplace task, the gripper is on the environment surface and
+# the handle is on the object surface.
 class PreGrasp (Manifold):
+    ## Constructor
+    # \param gripper object of type OpFrame
+    # \param handle object of type OpFrame
+    # \param otherGraspOnObject either None or a tuple (otherGripper, otherHandle)
     def __init__ (self, gripper, handle, otherGraspOnObject = None):
         super(PreGrasp, self).__init__()
         self.gripper = gripper
@@ -305,75 +379,79 @@ class PreGrasp (Manifold):
             self.otherGripper = None
             self.otherHandle  = None
 
-    def makeTasks(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative = False):
+    def makeTasks(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos,
+            withMeasurementOfOtherGripperPos = False, withDerivative = False):
         if self.gripper.enabled:
             if self.otherGripper is not None and self.otherGripper.enabled:
-                self._makeRelativeTask (sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative)
+                self._makeRelativeTask (sotrobot,
+                        withMeasurementOfObjectPos, withMeasurementOfGripperPos,
+                        withMeasurementOfOtherGripperPos, withDerivative)
             else:
-                self._makeAbsolute (sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative)
+                self._makeAbsolute (sotrobot,
+                        withMeasurementOfObjectPos, withMeasurementOfGripperPos,
+                        withDerivative)
         else:
             if self.otherGripper is not None and self.otherGripper.enabled:
-                self._makeAbsoluteBasedOnOther (sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative)
+                self._makeAbsoluteBasedOnOther (sotrobot,
+                        withMeasurementOfObjectPos, withMeasurementOfGripperPos,
+                        withMeasurementOfOtherGripperPos,
+                        withDerivative)
             else:
                 # TODO Both grippers are disabled so nothing can be done...
                 # add a warning ?
                 print("Both grippers are disabled so nothing can be done")
 
-    def _makeAbsolute(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative):
-        name = PreGrasp.sep.join(["", "pregrasp", self.gripper.name, self.handle.fullName])
-
-        from dynamic_graph.sot.core.feature_pose import FeaturePose
-        self.feature = FeaturePose (name + "_feature")
-
-        # Create the operational points
-        if not sotrobot.dynamic.hasSignal(self.gripper.link):
-            sotrobot.dynamic.createOpPoint(self.gripper.link, self.gripper.link)
-
-        if withMeasurementOfGripperPos:
-            self.addTfListenerTopic(self.gripper.link + "_measured",
+    ## Plug the position of linkName to \c outSignal.
+    #  The pose of linkName must be computable by the SoT robot entity.
+    def _plugRobotLink (self, sotrobot, linkName, poseSignal, Jsignal, withMeasurement):
+        if withMeasurement:
+            self.addTfListenerTopic(linkName + "_measured",
                     frame0 = "world",
-                    frame1 = self.gripper.link + "_measured",
-                    defaultValue = sotrobot.dynamic.signal(self.gripper.link),
-                    signalGetters = [lambda: self.feature.oMja],
+                    frame1 = linkName + "_measured",
+                    defaultValue = sotrobot.dynamic.signal(linkName),
+                    signalGetters = [poseSignal,],
                     )
         else:
-            plug(sotrobot.dynamic.signal(self.gripper.link), self.feature.oMja)
-        self.feature.jaMfa.value = se3ToTuple(self.gripper.lMf)
-        plug(sotrobot.dynamic.signal("J"+self.gripper.link), self.feature.jaJja)
+            plug(sotrobot.dynamic.signal(linkName), poseSignal)
+        if Jsignal is not None:
+            plug(sotrobot.dynamic.signal("J"+linkName), Jsignal)
 
-        self.addHppJointTopic (self.handle.fullLink)
-        if withMeasurementOfObjectPos:
-            self.addTfListenerTopic (self.handle.fullLink + "_measured",
+    ## Plug the position of linkName to \c outSignal.
+    #  The pose of linkName is not computable by the SoT robot entity.
+    #  \warning The topic linkName must have been created before.
+    #  \todo add the ability to plug the TF listener default value to
+    #        the HPP joint topic called linkName.
+    def _plugObjectLink (self, linkName, outSignal, withMeasurement):
+        if withMeasurement:
+            self.addTfListenerTopic (linkName + "_measured",
                     frame0 = "world",
-                    frame1 = self.handle.fullLink + "_measured",
-                    signalGetters = [lambda: self.feature.oMjb],
-                    # TODO add the ability to plug this to the HPP joint topic
-                    # called self.handle.fullLink
-                    #defaultValue = sotrobot.dynamic.signal(self.gripper.link),
+                    frame1 = linkName + "_measured",
+                    signalGetters = [outSignal,],
+                    # TODO
+                    # defaultValue = ...,
                     )
         else:
-            self.extendSignalGetters(self.handle.fullLink, lambda: self.feature.oMjb)
-        self.feature.jbMfb.value = se3ToTuple(self.handle.pose)
-        self.feature.jbJjb.value = np.zeros((6, sotrobot.dynamic.getDimension()))
+            self.extendSignalGetters(linkName, lambda: outSignal)
 
-        # Compute desired pose between gripper and handle.
-        # It is decomposed as:
-        # jgMg^-1 * oMjg^-1 * oMlh * lhMh
-        self.faMfbDes = Multiply_of_matrixHomo (name + "_faMfbDes")
-        self.faMfbDes.setSignalNumber(4)
-        # jgMg^-1
-        self.faMfbDes.sin0.value = se3ToTuple(self.gripper.jMf.inverse())
+    ## Compute desired pose between gripper and handle.
+    #  It is decomposed as \f$ jgMg^-1 * oMjg^-1 * oMlh * lhMh \f$.
+    #  It creates the entity faMfbDes.
+    #  Topic \c handle.fullLink must exists.
+    def _referenceSignal (self, name, gripper, handle):
         # oMjg^-1 -> HPP joint
-        self.oMjaDes_inv = Inverse_of_matrixHomo (name + "_oMjaDes_inv")
-        self.addHppJointTopic (self.gripper.fullJoint, signalGetters = [ lambda: self.oMjaDes_inv.sin ],)
-        plug(self.oMjaDes_inv.sout, self.faMfbDes.sin1)
-        # oMlh -> HPP joint
-        self.extendSignalGetters(self.handle.fullLink, lambda: self.faMfbDes.sin2)
-        # lhMh
-        self.faMfbDes.sin3.value = se3ToTuple(self.handle.lMf)
+        self.oMjaDes_inv = matrixHomoInverse (name + "_oMjaDes_inv")
+        self.addHppJointTopic (gripper.fullLink, signalGetters = [ self.oMjaDes_inv.sin, ],)
         # Plug it to FeaturePose
-        plug(self.faMfbDes.sout, self.feature.faMfbDes)
+        self.faMfbDes = matrixHomoProduct (name + "_faMfbDes",
+            gripper.lMf.inverse(), # jgMg^-1
+            self.oMjaDes_inv.sout, # oMjg^-1 -> HPP joint
+            None,                  # oMlh -> HPP joint
+            handle.lMf,            # lhMh
+            )
+        # oMlh -> HPP joint
+        self.extendSignalGetters(handle.fullLink, lambda: self.faMfbDes.sin2)
 
+    def _createTaskAndGain (self, name):
         # Create a task
         from dynamic_graph.sot.core import Task, GainAdaptive
         self.task = Task (name + "_task")
@@ -385,174 +463,197 @@ class PreGrasp (Manifold):
         plug(self.gain.gain, self.task.controlGain)
         plug(self.task.error, self.gain.error)
 
+    ## \todo implement tracking of velocity
+    def _makeAbsolute(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative):
+        name = PreGrasp.sep.join(["", "pregrasp", self.gripper.name, self.handle.fullName])
+
+        from dynamic_graph.sot.core.feature_pose import FeaturePose
+        assertEntityDoesNotExist(name+"_feature")
+        self.feature = FeaturePose (name + "_feature")
+
+        # Create the operational points
+        _createOpPoint (sotrobot, self.gripper.link)
+
+        self._plugRobotLink (sotrobot, self.gripper.link,
+                self.feature.oMja, self.feature.jaJja,
+                withMeasurementOfGripperPos)
+        self.feature.jaMfa.value = se3ToTuple(self.gripper.lMf)
+
+        self.addHppJointTopic (self.handle.fullLink)
+        self._plugObjectLink (self.handle.fullLink,
+                self.feature.oMjb, withMeasurementOfObjectPos)
+        self.feature.jbMfb.value = se3ToTuple(self.handle.lMf)
+        self.feature.jbJjb.value = np.zeros((6, sotrobot.dynamic.getDimension()))
+
+        # Compute desired pose between gripper and handle.
+        # Creates the entity faMfbDes
+        self._referenceSignal (name, self.gripper, self.handle)
+        plug(self.faMfbDes.sout, self.feature.faMfbDes)
+
+        # Create a task and gain
+        self._createTaskAndGain (name)
+
         if withDerivative:
             print("Relative pose constraint with derivative is not implemented yet.")
         self.task.setWithDerivative (False)
 
         self.tasks = [ self.task, ]
-        # TODO Add velocity
-    
-    def _makeRelativeTask (self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative):
+
+    ## \todo implement tracking of velocity
+    def _makeRelativeTask (self, sotrobot,
+            withMeasurementOfObjectPos, withMeasurementOfGripperPos,
+            withMeasurementOfOtherGripperPos,
+            withDerivative):
         assert self.handle.robotName == self.otherHandle.robotName
         assert self.handle.link      == self.otherHandle.link
         name = PreGrasp.sep.join(["", "pregrasp", self.gripper.name, self.handle.fullName,
-            "based", self.otherGripper.name, self.handle.fullName])
-        self.graspTask = MetaTaskKine6dRel (name, sotrobot.dynamic,
-                self.gripper.joint, self.otherGripper.joint,
-                self.gripper.joint, self.otherGripper.joint)
+            "relative", self.otherGripper.name, self.otherHandle.fullName])
 
-        self.graspTask.opmodif = se3ToTuple(self.gripper.pose * self.handle.pose.inverse())
-        # Express the velocities in local frame. This is the default.
-        # self.graspTask.opPointModif.setEndEffector(True)
+        from dynamic_graph.sot.core.feature_pose import FeaturePose
+        assertEntityDoesNotExist(name+"_feature")
+        self.feature = FeaturePose (name + "_feature")
 
-        self.graspTask.opmodifBase = se3ToTuple(self.otherGripper.pose * self.otherHandle.pose.inverse())
-        # Express the velocities in local frame. This is the default.
-        # self.graspTask.opPointModif.setEndEffector(True)
+        # Create the operational points
+        _createOpPoint (sotrobot, self.     gripper.link)
+        _createOpPoint (sotrobot, self.otherGripper.link)
 
-        setGain(self.graspTask.gain,(4.9,0.9,0.01,0.9))
+        # Joint A is the gripper link
+        self._plugRobotLink (sotrobot, self.     gripper.link,
+                self.feature.oMja, self.feature.jaJja,
+                withMeasurementOfGripperPos)
+        # Frame A is the gripper frame
+        self.feature.jaMfa.value = se3ToTuple(self.gripper.lMf)
+
+        # Joint B is the other gripper link
+        self._plugRobotLink (sotrobot, self.otherGripper.link,
+                self.feature.oMjb, self.feature.jbJjb,
+                withMeasurementOfOtherGripperPos)
+
+        # Frame B is the handle frame
+        # jbMfb = ogMh = ogMo(t) * oMh
+        method = 2
+        if method == 0: # Works
+            # jbMfb        = ogMoh * ohMo * oMh
+            self.feature.jbMfb.value = se3ToTuple (
+                    self.otherGripper.lMf
+                    * self.otherHandle.lMf.inverse()
+                    * self.handle.lMf)
+            self.addHppJointTopic (self.handle.fullLink)
+        elif method == 1: # Does not work
+            # Above, it is assumed that ogMoh = Id, which must be corrected.
+            # Instead, we compute
+            # jbMfb = ogMh = ogMo(t) * oMh
+            #              = wMog(t)^-1 * wMo(t) * oMh
+            # wMog^-1
+            self.wMog_inv = matrixHomoInverse (name + "_wMog_inv")
+            self._plugRobotLink (sotrobot, self.otherGripper.link,
+                    self.wMog_inv.sin, None,
+                    withMeasurementOfOtherGripperPos)
+            self.jbMfb = matrixHomoProduct (name + "_jbMfb",
+                self.wMog_inv.sout,      # wMog^-1 -> HPP joint
+                None,                    # wMo -> HPP joint
+                self.handle.lMf,         # oMh
+                )
+            # wMo
+            self.addHppJointTopic (self.handle.fullLink)
+            self._plugObjectLink (self.handle.fullLink,
+                    self.jbMfb.sin1, withMeasurementOfObjectPos)
+            # Plug it to FeaturePose
+            plug(self.jbMfb.sout, self.feature.jbMfb)
+        elif method == 2:
+            # jbMfb        = ogMo * oMh
+            self.jbMfb = matrixHomoProduct (name + "_jbMfb",
+                None,                    # ogMo -> HPP joint
+                self.handle.lMf,         # oMh
+                )
+            plug(self.jbMfb.sout, self.feature.jbMfb)
+            # ogMo
+            self.addTfListenerTopic (
+                    self.otherHandle.fullLink + "_wrt_" + self.otherGripper.link + "_measured",
+                    frame0 = self.otherGripper.link,
+                    frame1 = self.otherHandle.fullLink,
+                    defaultValue = se3ToTuple (self.otherGripper.lMf * self.otherHandle.lMf.inverse()),
+                    signalGetters = [ self.jbMfb.sin0, ],
+                    )
+
+            self.addHppJointTopic (self.handle.fullLink)
+
+        # Compute desired pose between gripper and handle.
+        # Creates the entity faMfbDes
+        self._referenceSignal (name, self.gripper, self.handle)
+        plug(self.faMfbDes.sout, self.feature.faMfbDes)
+
+        # Create a task and gain
+        self._createTaskAndGain (name)
+
         if withDerivative:
             print("Relative pose constraint with derivative is not implemented yet.")
-        self.graspTask.task.setWithDerivative (False)
+        self.task.setWithDerivative (False)
 
-        self.gripper_desired_pose      = Multiply_of_matrixHomo (name + "_desired1")
-        self.otherGripper_desired_pose = Multiply_of_matrixHomo (name + "_desired2")
-        if withMeasurementOfObjectPos:
-            # TODO Integrate measurement of h1_r and h2_r: position error
-            # O_r^-1 * G1_r and O_r^-1 * G2_r
-            # (for the release phase and computed only at time 0)
-            print("Relative grasp with measurement is NOT IMPLEMENTED")
-        # else:
-        # G2*_r = H1_p * h1^-1 * h2 = G2_p = J2_p * G
-        self.gripper_desired_pose.setSignalNumber (2)
-        # self.gripper_desired_pose.sin0 -> plug to joint planning pose
-        self.gripper_desired_pose.sin1.value = se3ToTuple (self.gripper.pose * self.handle.pose.inverse())
-        self.otherGripper_desired_pose.setSignalNumber (2)
-        # self.otherGripper_desired_pose.sin0 -> plug to otherJoint planning pose
-        self.otherGripper_desired_pose.sin1.value = se3ToTuple (self.otherGripper.pose * self.otherHandle.pose.inverse())
-        plug(self.gripper_desired_pose.sout, self.graspTask.featureDes.position)
-        plug(self.otherGripper_desired_pose.sout, self.graspTask.featureDes.positionRef)
-        self.topics = {
-                self.gripper.fullJoint : {
-                    "velocity": False,
-                    "type": "matrixHomo",
-                    "handler": "hppjoint",
-                    "hppjoint": self.gripper.fullJoint,
-                    "signalGetters": frozenset([ lambda: self.gripper_desired_pose.sin0, ]) },
-                self.otherGripper.fullJoint : {
-                    "velocity": False,
-                    "type": "matrixHomo",
-                    "handler": "hppjoint",
-                    "hppjoint": self.otherGripper.fullJoint,
-                    "signalGetters": frozenset([ lambda: self.otherGripper_desired_pose.sin0, ]) },
-                }
-
-        self.tasks = [ self.graspTask.task ]
+        self.tasks = [ self.task ]
         # TODO Add velocity
 
-    def _makeAbsoluteBasedOnOther (self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative):
+    ## \todo implement tracking of velocity
+    def _makeAbsoluteBasedOnOther (self, sotrobot,
+            withMeasurementOfObjectPos, withMeasurementOfGripperPos,
+            withMeasurementOfOtherGripperPos, withDerivative):
         assert self.handle.robotName == self.otherHandle.robotName
         assert self.handle.link      == self.otherHandle.link
         name = PreGrasp.sep.join(["", "pregrasp", self.gripper.fullName, self.handle.fullName,
             "based", self.otherGripper.name, self.otherHandle.fullName])
-        self.graspTask = MetaTaskKine6d (name, sotrobot.dynamic,
-                self.otherGripper.joint, self.otherGripper.joint)
 
-        setGain(self.graspTask.gain,(4.9,0.9,0.01,0.9))
+        from dynamic_graph.sot.core.feature_pose import FeaturePose
+        assertEntityDoesNotExist(name+"_feature")
+        self.feature = FeaturePose (name + "_feature")
+
+        # Create the operational point
+        _createOpPoint (sotrobot, self.otherGripper.link)
+
+        self.addHppJointTopic (self.gripper.fullLink)
+        self._plugObjectLink (self.gripper.fullLink,
+                self.feature.oMja, withMeasurementOfGripperPos)
+        self.feature.jaMfa.value = se3ToTuple(self.gripper.lMf)
+        self.feature.jaJja.value = np.zeros((6, sotrobot.dynamic.getDimension()))
+
+        # Frame B is the handle frame
+        self._plugRobotLink (sotrobot, self.otherGripper.link,
+                self.feature.oMjb, self.feature.jbJjb,
+                withMeasurementOfOtherGripperPos)
+        # jbMfb = ogMh = ogMw * wMo * oMh
+        # wMog^-1
+        self.wMog_inv = matrixHomoInverse (name + "_wMog_inv")
+        self._plugRobotLink (sotrobot, self.otherGripper.link,
+                self.wMog_inv.sin, None,
+                withMeasurementOfOtherGripperPos)
+        self.jbMfb = matrixHomoProduct (name + "_jbMfb",
+            self.wMog_inv.sout,      # oMjg^-1 -> HPP joint
+            None,                    # oMlh -> HPP joint
+            self.handle.lMf,         # lhMh
+            )
+        # wMo
+        self.addHppJointTopic (self.handle.fullLink)
+        self._plugObjectLink (self.handle.fullLink,
+                self.jbMfb.sin1, withMeasurementOfObjectPos)
+        # Plug it to FeaturePose
+        plug(self.jbMfb.sout, self.feature.jbMfb)
+
+        # Compute desired pose between gripper and handle.
+        # Creates the entity faMfbDes
+        self._referenceSignal (name, self.gripper, self.handle)
+        plug(self.faMfbDes.sout, self.feature.faMfbDes)
+
+        # Create a task and gain
+        self._createTaskAndGain (name)
+
         if withDerivative:
             print("Relative pose constraint with derivative is not implemented yet.")
-        self.graspTask.task.setWithDerivative (False)
+        self.task.setWithDerivative (False)
 
-        # Current gripper position
-        self.graspTask.opmodif = se3ToTuple(self.otherGripper.pose)
-
-        # Express the velocities in local frame. This is the default.
-        # self.graspTask.opPointModif.setEndEffector(True)
-
-        # Desired gripper position:
-        # Displacement gripper1: M = G1_p^-1 * G1_r
-        # The derised position of handle1 is
-        # H1*_r = H1_p * M = H1_p * G1_p^-1 * G1_r
-        #
-        # Moreover, the relative position of handle2 wrt to gripper2 may not be perfect so
-        # h2_r = O_r^-1 * G2_r
-        #
-        # G2*_r = O*_r * h2_r = H1_p * G1_p^-1 * G1_r * h1^-1 * h2_r
-        #                       O_p * h1 * G1_p^-1 * G1_r * h1^-1 * h2_r
-        #                       O_p * h1 * g1^-1 * J1_p^-1 * J1_r * g1 * h1^-1 * h2_r
-        # where h2_r can be a constant value of the expression above.
-        self.gripper_desired_pose = Multiply_of_matrixHomo (name + "_desired")
-        if withMeasurementOfObjectPos:
-            # TODO Integrate measurement of h1_r and h2_r: position error
-            # O_r^-1 * G1_r and O_r^-1 * G2_r
-            # (for the release phase and computed only at time 0)
-            self.gripper_desired_pose.setSignalNumber (5)
-            ## self.gripper_desired_pose.setSignalNumber (7)
-            # self.gripper_desired_pose.sin0 -> plug to object1 planning pose
-            # self.gripper_desired_pose.sin1.value = se3ToTuple(self.handle.pose)
-            self.gripper_desired_pose.sin1.value = se3ToTuple(self.handle.pose * self.gripper.pose.inverse())
-            self._invert_planning_pose = Inverse_of_matrixHomo (self.gripper.fullLink + "_invert_planning_pose")
-            # self._invert_planning_pose.sin -> plug to link1 planning pose
-            plug (self._invert_planning_pose.sout, self.gripper_desired_pose.sin2)
-            # self.gripper_desired_pose.sin3 -> plug to link1 real pose
-
-            # self.gripper_desired_pose.sin4.value = se3ToTuple (self.handle.pose.inverse() * self.otherHandle.pose)
-            self.gripper_desired_pose.sin4.value = se3ToTuple (self.gripper.pose * self.handle.pose.inverse() * self.otherHandle.pose)
-            ## self.gripper_desired_pose.sin4.value = se3ToTuple (self.gripper.pose * self.handle.pose.inverse())
-            ## self.gripper_desired_pose.sin5 -> plug to object real pose
-            ## if self.otherGripper.joint not in sotrobot.dyn.signals():
-            ##    sotrobot.dyn.createOpPoint (self.otherGripper.joint, self.otherGripper.joint)
-            ## plug(sotrobot.dyn.signal(self.otherGripper.joint), self.gripper_desired_pose.sin6)
-
-            plug(self.gripper_desired_pose.sout, self.graspTask.featureDes.position)
-            self.topics = {
-                    self.handle.fullLink: {
-                        "velocity": False,
-                        "type": "matrixHomo",
-                        "handler": "hppjoint",
-                        "hppjoint": self.handle.fullLink,
-                        "signalGetters": frozenset([ lambda: self.gripper_desired_pose.sin0, ]) },
-                    self.gripper.fullLink: {
-                        "velocity": False,
-                        "type": "matrixHomo",
-                        "handler": "hppjoint",
-                        "hppjoint": self.gripper.fullLink,
-                        "signalGetters": frozenset([ lambda: self._invert_planning_pose.sin, ]) },
-                    "measurement_" + self.gripper.fullLink: {
-                        "velocity": False,
-                        "type": "matrixHomo",
-                        "handler": "tf_listener",
-                        "frame0": "world",
-                        "frame1": self.gripper.fullLink,
-                        "signalGetters": frozenset([ lambda: self.gripper_desired_pose.sin3, ]) },
-                    ## "measurement_" + self.otherHandle.fullLink: {
-                        ## "velocity": False,
-                        ## "type": "matrixHomo",
-                        ## "handler": "tf_listener",
-                        ## "frame0": "world",
-                        ## "frame1": self.otherHandle.fullLink,
-                        ## "signalGetters": [ self.gripper_desired_pose.sin5 ] },
-                    }
-        else:
-            # G2*_r = H1_p * h1^-1 * h2 = G2_p = J2_p * G
-            self.gripper_desired_pose.setSignalNumber (2)
-            # self.gripper_desired_pose.sin0 -> plug to joint planning pose
-            self.gripper_desired_pose.sin1.value = se3ToTuple (self.otherGripper.pose)
-            self.topics = {
-                    self.otherGripper.fullJoint : {
-                        "velocity": False,
-                        "type": "matrixHomo",
-                        "handler": "hppjoint",
-                        "hppjoint": self.otherGripper.fullJoint,
-                        "signalGetters": frozenset([ lambda: self.gripper_desired_pose.sin0, ]) },
-                    }
-
-        plug(self.gripper_desired_pose.sout, self.graspTask.featureDes.position)
-
-        self.tasks = [ self.graspTask.task ]
-        # TODO Add velocity
+        self.tasks = [ self.task ]
 
 ## A grasp task
-# \todo document me
+# It creates a grasp constraint only in the case where
+# an object is grasped by two grippers.
 class Grasp (Manifold):
     def __init__ (self, gripper, handle, otherGraspOnObject = None):
         super(Grasp, self).__init__()
@@ -569,51 +670,55 @@ class Grasp (Manifold):
             self.otherGripper = otherGraspOnObject[0]
             self.otherHandle = otherGraspOnObject[1]
 
+    ## \todo implement tracking of velocity
+    # \c self.task.task.setWithDerivative(True)
+    # which needs the following signals:
+    # - velocity of object attached to gripper.sotjoint, into self.task.feature.dotposition
+    # - velocity of object attached to otherGripper.sotjoint, into self.task.feature.dotpositionRef
     def makeTasks(self, sotrobot, withDerivative = False):
         if self.relative:
             basename = Grasp.sep.join([self.gripper.name, self.otherGripper.name])
 
             # Create the FeaturePose
             from dynamic_graph.sot.core.feature_pose import FeaturePose
-            self.graspFeature = FeaturePose ('pose'+basename)
-            #self.graspFeature.jaMfa.value = \
+            self.feature = FeaturePose (basename+"_feature")
+            #self.feature.jaMfa.value = \
             #        se3ToTuple(self.otherGripper.pose * self.otherHandle.pose.inverse())
-            #self.graspFeature.jbMfb.value = \
+            #self.feature.jbMfb.value = \
             #        se3ToTuple(self.gripper     .pose * self.handle     .pose.inverse())
 
-            dyn = sotrobot.dynamic 
-            plug(dyn.signal(    self.otherGripper.joint), self.graspFeature. oMja)
-            plug(dyn.signal(    self.     gripper.joint), self.graspFeature. oMjb)
-            plug(dyn.signal('J'+self.otherGripper.joint), self.graspFeature.jaJja)
-            plug(dyn.signal('J'+self.     gripper.joint), self.graspFeature.jbJjb)
+            # Create the operational points
+            _createOpPoint (sotrobot, self.     gripper.link)
+            _createOpPoint (sotrobot, self.otherGripper.link)
 
-            self.graspFeature.faMfbDes.value = \
-                    se3ToTuple(self.otherHandle .pose
-                            *  self.otherGripper.pose.inverse()
-                            *  self.     gripper.pose
-                            *  self.     handle .pose.inverse())
+            dyn = sotrobot.dynamic
+            plug(dyn.signal(    self.otherGripper.link), self.feature. oMja)
+            plug(dyn.signal(    self.     gripper.link), self.feature. oMjb)
+            plug(dyn.signal('J'+self.otherGripper.link), self.feature.jaJja)
+            plug(dyn.signal('J'+self.     gripper.link), self.feature.jbJjb)
+
+            self.feature.faMfbDes.value = \
+                    se3ToTuple(self.otherHandle .lMf
+                            *  self.otherGripper.lMf.inverse()
+                            *  self.     gripper.lMf
+                            *  self.     handle .lMf.inverse())
 
             # Wrap it into a Task
             from dynamic_graph.sot.core import Task, GainAdaptive
-            self.graspTask    = Task ('task'+basename)
-            self.graspGain    = GainAdaptive ('gain'+basename)
+            self.task = Task (basename+"_task")
+            self.gain = GainAdaptive (basename+"_gain")
 
-            self.graspTask.add (self.graspFeature.name)
-            plug (self.graspTask.error, self.graspGain.error)
-            plug (self.graspGain.gain , self.graspTask.controlGain)
+            self.task.add (self.feature.name)
+            plug (self.task.error, self.gain.error)
+            plug (self.gain.gain , self.task.controlGain)
 
-            setGain(self.graspGain,(4.9,0.9,0.01,0.9))
+            setGain(self.gain,(4.9,0.9,0.01,0.9))
             if withDerivative:
                 print("Grasp constraint with derivative is not implemented yet.")
-            self.graspTask.setWithDerivative (False)
+            self.task.setWithDerivative (False)
 
-            self.tasks = [ self.graspTask ]
+            self.tasks = [ self.task ]
 
-            # TODO Add velocity
-            # self.graspTask.task.setWithDerivative (True)
-            # which needs the following signals:
-            # - velocity of object attached to gripper.sotjoint, into self.graspTask.feature.dotposition
-            # - velocity of object attached to otherGripper.sotjoint, into self.graspTask.feature.dotpositionRef
 
 ## Control of the gripper motors.
 #

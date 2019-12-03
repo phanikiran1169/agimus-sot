@@ -152,6 +152,8 @@ class Supervisor(object):
         c = self.hpTasks + self.lpTasks
         for g in self.grasps.values():
             c += g
+        for p in self.placements.values():
+            c += p
 
         return c.topics
 
@@ -323,14 +325,16 @@ def _defaultHandler(name,topic_info,rosSubscribe,rosTf):
     topic = topic_info["topic"]
     rosSubscribe.add (topic_info["type"], name, topic)
     for s in topic_info['signalGetters']:
-        plug (rosSubscribe.signal(name), s())
+        from dynamic_graph.signal_base import SignalBase
+        plug (rosSubscribe.signal(name), s if isinstance(s, SignalBase) else s())
     print (topic, "plugged to", name, ', ', len(topic_info['signalGetters']), 'times')
 
 def _handleTfListener (name,topic_info,rosSubscribe,rosTf):
     signame = topic_info["frame1"] + "_wrt_" + topic_info["frame0"]
     rosTf.add (topic_info["frame0"], topic_info["frame1"], signame)
     for s in topic_info['signalGetters']:
-        plug (rosTf.signal(signame), s())
+        from dynamic_graph.signal_base import SignalBase
+        plug (rosTf.signal(signame), s if isinstance(s, SignalBase) else s())
     if "defaultValue" in topic_info:
         dv = topic_info["defaultValue"]
         from dynamic_graph.signal_base import SignalBase
