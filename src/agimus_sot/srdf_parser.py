@@ -85,6 +85,28 @@ def _read_link (xml):
         raise ValueError ("Gripper needs exactly one tag link")
     return str(linksTag[0].attrib['name'])
 
+def _read_points (xml):
+    pointsTag = xml.findall('point')
+    if len(pointsTag) != 1:
+        raise ValueError ("Contact needs exactly one tag point")
+    vals = pointsTag[0].text.split()
+    if len(vals) % 3 != 0:
+        raise ValueError ("point tag must contain 3*N floating point numbers. Current size is " + str(len(vals)) + ".")
+    return [ tuple([ float(v) for v in vals[i:i+3]]) for i in range(0,len(vals),3) ]
+
+def _read_shapes (xml):
+    shapesTag = xml.findall('shape')
+    if len(shapesTag) != 1:
+        raise ValueError ("Contact needs exactly one tag point")
+    indices = [ int(v) for v in shapesTag[0].text.split() ]
+    shapes = list()
+    i = 0
+    while i < len(indices):
+        N = indices[i]
+        shapes.append(indices[i+1:i+1+N])
+        i += N+1
+    return shapes
+
 # Torque constants should not appear in gripper tag.
 # There should be one value for each actuated joint.
 def _read_torque_constant (xml):
@@ -96,26 +118,7 @@ def _read_torque_constant (xml):
     else:
         return None
 
-def parse_srdf (srdf, packageName = None, prefix = None):
-    """
-    parameters:
-    - packageName: if provided, the filename is considered relative to this ROS package
-    - prefix: if provided, the name of the elements will be prepended with
-             prefix + "/"
-    """
-    import os
-    if packageName is not None:
-        from rospkg import RosPack
-        rospack = RosPack()
-        path = rospack.get_path(packageName)
-        srdfFn = os.path.join(path, srdf)
-    else:
-        srdfFn = srdf
-
-    # tree = ET.fromstring (srdfFn)
-    tree = ET.parse (srdfFn)
-    root = tree.getroot()
-
+def _parse_tree (root, prefix = None):
     grippers = {}
     for xml in root.iter('gripper'):
         n = _read_name (xml)
@@ -141,4 +144,46 @@ def parse_srdf (srdf, packageName = None, prefix = None):
               "mask":      _read_mask (xml),
               }
         handles[ prefix + "/" + n if prefix is not None else n] = h
-    return { "grippers": grippers, "handles": handles}
+
+    contacts = {}
+    for xml in root.iter('contact'):
+        n = _read_name (xml)
+        c = { "robot":  prefix,
+              "name":   n,
+              "link":   _read_link (xml),
+              "points": _read_points (xml),
+              "shapes": _read_shapes (xml),
+              }
+        contacts[ prefix + "/" + n if prefix is not None else n] = c
+
+    return { "grippers": grippers, "handles": handles, "contacts": contacts}
+
+def parse_srdf_string (srdf, prefix = None):
+    """
+    parameters:
+    - srdf: a SRDF string.
+    - prefix: if provided, the name of the elements will be prepended with
+             prefix + "/"
+    """
+    root = ET.fromstring (srdf)
+    return _parse_tree (root, prefix = prefix)
+
+def parse_srdf (srdf, packageName = None, prefix = None):
+    """
+    parameters:
+    - srdf: path to a SRDF file.
+    - packageName: if provided, the filename is considered relative to this ROS package
+    - prefix: if provided, the name of the elements will be prepended with
+             prefix + "/"
+    """
+    import os
+    if packageName is not None:
+        from rospkg import RosPack
+        rospack = RosPack()
+        path = rospack.get_path(packageName)
+        srdfFn = os.path.join(path, srdf)
+    else:
+        srdfFn = srdf
+
+    tree = ET.parse (srdfFn)
+    return _parse_tree (tree.getroot(), prefix=prefix)
