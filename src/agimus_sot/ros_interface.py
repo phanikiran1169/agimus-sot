@@ -85,7 +85,7 @@ class RosInterface(object):
         rsp = PlugSotResponse()
         if self.supervisor is not None:
             try:
-                success = self.supervisor.runPreAction(req.transition_name)
+                rsp.success, rsp.start_time = self.supervisor.runPreAction(req.transition_name)
             except Exception as e:
                 rospy.logerr(str(e))
                 rsp.success = False
@@ -93,13 +93,11 @@ class RosInterface(object):
                 return rsp
         else:
             answer = self.runCommand ("supervisor.runPreAction('{}')".format(req.transition_name))
-            if len(answer.standarderror) != 0:
-                rsp.success = False
-                rsp.msg = answer.standarderror
-                return rsp
+            rsp.success, rsp.msg = self._isNotError (answer)
+            if rsp.success:
+                exec ("rsp.success, rsp.start_time = " + answer.result)
             else:
-                exec ("success = " + answer.result)
-        rsp.success = success
+                return rsp
         rsp.msg = "Successfully called supervisor."
         return rsp
 
@@ -107,7 +105,7 @@ class RosInterface(object):
         rsp = PlugSotResponse()
         if self.supervisor is not None:
             try:
-                self.supervisor.plugSot(req.transition_name, False)
+                rsp.success, rsp.start_time = self.supervisor.plugSot(req.transition_name, False)
             except Exception as e:
                 rospy.logerr(str(e))
                 rsp.success = False
@@ -115,18 +113,18 @@ class RosInterface(object):
                 return rsp
         else:
             answer = self.runCommand ("supervisor.plugSot('{}', False)".format(req.transition_name))
-            if len(answer.standarderror) != 0:
-                rsp.success = False
-                rsp.msg = answer.standarderror
+            rsp.success, rsp.msg = self._isNotError (answer)
+            if rsp.success:
+                exec ("rsp.success, rsp.start_time = " + answer.result)
+            else:
                 return rsp
-        rsp.success = True
         return rsp
 
     def runPostAction (self, req):
         rsp = PlugSotResponse()
         if self.supervisor is not None:
             try:
-                success = self.supervisor.runPostAction(req.transition_name)
+                rsp.success, rsp.start_time = self.supervisor.runPostAction(req.transition_name)
             except Exception as e:
                 rospy.logerr(str(e))
                 rsp.success = False
@@ -134,13 +132,11 @@ class RosInterface(object):
                 return rsp
         else:
             answer = self.runCommand ("supervisor.runPostAction('{}')".format(req.transition_name))
-            if len(answer.standarderror) != 0:
-                rsp.success = False
-                rsp.msg = answer.standarderror
-                return rsp
+            rsp.success, rsp.msg = self._isNotError (answer)
+            if rsp.success:
+                exec ("rsp.success, rsp.start_time = " + answer.result)
             else:
-                exec ("success = " + answer.result)
-        rsp.success = success
+                return rsp
         rsp.msg = "Successfully called supervisor."
         return rsp
 
@@ -167,13 +163,13 @@ class RosInterface(object):
     def readQueue(self, req):
         rsp = ReadQueueResponse()
         if self.supervisor is not None:
-            rsp.success = self.supervisor.readQueue(req.delay, req.minQueueSize, req.duration, req.timeout)
+            rsp.success, rsp.start_time = self.supervisor.readQueue(req.delay, req.minQueueSize, req.duration, req.timeout)
         else:
             cmd = "supervisor.readQueue({},{},{},{})".format(req.delay, req.minQueueSize, req.duration, req.timeout)
             answer = self.runCommand (cmd)
             rsp.success, rsp.message = self._isNotError (answer)
             if rsp.success:
-                exec ("rsp.success = " + answer.result)
+                exec ("rsp.success, rsp.start_time = " + answer.result)
             else:
                 return rsp
         if not rsp.success:

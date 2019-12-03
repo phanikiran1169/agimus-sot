@@ -229,6 +229,7 @@ class Supervisor(object):
     #                     to be greater or equal to \p minQueueSize
     # \param duration expected duration (in seconds) of the queue.
     # \param timeout time in seconds after which to return a failure.
+    # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
     #
     # \warning If \p minQueueSize is greater than the number of values to
     #          be received by rosSubscribe, this function does an infinite loop.
@@ -237,20 +238,21 @@ class Supervisor(object):
         print("Current solver {0}".format(self.currentSot))
         if delay < 0:
             print ("Delay argument should be >= 0")
-            return False
+            return False, -1
         minSizeReached = self.waitForQueue (minQueueSize, timeout)
         if not minSizeReached:
-            return False
+            return False, -1
         durationStep = int(duration / self.sotrobot.device.getTimeStep())
         t = self.sotrobot.device.control.time + delay
         self.rosSubscribe.readQueue (t)
         self. done_events.setFutureTime (t + durationStep)
         self.error_events.setFutureTime (t + durationStep)
-        return True
+        return True, t
 
     def stopReadingQueue(self):
         self.rosSubscribe.readQueue (-1)
 
+    # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
     def plugSot(self, transitionName, check = False):
         if check and not self.isSotConsistentWithCurrent (transitionName):
             # raise Exception ("Sot %d not consistent with sot %d" % (self.currentSot, id))
@@ -271,7 +273,9 @@ class Supervisor(object):
         self.currentSot = transitionName
         if hasattr (self, 'ros_publish_state'):
             self.ros_publish_state.transition_name.value = transitionName
+        return True, devicetime
 
+    # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
     def runPreAction(self, transitionName):
         if self.preActions.has_key(transitionName):
             solver = self.preActions[transitionName]
@@ -282,10 +286,12 @@ class Supervisor(object):
             self._selectSolver (solver)
             print("{0}: Running pre action {1}\n{2}"
                     .format(t, transitionName, solver.sot.display()))
-            return True
+            return True, t - 2
         print ("No pre action", transitionName)
-        return False
+        return False, -1
 
+    ## Execute a post-action
+    # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
     def runPostAction(self, targetStateName):
         if self.postActions.has_key(self.currentSot):
             d = self.postActions[self.currentSot]
@@ -300,9 +306,9 @@ class Supervisor(object):
                 print("{0}: Running post action {1} --> {2}\n{3}"
                         .format(devicetime, self.currentSot, targetStateName,
                             solver.sot.display()))
-                return True
+                return True, devicetime
         print ("No post action {0} --> {1}".format(self.currentSot, targetStateName))
-        return False
+        return False, -1
 
     def getJointList (self, prefix = ""):
         return [ prefix + n for n in self.sotrobot.dynamic.model.names[1:] ]
