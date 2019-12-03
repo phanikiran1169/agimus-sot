@@ -531,7 +531,7 @@ class PreGrasp (Manifold):
 
         # Frame B is the handle frame
         # jbMfb = ogMh = ogMo(t) * oMh
-        method = 2
+        method = 0
         if method == 0: # Works
             # jbMfb        = ogMoh * ohMo * oMh
             self.feature.jbMfb.value = se3ToTuple (
