@@ -153,7 +153,7 @@ class AdmittanceControl(object):
         if first_order_filter:
             from agimus_sot.control.controllers import Controller
             self._first_order_current_filter = Controller (self.name + "_first_order_current_filter",
-                    (1.,), (1., 1./5.,), self.dt, [0. for _ in self.desired_torque])
+                    (5.,), (5., 1.,), self.dt, [0. for _ in self.desired_torque])
             plug (self._current_selec.sout, self._first_order_current_filter.reference)
             plug (self._first_order_current_filter.output, self._multiply_by_torque_constants.sin1)
         else:
