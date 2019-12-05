@@ -76,7 +76,7 @@ class Supervisor(object):
         self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         
         self.keep_posture.pushTo(sot)
-        sot. doneSignal = self.controlNormConditionSignal()
+        sot. doneSignal = self.done_events.controlNormSignal
         sot.errorSignal = False
         self.addSolver ("", sot)
 
@@ -145,13 +145,12 @@ class Supervisor(object):
 
     ## \}
 
-    def controlNormConditionSignal (self):
-        return self. done_events.controlNormSignal
-
     def topics (self):
         c = self.hpTasks + self.lpTasks
         for g in self.grasps.values():
             c += g
+        for p in self.placements.values():
+            c += p
 
         return c.topics
 
@@ -227,6 +226,7 @@ class Supervisor(object):
     #                     to be greater or equal to \p minQueueSize
     # \param duration expected duration (in seconds) of the queue.
     # \param timeout time in seconds after which to return a failure.
+    # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
     #
     # \warning If \p minQueueSize is greater than the number of values to
     #          be received by rosSubscribe, this function does an infinite loop.
@@ -235,20 +235,21 @@ class Supervisor(object):
         print("Current solver {0}".format(self.currentSot))
         if delay < 0:
             print ("Delay argument should be >= 0")
-            return False
+            return False, -1
         minSizeReached = self.waitForQueue (minQueueSize, timeout)
         if not minSizeReached:
-            return False
+            return False, -1
         durationStep = int(duration / self.sotrobot.device.getTimeStep())
         t = self.sotrobot.device.control.time + delay
         self.rosSubscribe.readQueue (t)
         self. done_events.setFutureTime (t + durationStep)
         self.error_events.setFutureTime (t + durationStep)
-        return True
+        return True, t
 
     def stopReadingQueue(self):
         self.rosSubscribe.readQueue (-1)
 
+    # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
     def plugSot(self, transitionName, check = False):
         if check and not self.isSotConsistentWithCurrent (transitionName):
             # raise Exception ("Sot %d not consistent with sot %d" % (self.currentSot, id))
@@ -269,7 +270,9 @@ class Supervisor(object):
         self.currentSot = transitionName
         if hasattr (self, 'ros_publish_state'):
             self.ros_publish_state.transition_name.value = transitionName
+        return True, devicetime
 
+    # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
     def runPreAction(self, transitionName):
         if self.preActions.has_key(transitionName):
             solver = self.preActions[transitionName]
@@ -280,10 +283,12 @@ class Supervisor(object):
             self._selectSolver (solver)
             print("{0}: Running pre action {1}\n{2}"
                     .format(t, transitionName, solver.sot.display()))
-            return True
+            return True, t - 2
         print ("No pre action", transitionName)
-        return False
+        return False, -1
 
+    ## Execute a post-action
+    # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
     def runPostAction(self, targetStateName):
         if self.postActions.has_key(self.currentSot):
             d = self.postActions[self.currentSot]
@@ -298,9 +303,9 @@ class Supervisor(object):
                 print("{0}: Running post action {1} --> {2}\n{3}"
                         .format(devicetime, self.currentSot, targetStateName,
                             solver.sot.display()))
-                return True
+                return True, devicetime
         print ("No post action {0} --> {1}".format(self.currentSot, targetStateName))
-        return False
+        return False, -1
 
     def getJointList (self, prefix = ""):
         return [ prefix + n for n in self.sotrobot.dynamic.model.names[1:] ]
@@ -323,14 +328,16 @@ def _defaultHandler(name,topic_info,rosSubscribe,rosTf):
     topic = topic_info["topic"]
     rosSubscribe.add (topic_info["type"], name, topic)
     for s in topic_info['signalGetters']:
-        plug (rosSubscribe.signal(name), s())
+        from dynamic_graph.signal_base import SignalBase
+        plug (rosSubscribe.signal(name), s if isinstance(s, SignalBase) else s())
     print (topic, "plugged to", name, ', ', len(topic_info['signalGetters']), 'times')
 
 def _handleTfListener (name,topic_info,rosSubscribe,rosTf):
     signame = topic_info["frame1"] + "_wrt_" + topic_info["frame0"]
     rosTf.add (topic_info["frame0"], topic_info["frame1"], signame)
     for s in topic_info['signalGetters']:
-        plug (rosTf.signal(signame), s())
+        from dynamic_graph.signal_base import SignalBase
+        plug (rosTf.signal(signame), s if isinstance(s, SignalBase) else s())
     if "defaultValue" in topic_info:
         dv = topic_info["defaultValue"]
         from dynamic_graph.signal_base import SignalBase
