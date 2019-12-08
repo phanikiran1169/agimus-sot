@@ -138,9 +138,14 @@ def matrixHomoInverse(name, valueOrSignal=None):
     plugMatrixHomo(valueOrSignal, ent.sout)
     return ent
 
-## Abstraction of a task.
+## Wrapper of a task in SoT and its interface with ROS
+#
+# This class represents a task as defined in the Stack of Tasks
+# (dynamic_graph.sot.core.Task). It contains a dictionary the keys of which
+# are the names of the SoT signals
 #
 # Each child class sets a default value for the gain.
+
 class Manifold(object):
     sep = "___"
 
