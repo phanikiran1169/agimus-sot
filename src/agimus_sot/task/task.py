@@ -1,0 +1,148 @@
+# Copyright 2018, 2019 CNRS - Airbus SAS
+# Author: Joseph Mirabel and Alexis Nicolin
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+
+# 1. Redistributions of source code must retain the above copyright
+# notice, this list of conditions and the following disclaimer.
+
+# 2. Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
+
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+## Wrapper of a task in SoT and its interface with ROS
+#
+# This class represents a task as defined in the Stack of Tasks
+# (dynamic_graph.sot.core.Task). It contains a dictionary the keys of which
+# are the names of the SoT signals
+#
+# Each child class sets a default value for the gain.
+
+class Task(object):
+    sep = "___"
+
+    def __init__ (self, tasks = [], constraints = [], topics = {}):
+        ## Task to be added to a SoT solver
+        self.tasks = list(tasks)
+        ## Constraints
+        # This is likely not used anymore.
+        self.constraints = list(constraints)
+        ## The ROS topics where to read references.
+        # It is a dictionary. The key is the output signal name of a
+        # RosQueuedSubscribe entity. The value is a dictionary with:
+        # \li "type": "vector", "matrixHomo", "vector3" ...,
+        # \li "topic": the ROS topic name,
+        # \li "signalGetters": a list of functions returning the input signals to be plugged.
+        # \li "handler": [optional] some specific topics have specific handlers.
+        #     - "hppjoint": needs two more keys
+        #       - "velocity": boolean
+        #       - "hppjoint": HPP joint name
+        #     - "tf_listener": needs three more keys
+        #       - "velocity": boolean
+        #       - "frame0": base frame name
+        #       - "frame1": child frame name
+        #     - "hppcom": needs two more keys
+        #       - "velocity": boolean
+        #       - "hppcom": HPP CoM name
+        #
+        #
+        self.topics = dict(topics)
+
+    def __add__ (self, other):
+        res = Task(list(self.tasks), list(self.constraints), dict(self.topics))
+        res += other
+        return res
+
+    def __iadd__ (self, other):
+        self.tasks += other.tasks
+        self.constraints += other.constraints
+        for k,v in other.topics.items():
+            if self.topics.has_key(k):
+                a = self.topics[k]
+                assert a["type"] == v["type"]
+                if a.has_key('topic'): assert a["topic"] == v["topic"]
+                else: assert a["handler"] == v["handler"]
+                self.extendSignalGetters(k, v["signalGetters"])
+                # print k, "has", len(a["signalGetters"]), "signals"
+            else:
+                self.topics[k] = v
+        return self
+
+    def setControlSelection (self, selection):
+        for t in self.tasks:
+            t.controlSelec.value = selection
+
+    def pushTo (self, solver):
+        """
+        \param solver an object of type agimus_sot.solver.Solver
+        """
+        for t in self.tasks:
+            solver.sot.push(t.name)
+            solver.tasks.append(t)
+
+    def extendSignalGetters (self, topicName, signalGetters):
+        """Add signal getters to a topic"""
+        sgs = signalGetters if isinstance(signalGetters, (list, tuple, set, frozenset)) else [signalGetters,]
+        topic =  self.topics[topicName]
+        topic["signalGetters"] = topic["signalGetters"].union (sgs)
+
+    def addHppJointTopic (self, topicName, jointName=None, velocity=False, signalGetters=frozenset()):
+        """
+        Add a topic that will received the pose (or velocity) of a joint from HPP
+        - param jointName: When None, uses topicName as the joint name in HPP.
+        """
+        if topicName in self.topics:
+            tp=self.topics[topicName]
+            assert "velocity" in tp and tp['velocity'] ==  velocity
+            assert "type"     in tp and tp["type"    ] ==  "matrixHomo"
+            assert "handler"  in tp and tp["handler" ] ==  "hppjoint"
+            assert "hppjoint" in tp and tp["hppjoint"] ==  jointName if jointName is not None else topicName
+            self.extendSignalGetters(topicName, signalGetters)
+            return
+        self.topics[topicName] = {
+                "velocity": velocity,
+                "type": "vector" if velocity else "matrixHomo",
+                "handler": "hppjoint",
+                "hppjoint": jointName if jointName is not None else topicName,
+                "signalGetters": frozenset(signalGetters),
+                }
+
+    def addTfListenerTopic (self, topicName, frame0, frame1,
+            defaultValue=None, signalGetters=frozenset(),
+            maxDelay=1.5):
+        if topicName in self.topics:
+            tp=self.topics[topicName]
+            assert "velocity" in tp and tp['velocity'] ==  False
+            assert "type"     in tp and tp["type"    ] ==  "matrixHomo"
+            assert "handler"  in tp and tp["handler" ] ==  "tf_listener"
+            assert "frame0"   in tp and tp["frame0"  ] ==  frame0
+            assert "frame1"   in tp and tp["frame1"  ] ==  frame1
+            assert "maxDelay" in tp and tp["maxDelay"] ==  maxDelay
+            self.extendSignalGetters(topicName, signalGetters)
+            return
+        self.topics[topicName] = {
+                "velocity": False,
+                "type": "matrixHomo",
+                "handler": "tf_listener",
+                "frame0": frame0,
+                "frame1": frame1,
+                "signalGetters": frozenset(signalGetters),
+                "maxDelay": maxDelay
+                }
+        if defaultValue is not None:
+            self.topics[topicName]["defaultValue"] = defaultValue
+

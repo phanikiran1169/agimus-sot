@@ -25,7 +25,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from hpp.corbaserver.manipulation.constraint_graph_factory import ConstraintFactoryAbstract, GraphFactoryAbstract
-from tools import Manifold, Grasp, PreGrasp, OpFrame, EndEffector
+from .task import Task, Grasp, PreGrasp, OpFrame, EndEffector
 from .solver import Solver
 
 ## Affordance between a gripper and a handle.
@@ -121,7 +121,7 @@ class ObjectAffordance(object):
     def useMeasurementOfEnvContactPose (self, envContactFrame):
         return envContactFrame.hasVisualTag
 
-## Create \ref tools.Manifold s
+## Create \ref task.Task s
 # 
 # \sa manipulation.constraint_graph_factory.ConstraintFactoryAbstract
 class TaskFactory(ConstraintFactoryAbstract):
@@ -142,12 +142,12 @@ class TaskFactory(ConstraintFactoryAbstract):
             aff = self.graphfactory.affordances[(gripper, handle)]
         except KeyError:
             # If there are no affordance, do not add a task.
-            self._grippers[key] = Manifold ()
+            self._grippers[key] = Task ()
             return self._grippers[key]
         gf = self.graphfactory
         gripperFrame = gf.gripperFrames[gripper]
         if not gripperFrame.enabled:
-            self._grippers[key] = Manifold ()
+            self._grippers[key] = Task ()
             return self._grippers[key]
         robot = gf.sotrobot
         if aff.controlType[type] == "position":
@@ -201,7 +201,7 @@ class TaskFactory(ConstraintFactoryAbstract):
         if not gripper.enabled:
             # TODO If otherGrasp is not None,
             # we should include the grasp function of otherGrasp, not pregrasp function...
-            grasp = Manifold()
+            grasp = Task()
         else:
             grasp = Grasp (gripper, handle, otherGrasp)
             grasp.makeTasks (gf.sotrobot)
@@ -294,7 +294,7 @@ class TaskFactory(ConstraintFactoryAbstract):
 # \code{.py}
 # from agimus_sot import Supervisor
 # from agimus_sot.factory import Factory, Affordance
-# from agimus_sot.tools import Manifold
+# from agimus_sot.task import Task
 # from agimus_sot.srdf_parser import parse_srdf
 # from hpp.corbaserver.manipulation import Rule
 #
@@ -362,7 +362,7 @@ class Factory(GraphFactoryAbstract):
         def __init__ (self, tasks, grasps, factory):
             self.name = factory._stateName (grasps)
             self.grasps = grasps
-            self.manifold = Manifold()
+            self.manifold = Task()
 
             self.objectsAlreadyGrasped = {}
             

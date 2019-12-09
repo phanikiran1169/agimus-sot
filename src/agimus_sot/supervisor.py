@@ -25,12 +25,12 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from __future__ import print_function
-from tools import Manifold, Posture
+from .task import Task, Posture
 from dynamic_graph import plug
 import sys
 
 def _hpTasks (sotrobot):
-    return Manifold()
+    return Task()
 def _lpTasks (sotrobot):
     return Posture ("posture", sotrobot)
 

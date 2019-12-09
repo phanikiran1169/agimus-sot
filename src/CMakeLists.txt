@@ -110,3 +110,18 @@ SET(FILES
 FOREACH(F ${FILES})
     PYTHON_INSTALL_ON_SITE("agimus_sot/control" ${F})
 ENDFOREACH()
+
+SET(FILES
+  __init__.py
+  com.py
+  end_effector.py
+  foot.py
+  grasp.py
+  op_frame.py
+  posture.py
+  pre_grasp.py
+  task.py)
+
+FOREACH(F ${FILES})
+  PYTHON_INSTALL_ON_SITE("agimus_sot/task" ${F})
+ENDFOREACH()
