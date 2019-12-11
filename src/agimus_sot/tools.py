@@ -464,7 +464,9 @@ class PreGrasp (Manifold):
 
         # Set the task gain
         self.gain = GainAdaptive(name + "_gain")
-        setGain(self.gain,(4.9,0.9,0.01,0.9))
+        #setGain(self.gain,(4.9,0.9,0.01,0.9))
+        # When the error is big, we want the task to be almost not considered.
+        setGain(self.gain,(4.9,0.001,0.01,0.1))
         plug(self.gain.gain, self.task.controlGain)
         plug(self.task.error, self.gain.error)
 
