@@ -121,9 +121,9 @@ def assertEntityDoesNotExist(name):
     from dynamic_graph.entity import Entity
     assert name not in Entity.entities, "Entity " + name + " already exists."
 
-def matrixHomoProduct(name, *args):
+def matrixHomoProduct(name, *args, **kwargs):
     from dynamic_graph.sot.core import Multiply_of_matrixHomo
-    assertEntityDoesNotExist(name)
+    if kwargs.get('check',True): assertEntityDoesNotExist(name)
     ent = Multiply_of_matrixHomo (name)
     ent.setSignalNumber(len(args))
     for i, valueOrSignal in enumerate(args):
@@ -131,11 +131,11 @@ def matrixHomoProduct(name, *args):
         plugMatrixHomo (valueOrSignal, ent.signal('sin'+str(i)))
     return ent
 
-def matrixHomoInverse(name, valueOrSignal=None):
+def matrixHomoInverse(name, valueOrSignal=None, check=True):
     from dynamic_graph.sot.core import Inverse_of_matrixHomo
-    assertEntityDoesNotExist(name)
+    if check: assertEntityDoesNotExist(name)
     ent = Inverse_of_matrixHomo (name)
-    plugMatrixHomo(valueOrSignal, ent.sout)
+    plugMatrixHomo(valueOrSignal, ent.sin)
     return ent
 
 ## Wrapper of a task in SoT and its interface with ROS
@@ -410,10 +410,16 @@ class PreGrasp (Manifold):
     #  The pose of linkName must be computable by the SoT robot entity.
     def _plugRobotLink (self, sotrobot, linkName, poseSignal, Jsignal, withMeasurement):
         if withMeasurement:
+            _createOpPoint (sotrobot, "rgbd_rgb_optical_frame")
             self.addTfListenerTopic(linkName + "_measured",
-                    frame0 = "world",
+                    frame0 = "rgbd_rgb_optical_frame",
                     frame1 = linkName + "_measured",
-                    defaultValue = sotrobot.dynamic.signal(linkName),
+                    defaultValue = matrixHomoProduct(linkName + "_wrt_" + "rgbd_rgb_optical_frame",
+                        matrixHomoInverse('rgbd_rgb_optical_frame_inv',
+                            sotrobot.dynamic.signal("rgbd_rgb_optical_frame"),
+                            check=False).sout,
+                        sotrobot.dynamic.signal(linkName),
+                        check=False,).sout,
                     signalGetters = [poseSignal,],
                     )
         else:
@@ -429,7 +435,7 @@ class PreGrasp (Manifold):
     def _plugObjectLink (self, linkName, outSignal, withMeasurement):
         if withMeasurement:
             self.addTfListenerTopic (linkName + "_measured",
-                    frame0 = "world",
+                    frame0 = "rgbd_rgb_optical_frame",
                     frame1 = linkName + "_measured",
                     signalGetters = [outSignal,],
                     # TODO
