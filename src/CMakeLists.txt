@@ -67,6 +67,7 @@ SET(LIBRARY_NAME ${PROJECT_NAME})
 
 ADD_LIBRARY(${LIBRARY_NAME}
   SHARED
+  gain-adaptive.cc
   holonomic-constraint.cc
   delay.cc
   time.cc
@@ -79,7 +80,7 @@ INSTALL(TARGETS ${LIBRARY_NAME}
   DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
   )
 
-SET(NEW_ENTITY_CLASS "HolonomicConstraint")
+SET(NEW_ENTITY_CLASS "HolonomicConstraint" "SafeGainAdaptive")
 
 AGIMUS_SOT_PYTHON_MODULE("sot" ${LIBRARY_NAME} wrap)
 FILE(WRITE ${CMAKE_CURRENT_BINARY_DIR}/agimus_sot/__init__.py "")
