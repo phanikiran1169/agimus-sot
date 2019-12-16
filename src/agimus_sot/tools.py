@@ -237,7 +237,7 @@ class Manifold(object):
 
     def addTfListenerTopic (self, topicName, frame0, frame1,
             defaultValue=None, signalGetters=frozenset(),
-            maxDelay=0.3):
+            maxDelay=1.5):
         if topicName in self.topics:
             tp=self.topics[topicName]
             assert "velocity" in tp and tp['velocity'] ==  False
@@ -408,6 +408,8 @@ class PreGrasp (Manifold):
 
     ## Plug the position of linkName to \c outSignal.
     #  The pose of linkName must be computable by the SoT robot entity.
+    #  \todo With measurements, this computes the transform from camera to link,
+    #        while from world to link without measurements.
     def _plugRobotLink (self, sotrobot, linkName, poseSignal, Jsignal, withMeasurement):
         if withMeasurement:
             _createOpPoint (sotrobot, "rgbd_rgb_optical_frame")
@@ -424,24 +426,34 @@ class PreGrasp (Manifold):
                     )
         else:
             plug(sotrobot.dynamic.signal(linkName), poseSignal)
+            print("Plug robot link: no measument for " + linkName)
         if Jsignal is not None:
             plug(sotrobot.dynamic.signal("J"+linkName), Jsignal)
 
     ## Plug the position of linkName to \c outSignal.
     #  The pose of linkName is not computable by the SoT robot entity.
     #  \warning The topic linkName must have been created before.
-    #  \todo add the ability to plug the TF listener default value to
-    #        the HPP joint topic called linkName.
-    def _plugObjectLink (self, linkName, outSignal, withMeasurement):
+    #  \todo With measurements, this computes the transform from camera to link,
+    #        while from world to link without measurements.
+    def _plugObjectLink (self, sotrobot, linkName, outSignal, withMeasurement):
         if withMeasurement:
+            # Create default value
+            _createOpPoint (sotrobot, "rgbd_rgb_optical_frame")
+            cMl = matrixHomoProduct('hpp_' + linkName + "_wrt_" + "rgbd_rgb_optical_frame",
+                    matrixHomoInverse('rgbd_rgb_optical_frame_inv',
+                        sotrobot.dynamic.signal("rgbd_rgb_optical_frame"),
+                        check=False).sout,
+                    None,
+                    check=False,)
+            self.addHppJointTopic (linkName, signalGetters = [ cMl.sin1, ],)
             self.addTfListenerTopic (linkName + "_measured",
                     frame0 = "rgbd_rgb_optical_frame",
                     frame1 = linkName + "_measured",
                     signalGetters = [outSignal,],
-                    # TODO
-                    # defaultValue = ...,
+                    defaultValue = cMl.sout,
                     )
         else:
+            print("Plug object link: no measument for " + linkName)
             self.extendSignalGetters(linkName, outSignal)
 
     ## Compute desired pose between gripper and handle.
@@ -464,15 +476,16 @@ class PreGrasp (Manifold):
 
     def _createTaskAndGain (self, name):
         # Create a task
-        from dynamic_graph.sot.core import Task, GainAdaptive
+        from dynamic_graph.sot.core import Task
+        from agimus_sot.sot import SafeGainAdaptive
         self.task = Task (name + "_task")
         self.task.add (self.feature.name)
 
         # Set the task gain
-        self.gain = GainAdaptive(name + "_gain")
-        #setGain(self.gain,(4.9,0.9,0.01,0.9))
-        # When the error is big, we want the task to be almost not considered.
-        setGain(self.gain,(4.9,0.001,0.01,0.1))
+        self.gain = SafeGainAdaptive(name + "_gain")
+        # See doc of SafeGainAdaptive to see how to plot the gain associated
+        # to those values.
+        self.gain.computeParameters(0.9,0.1,0.3,1.)
         plug(self.gain.gain, self.task.controlGain)
         plug(self.task.error, self.gain.error)
 
@@ -493,7 +506,7 @@ class PreGrasp (Manifold):
         self.feature.jaMfa.value = se3ToTuple(self.gripper.lMf)
 
         self.addHppJointTopic (self.handle.fullLink)
-        self._plugObjectLink (self.handle.fullLink,
+        self._plugObjectLink (sotrobot, self.handle.fullLink,
                 self.feature.oMjb, withMeasurementOfObjectPos)
         self.feature.jbMfb.value = se3ToTuple(self.handle.lMf)
         self.feature.jbJjb.value = np.zeros((6, sotrobot.dynamic.getDimension()))
@@ -569,7 +582,7 @@ class PreGrasp (Manifold):
                 )
             # wMo
             self.addHppJointTopic (self.handle.fullLink)
-            self._plugObjectLink (self.handle.fullLink,
+            self._plugObjectLink (sotrobot, self.handle.fullLink,
                     self.jbMfb.sin1, withMeasurementOfObjectPos)
             # Plug it to FeaturePose
             plug(self.jbMfb.sout, self.feature.jbMfb)
@@ -606,6 +619,10 @@ class PreGrasp (Manifold):
         self.tasks = [ self.task ]
         # TODO Add velocity
 
+    ## Placement case.
+    ## An example:
+    ## - the pair (gripper, handle) is the environment and an object,
+    ## - the pair (otherGripper, otherHandle) is the robot end effector and the same object.
     ## \todo implement tracking of velocity
     def _makeAbsoluteBasedOnOther (self, sotrobot,
             withMeasurementOfObjectPos, withMeasurementOfGripperPos,
@@ -624,7 +641,7 @@ class PreGrasp (Manifold):
 
         # Joint A is the gripper link
         self.addHppJointTopic (self.gripper.fullLink)
-        self._plugObjectLink (self.gripper.fullLink,
+        self._plugObjectLink (sotrobot, self.gripper.fullLink,
                 self.feature.oMja, withMeasurementOfGripperPos)
         # Frame A is the gripper frame
         self.feature.jaMfa.value = se3ToTuple(self.gripper.lMf)
