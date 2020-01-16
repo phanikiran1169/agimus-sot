@@ -77,6 +77,18 @@ class Task(object):
                 if a.has_key('topic'): assert a["topic"] == v["topic"]
                 else: assert a["handler"] == v["handler"]
                 self.extendSignalGetters(k, v["signalGetters"])
+                if a.has_key('defaultValue') and v.has_key("defaultValue"):
+                    from dynamic_graph.signal_base import SignalBase
+                    if isinstance(a["defaultValue"], SignalBase):
+                        assert a["defaultValue"].name == v["defaultValue"].name, \
+                                "topics " + k + " cannot be merged because the default values are " \
+                                + "different: \n" + str(a["defaultValue"]) \
+                                + "\nand\n" + str(v["defaultValue"])
+                    else:
+                        assert a["defaultValue"] == v["defaultValue"], \
+                                "topics " + k + " cannot be merged because the default values are " \
+                                + "different: \n" + str(a["defaultValue"]) \
+                                + "\nand\n" + str(v["defaultValue"])
                 # print k, "has", len(a["signalGetters"]), "signals"
             else:
                 self.topics[k] = v
@@ -121,6 +133,9 @@ class Task(object):
                 "signalGetters": frozenset(signalGetters),
                 }
 
+    ## \param signals should be a set of:
+    ##        - either a tuple (signal, availability signal)
+    ##        - or a signal
     def addTfListenerTopic (self, topicName, frame0, frame1,
             defaultValue=None, signalGetters=frozenset(),
             maxDelay=1.5):
@@ -146,3 +161,28 @@ class Task(object):
         if defaultValue is not None:
             self.topics[topicName]["defaultValue"] = defaultValue
 
+    ## Create an If entity whose condition is _the transform was found it TF_.
+    ## If the condition is not met, the \c value is used instead.
+    ## \param value either a SignalBase or a transform.
+    ## \param outputs a signal or a list of signal that will receive the output
+    ##        of the If entity.
+    ## \return a 2-uplet:
+    ##         - the If entity, whose signal sin1 (resp. boolSelection) should be
+    ##           plugged to tf output signal (resp tf availability signal)
+    ##         - a tuple to be added to
+    ##           plugged to tf output signal (resp tf availability signal)
+    def makeTfListenerDefaultValue (self, name, value, outputs = None):
+        from dynamic_graph.sot.core.switch import SwitchMatrixHomogeneous as Switch
+        from agimus_sot.tools import plugMatrixHomo
+        from dynamic_graph.signal_base import SignalBase
+        from dynamic_graph import plug
+        switch = Switch(name)
+        switch.setSignalNumber(2)
+        plugMatrixHomo(value, switch.sin0)
+        if outputs is not None:
+            if isinstance(outputs, SignalBase):
+                plug(switch.sout, outputs)
+            elif isinstance(outputs, (list, tuple)):
+                for output in outputs:
+                    plug(switch.sout, output)
+        return switch, (switch.sin1, switch.boolSelection)

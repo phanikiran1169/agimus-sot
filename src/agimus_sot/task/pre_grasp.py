@@ -116,6 +116,9 @@ class PreGrasp (Task):
     #  \warning The topic linkName must have been created before.
     #  \todo With measurements, this computes the transform from camera to link,
     #        while from world to link without measurements.
+    #  \todo reading the hpp joint topic sparsely will fail to provide the value
+    #        at the expected time (the object pose will be asynchroneous with the
+    #        rest of SoT).
     def _plugObjectLink (self, sotrobot, linkName, outSignal, withMeasurement):
         if withMeasurement:
             # Create default value
@@ -271,12 +274,15 @@ class PreGrasp (Task):
                 )
             plug(self.jbMfb.sout, self.feature.jbMfb)
             # ogMo
+            self._defaultValue, signals = \
+                    self.makeTfListenerDefaultValue(name+"_defaultValue",
+                            self.otherGripper.lMf * self.otherHandle.lMf.inverse(),
+                            outputs = self.jbMfb.sin0)
             self.addTfListenerTopic (
                     self.otherHandle.fullLink + "_wrt_" + self.otherGripper.link + "_measured",
                     frame0 = self.otherGripper.link + "_measured",
                     frame1 = self.otherHandle.fullLink + "_measured",
-                    defaultValue = se3ToTuple (self.otherGripper.lMf * self.otherHandle.lMf.inverse()),
-                    signalGetters = [ self.jbMfb.sin0, ],
+                    signalGetters = [ signals, ],
                     )
 
             self.addHppJointTopic (self.handle.fullLink)
@@ -355,12 +361,15 @@ class PreGrasp (Task):
                 )
             plug(self.jbMfb.sout, self.feature.jbMfb)
             # ogMo
+            self._defaultValue, signals = \
+                    self.makeTfListenerDefaultValue(name+"_defaultValue",
+                            self.otherGripper.lMf * self.otherHandle.lMf.inverse(),
+                            outputs = self.jbMfb.sin0)
             self.addTfListenerTopic (
-                    self.otherHandle.fullLink + "_wrt_" + self.otherGripper.link + "_measured",
+                    self.otherHandle.fullLink + "_measured" + "_wrt_" + self.otherGripper.link + "_measured",
                     frame0 = self.otherGripper.link + "_measured",
                     frame1 = self.otherHandle.fullLink + "_measured",
-                    defaultValue = se3ToTuple (self.otherGripper.lMf * self.otherHandle.lMf.inverse()),
-                    signalGetters = [ self.jbMfb.sin0, ],
+                    signalGetters = [ signals, ],
                     )
 
             self.addHppJointTopic (self.handle.fullLink)

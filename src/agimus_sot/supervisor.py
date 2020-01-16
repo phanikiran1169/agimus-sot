@@ -333,14 +333,19 @@ def _defaultHandler(name,topic_info,rosSubscribe,rosTf):
     print (topic, "plugged to", name, ', ', len(topic_info['signalGetters']), 'times')
 
 def _handleTfListener (name,topic_info,rosSubscribe,rosTf):
+    from dynamic_graph.signal_base import SignalBase
     signame = topic_info["frame1"] + "_wrt_" + topic_info["frame0"]
     rosTf.add (topic_info["frame0"], topic_info["frame1"], signame)
-    for s in topic_info['signalGetters']:
-        from dynamic_graph.signal_base import SignalBase
-        plug (rosTf.signal(signame), s if isinstance(s, SignalBase) else s())
+    for t in topic_info['signalGetters']:
+        if isinstance(t, SignalBase):
+            plug (rosTf.signal(signame), t)
+        elif isinstance(t, (list, tuple)) and len(t) == 2:
+            plug (rosTf.signal(signame), t[0])
+            plug (rosTf.signal(signame+"_available"), t[1])
+        else:
+            raise TypeError("Expect a signal or tuple of two signals")
     if "defaultValue" in topic_info:
         dv = topic_info["defaultValue"]
-        from dynamic_graph.signal_base import SignalBase
         if isinstance(dv, SignalBase):
             plug(dv, rosTf.signal(signame+"_failback"))
         else:
