@@ -25,7 +25,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from hpp.corbaserver.manipulation.constraint_graph_factory import ConstraintFactoryAbstract, GraphFactoryAbstract
-from .task import Task, Grasp, PreGrasp, OpFrame, EndEffector
+from .task import Task, Grasp, PreGrasp, PreGraspPostAction, OpFrame, EndEffector
 from .solver import Solver
 
 ## Affordance between a gripper and a handle.
@@ -198,6 +198,9 @@ class TaskFactory(ConstraintFactoryAbstract):
                 useMeasurementOfGripperPose,
                 useMeasurementOfOtherGripperPose)
 
+        pregrasp_pa = PreGraspPostAction (gripper, otherGrasp[0] if otherGrasp is not None else None)
+        pregrasp_pa.makeTasks (gf.sotrobot)
+
         if not gripper.enabled:
             # TODO If otherGrasp is not None,
             # we should include the grasp function of otherGrasp, not pregrasp function...
@@ -207,6 +210,7 @@ class TaskFactory(ConstraintFactoryAbstract):
             grasp.makeTasks (gf.sotrobot)
         return { 'grasp': grasp,
                  'pregrasp': pregrasp,
+                 'pregrasp_postaction': pregrasp_pa,
                  'gripper_close': gripper_close }
 
     ## Build the constraint for pre-placement (6D)
@@ -240,7 +244,11 @@ class TaskFactory(ConstraintFactoryAbstract):
                 useMeasOfEnvContact,
                 useMeasOfOtherGripper)
 
-        return { 'preplace': preplace }
+        preplace_pa = PreGraspPostAction (env, grasp[0])
+        preplace_pa.makeTasks (gf.sotrobot)
+
+        return {'preplace': preplace,
+                'preplace_postaction': preplace_pa }
 
     ## \name Accessors to the different elementary constraints
     # \{
@@ -573,14 +581,16 @@ class Factory(GraphFactoryAbstract):
 
         ## Post-actions for transitions from
         # 1. pregrasp to intersec, intersec (st) reached:
-        #   - "pregrasp"
+        #   x "pregrasp" is not kept because it would make the system slightly diverge when
+        #      the object is not perfectly grasped (which is obviously always the case.
+        #   - keep gripper pose
         #   - "gripper_close"
         key = sots[2*(M-1)]
         sot = self._newSoT ("postAction_" + key)
         self.hpTasks.pushTo (sot)
         # "gripper_close" is in st.manifold
         # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
-        self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp', otherGrasp).pushTo (sot)
+        self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp_postaction', otherGrasp).pushTo (sot)
         st.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
         from .events import logical_and_entity
@@ -618,7 +628,7 @@ class Factory(GraphFactoryAbstract):
         self.hpTasks.pushTo (sot)
         # "gripper_open" is in sf.manifold
         # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_open').pushTo (sot)
-        self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp', otherGrasp).pushTo (sot)
+        self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp_postaction', otherGrasp).pushTo (sot)
         sf.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
         # sot. doneSignal = self.tasks.event (self.grippers[ig], self.handles[st.grasps[ig]],

@@ -120,6 +120,7 @@ SET(FILES
   op_frame.py
   posture.py
   pre_grasp.py
+  pre_grasp_post_action.py
   task.py)
 
 FOREACH(F ${FILES})

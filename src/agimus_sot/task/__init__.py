@@ -31,4 +31,5 @@ from .grasp import Grasp
 from .op_frame import OpFrame
 from .posture import Posture
 from .pre_grasp import PreGrasp
+from .pre_grasp_post_action import PreGraspPostAction
 from .task import Task
