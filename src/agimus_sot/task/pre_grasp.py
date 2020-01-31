@@ -239,7 +239,7 @@ class PreGrasp (Task):
 
         # Frame B is the handle frame
         # jbMfb = ogMh = ogMo(t) * oMh
-        method = 0
+        method = 2
         if method == 0: # Works
             # jbMfb        = ogMoh * ohMo * oMh
             self.feature.jbMfb.value = se3ToTuple (
@@ -281,7 +281,7 @@ class PreGrasp (Task):
                             self.otherGripper.lMf * self.otherHandle.lMf.inverse(),
                             outputs = self.jbMfb.sin0)
             self.addTfListenerTopic (
-                    self.otherHandle.fullLink + "_wrt_" + self.otherGripper.link + "_measured",
+                    self.otherHandle.fullLink + "_measured" + "_wrt_" + self.otherGripper.link + "_measured",
                     frame0 = self.otherGripper.link + "_measured",
                     frame1 = self.otherHandle.fullLink + "_measured",
                     signalGetters = [ signals, ],
