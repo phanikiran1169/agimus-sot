@@ -35,6 +35,8 @@ from agimus_sot.tools import se3ToTuple, _createOpPoint
 # It creates a grasp constraint only in the case where
 # an object is grasped by two grippers.
 class Grasp (Task):
+    name_prefix = "grasp"
+
     def __init__ (self, gripper, handle, otherGraspOnObject = None):
         super(Grasp, self).__init__()
         self.gripper = gripper
@@ -57,7 +59,7 @@ class Grasp (Task):
     # - velocity of object attached to otherGripper.sotjoint, into self.task.feature.dotpositionRef
     def makeTasks(self, sotrobot, withDerivative = False):
         if self.relative:
-            basename = Grasp.sep.join([self.gripper.name, self.otherGripper.name])
+            basename = self._name(self.gripper.name, self.otherGripper.name)
 
             # Create the FeaturePose
             self.feature = FeaturePose (basename+"_feature")

@@ -32,11 +32,13 @@ from .task import Task
 from agimus_sot.tools import parseHppName
 
 class Foot (Task):
+    name_prefix = "foot"
+
     def __init__ (self, footname, sotrobot, selec='111111', withDerivative = False):
         super(Foot, self).__init__()
 
         robotname, sotjoint = parseHppName (footname)
-        basename = Foot.sep + footname
+        basename = self._name(footname)
 
         # Create the FeaturePose
         self.feature = FeaturePose ('pose'+basename)

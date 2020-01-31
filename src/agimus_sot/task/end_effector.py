@@ -47,6 +47,8 @@ from .posture import Posture
 #     \todo At the time of writting, I (Joseph Mirabel) think the mixtured control is bugged. At least, there was a SEGV the last time
 #     I tried to use it. However, the SEGV might have a different cause.
 class EndEffector (Task):
+    name_prefix = "ee"
+
     def __init__ (self, sotrobot, gripper, name_suffix):
         super(EndEffector, self).__init__()
         self.gripper = gripper
@@ -54,7 +56,7 @@ class EndEffector (Task):
         self.robot = sotrobot
         pinmodel = sotrobot.dynamic.model
 
-        self.name = Posture.sep.join(["ee", gripper.name, name_suffix])
+        self.name = self._name(gripper.name, name_suffix)
 
         self.tp = SotTask ('task' + self.name)
         self.tp.dyn = sotrobot.dynamic

@@ -161,7 +161,7 @@ class Task(object):
         if defaultValue is not None:
             self.topics[topicName]["defaultValue"] = defaultValue
 
-    ## Create an If entity whose condition is _the transform was found it TF_.
+    ## Create an If entity whose condition is _the transform was found in TF_.
     ## If the condition is not met, the \c value is used instead.
     ## \param value either a SignalBase or a transform.
     ## \param outputs a signal or a list of signal that will receive the output
@@ -186,3 +186,6 @@ class Task(object):
                 for output in outputs:
                     plug(switch.sout, output)
         return switch, (switch.sin1, switch.boolSelection)
+
+    def _name (self, *args):
+        return self.sep.join ((self.name_prefix,) + args)

@@ -165,11 +165,9 @@ class Simulation (object):
             self.q [:7] = sotTransRPYToHppPose (msg.data [:6])
             convertTalosConfigReducedToFull (msg.data, self.q)
             # update poses of objects
-            rospy.loginfo(str(self.q))
             for o in self.objects:
                 pose = self.objectPose [o]
                 self.objectPublisher [o].broadcast (pose)
-                rospy.loginfo(o + " " + str(pose))
         except Exception as e:
             rospy.logerr(e)
         finally:

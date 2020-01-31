@@ -40,6 +40,8 @@ from agimus_sot.tools import _createOpPoint, assertEntityDoesNotExist, \
 # It ensures the velocity of the gripper is zero with respect to the handle.
 #
 class PreGraspPostAction (Task):
+    name_prefix = "postaction_pregrasp"
+
     ## Constructor
     # \param gripper object of type OpFrame
     # \param otherGripper either None or a OpFrame representing a gripper
@@ -72,7 +74,7 @@ class PreGraspPostAction (Task):
             self.task.controlGain.value = 0
 
     def _makeAbsoluteTask(self, sotrobot, gripper):
-        name = PreGraspPostAction.sep.join(["", "pa_pregrasp", gripper.name])
+        name = self._name(gripper.name)
 
         alreadyInit = name+"_feature" in Entity.entities
 
@@ -90,8 +92,7 @@ class PreGraspPostAction (Task):
         self.tasks = [ self.task, ]
 
     def _makeRelativeTask(self, sotrobot):
-        name = PreGraspPostAction.sep.join(["", "pa_pregrasp", self.gripper.name,
-            "relative", self.otherGripper.name])
+        name = self._name(self.gripper.name, "relative", self.otherGripper.name)
 
         alreadyInit = name+"_feature" in Entity.entities
 

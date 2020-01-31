@@ -32,34 +32,36 @@ from .task import Task
 
 ## Postural task
 class Posture(Task):
+    name_prefix=""
+
     def __init__ (self, name, sotrobot, withDerivative = False):
         super(Posture, self).__init__()
 
-        n = Posture.sep + name
-        self.tp = SotTask ('task' + n)
-        self.tp.dyn = sotrobot.dynamic
-        self.tp.feature = FeaturePosture('feature_'+n)
+        n = self._name (name)
+        self._task = SotTask (n + '_task')
+        self._task.dyn = sotrobot.dynamic
+        self._feature = FeaturePosture(n + '_feature_')
 
         q = list(sotrobot.dynamic.position.value)
-        self.tp.feature.state.value = q
-        self.tp.feature.posture.value = q
+        self._feature.state.value = q
+        self._feature.posture.value = q
 
         robotDim = sotrobot.dynamic.getDimension()
         for i in range(6, robotDim):
-            self.tp.feature.selectDof (i, True)
-        self.tp.gain = GainAdaptive("gain_"+n)
-        self.tp.add(self.tp.feature.name)
+            self._feature.selectDof (i, True)
+        self._gain = GainAdaptive(n + "_gain")
+        self._task.add(self._feature.name)
 
         # Connects the dynamics to the current feature of the posture task
-        plug(sotrobot.dynamic.position, self.tp.feature.state)
+        plug(sotrobot.dynamic.position, self._feature.state)
 
-        self.tp.setWithDerivative (withDerivative)
+        self._task.setWithDerivative (withDerivative)
 
         # Set the gain of the posture task
-        setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
-        plug(self.tp.gain.gain, self.tp.controlGain)
-        plug(self.tp.error, self.tp.gain.error)
-        self.tasks = [ self.tp ]
+        setGain(self._gain,(4.9,0.9,0.01,0.9))
+        plug(self._gain.gain, self._task.controlGain)
+        plug(self._task.error, self._gain.error)
+        self.tasks = [ self._task ]
         self.topics = {
                     name: {
                         "type": "vector",
@@ -73,6 +75,6 @@ class Posture(Task):
                     "signalGetters": frozenset([ self._signalVelocityRef ])
                     }
 
-    def _signalPositionRef (self): return self.tp.feature.posture
-    def _signalVelocityRef (self): return self.tp.feature.postureDot
+    def _signalPositionRef (self): return self._feature.posture
+    def _signalVelocityRef (self): return self._feature.postureDot
 

@@ -50,6 +50,8 @@ from agimus_sot.tools import _createOpPoint, assertEntityDoesNotExist, \
 # \note For preplace task, the gripper is on the environment surface and
 # the handle is on the object surface.
 class PreGrasp (Task):
+    name_prefix = "pregrasp"
+
     ## Constructor
     # \param gripper object of type OpFrame
     # \param handle object of type OpFrame
@@ -173,7 +175,7 @@ class PreGrasp (Task):
 
     ## \todo implement tracking of velocity
     def _makeAbsolute(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative):
-        name = PreGrasp.sep.join(["", "pregrasp", self.gripper.name, self.handle.fullName])
+        name = self._name(self.gripper.name, self.handle.fullName)
 
         assertEntityDoesNotExist(name+"_feature")
         self.feature = FeaturePose (name + "_feature")
@@ -213,8 +215,8 @@ class PreGrasp (Task):
             withDerivative):
         assert self.handle.robotName == self.otherHandle.robotName
         assert self.handle.link      == self.otherHandle.link
-        name = PreGrasp.sep.join(["", "pregrasp", self.gripper.name, self.handle.fullName,
-            "relative", self.otherGripper.name, self.otherHandle.fullName])
+        name = self._name(self.gripper.name, self.handle.fullName,
+            "relative", self.otherGripper.name, self.otherHandle.fullName)
 
         assertEntityDoesNotExist(name+"_feature")
         self.feature = FeaturePose (name + "_feature")
@@ -269,7 +271,7 @@ class PreGrasp (Task):
         elif method == 2: # Seems to work
             # jbMfb        = ogMo * oMh
             self.jbMfb = matrixHomoProduct (name + "_jbMfb",
-                None,                    # ogMo -> HPP joint
+                None,                    # ogMo -> TF
                 self.handle.lMf,         # oMh
                 )
             plug(self.jbMfb.sout, self.feature.jbMfb)
@@ -312,8 +314,8 @@ class PreGrasp (Task):
             withMeasurementOfOtherGripperPos, withDerivative):
         assert self.handle.robotName == self.otherHandle.robotName
         assert self.handle.link      == self.otherHandle.link
-        name = PreGrasp.sep.join(["", "pregrasp", self.gripper.fullName, self.handle.fullName,
-            "based", self.otherGripper.name, self.otherHandle.fullName])
+        name = self._name(self.gripper.fullName, self.handle.fullName,
+            "based", self.otherGripper.name, self.otherHandle.fullName)
 
         assertEntityDoesNotExist(name+"_feature")
         self.feature = FeaturePose (name + "_feature")

@@ -72,7 +72,7 @@ class Supervisor(object):
         sot = Solver ('sot_keep', self.sotrobot.dynamic.getDimension())
 
         self.keep_posture = Posture ("posture_keep", self.sotrobot)
-        self.keep_posture.tp.setWithDerivative (False)
+        self.keep_posture._task.setWithDerivative (False)
         self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
         
         self.keep_posture.pushTo(sot)
