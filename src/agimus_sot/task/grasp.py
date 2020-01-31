@@ -59,30 +59,25 @@ class Grasp (Task):
     # - velocity of object attached to otherGripper.sotjoint, into self.task.feature.dotpositionRef
     def makeTasks(self, sotrobot, withDerivative = False):
         if self.relative:
-            basename = self._name(self.gripper.name, self.otherGripper.name)
+            basename = self._name(self.gripper.name,
+                    self.handle.name,
+                    self.otherGripper.name,
+                    self.otherHandle.name)
+
+
+            def set(oMj, jMf, jJj, g, h):
+                # Create the operational points
+                _createOpPoint (sotrobot, g.link)
+                jMf.value = se3ToTuple(g.lMf * h.lMf.inverse())
+                plug(sotrobot.dynamic.signal(    g.link), oMj)
+                plug(sotrobot.dynamic.signal('J'+g.link), jJj)
 
             # Create the FeaturePose
             self.feature = FeaturePose (basename+"_feature")
-            #self.feature.jaMfa.value = \
-            #        se3ToTuple(self.otherGripper.pose * self.otherHandle.pose.inverse())
-            #self.feature.jbMfb.value = \
-            #        se3ToTuple(self.gripper     .pose * self.handle     .pose.inverse())
-
-            # Create the operational points
-            _createOpPoint (sotrobot, self.     gripper.link)
-            _createOpPoint (sotrobot, self.otherGripper.link)
-
-            dyn = sotrobot.dynamic
-            plug(dyn.signal(    self.otherGripper.link), self.feature. oMja)
-            plug(dyn.signal(    self.     gripper.link), self.feature. oMjb)
-            plug(dyn.signal('J'+self.otherGripper.link), self.feature.jaJja)
-            plug(dyn.signal('J'+self.     gripper.link), self.feature.jbJjb)
-
-            self.feature.faMfbDes.value = \
-                    se3ToTuple(self.otherHandle .lMf
-                            *  self.otherGripper.lMf.inverse()
-                            *  self.     gripper.lMf
-                            *  self.     handle .lMf.inverse())
+            set(self.feature.oMja, self.feature.jaMfa, self.feature.jaJja,
+                    self.otherGripper, self.otherHandle)
+            set(self.feature.oMjb, self.feature.jbMfb, self.feature.jbJjb,
+                    self.gripper, self.handle)
 
             # Wrap it into a Task
             self.task = SotTask (basename+"_task")
