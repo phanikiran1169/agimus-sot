@@ -122,7 +122,7 @@ class ObjectAffordance(object):
         return envContactFrame.hasVisualTag
 
 ## Create \ref task.Task s
-# 
+#
 # \sa manipulation.constraint_graph_factory.ConstraintFactoryAbstract
 class TaskFactory(ConstraintFactoryAbstract):
     gfields = ('grasp', 'pregrasp', 'gripper_open', 'gripper_close')
@@ -362,7 +362,7 @@ class TaskFactory(ConstraintFactoryAbstract):
 #
 # supervisor.makeInitialSot ()
 # \endcode
-# 
+#
 # \sa manipulation.constraint_graph_factory.GraphFactoryAbstract, TaskFactory,
 #     Affordance
 class Factory(GraphFactoryAbstract):
@@ -373,7 +373,7 @@ class Factory(GraphFactoryAbstract):
             self.manifold = Task()
 
             self.objectsAlreadyGrasped = {}
-            
+
             for ig, ih in enumerate(grasps):
                 if ih is not None:
                     # Add task gripper_close
