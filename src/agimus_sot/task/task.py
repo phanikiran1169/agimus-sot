@@ -103,8 +103,7 @@ class Task(object):
         \param solver an object of type agimus_sot.solver.Solver
         """
         for t in self.tasks:
-            solver.sot.push(t.name)
-            solver.tasks.append(t)
+            solver.push(t)
 
     def extendSignalGetters (self, topicName, signalGetters):
         """Add signal getters to a topic"""

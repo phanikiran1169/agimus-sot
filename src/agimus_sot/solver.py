@@ -39,6 +39,13 @@ class Solver(object):
         else:
             self.timer = None
 
+    def push (self, task):
+        """
+        task: an object of type agimus_sot.task.Task
+        """
+        self.sot.push(task.name)
+        self.tasks.append(task)
+
     ## \name Events
     # \{
 
