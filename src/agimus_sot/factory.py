@@ -591,7 +591,12 @@ class Factory(GraphFactoryAbstract):
         # "gripper_close" is in st.manifold
         # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_close').pushTo (sot)
         self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp_postaction', otherGrasp).pushTo (sot)
-        st.manifold.pushTo (sot)
+        # When current transition adds a grasp on an already grasped object,
+        # then pregrasp_postaction and the grasp constraint in st conflicts
+        for t in st.manifold.tasks:
+            if not t.name.startswith(Grasp.name_prefix):
+                sot.push(t)
+        #st.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
         from .events import logical_and_entity
         sot. doneSignal = logical_and_entity ("ade_sot_"+sot.name,
@@ -621,6 +626,9 @@ class Factory(GraphFactoryAbstract):
         ## Pre-actions for transitions from
 
         # 1.intersec to pregrasp:
+        #   TODO the gripper releases the grasp. The object may move but it shouldn't
+        #   be important. If it turns out to be, one must replace pregrasp below by
+        #   pregrasp_postaction.
         #   - "pregrasp": the motion must be relative to the object
         #   - "gripper_open"
         key = sots[2*(M-1) + 1]
@@ -628,7 +636,7 @@ class Factory(GraphFactoryAbstract):
         self.hpTasks.pushTo (sot)
         # "gripper_open" is in sf.manifold
         # self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'gripper_open').pushTo (sot)
-        self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp_postaction', otherGrasp).pushTo (sot)
+        self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp', otherGrasp).pushTo (sot)
         sf.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
         # sot. doneSignal = self.tasks.event (self.grippers[ig], self.handles[st.grasps[ig]],
