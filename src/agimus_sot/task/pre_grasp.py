@@ -230,16 +230,18 @@ class PreGrasp (Task):
                 self.feature.oMja, self.feature.jaJja,
                 withMeasurementOfGripperPos)
         # Frame A is the gripper frame
+        self.feature.jaJja.value = np.zeros((6, sotrobot.dynamic.getDimension()))
         self.feature.jaMfa.value = se3ToTuple(self.gripper.lMf)
 
         # Joint B is the other gripper link
         self._plugRobotLink (sotrobot, self.otherGripper.link,
                 self.feature.oMjb, self.feature.jbJjb,
                 withMeasurementOfOtherGripperPos)
+        self.feature.jbJjb.value = np.zeros((6, sotrobot.dynamic.getDimension()))
 
         # Frame B is the handle frame
         # jbMfb = ogMh = ogMo(t) * oMh
-        method = 2
+        method = 3
         if method == 0: # Works
             # jbMfb        = ogMoh * ohMo * oMh
             self.feature.jbMfb.value = se3ToTuple (
@@ -287,6 +289,10 @@ class PreGrasp (Task):
                     signalGetters = [ signals, ],
                     )
 
+            self.addHppJointTopic (self.handle.fullLink)
+        elif method == 3:
+            self.feature.jbMfb.value = se3ToTuple (self.otherGripper.lMf
+                    * self.otherHandle.lMf.inverse() * self.handle.lMf)
             self.addHppJointTopic (self.handle.fullLink)
 
         # Compute desired pose between gripper and handle.

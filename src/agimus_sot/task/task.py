@@ -172,9 +172,11 @@ class Task(object):
     ##           plugged to tf output signal (resp tf availability signal)
     def makeTfListenerDefaultValue (self, name, value, outputs = None):
         from dynamic_graph.sot.core.switch import SwitchMatrixHomogeneous as Switch
-        from agimus_sot.tools import plugMatrixHomo
+        from agimus_sot.tools import plugMatrixHomo, assertEntityDoesNotExist
         from dynamic_graph.signal_base import SignalBase
         from dynamic_graph import plug
+
+        assertEntityDoesNotExist(name)
         switch = Switch(name)
         switch.setSignalNumber(2)
         plugMatrixHomo(value, switch.sin0)
