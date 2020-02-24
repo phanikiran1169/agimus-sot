@@ -396,3 +396,7 @@ class PreGrasp (Task):
 
         self.tasks = [ self.task ]
 
+    def addVisualServoingTrace (self, tracer):
+        self.addTrace(tracer)
+        tracer.add (self.feature.name + ".faMfbDes", self.feature.name + ".desired")
+        tracer.add (self.feature.name + ".faMfb", self.feature.name + ".actual")

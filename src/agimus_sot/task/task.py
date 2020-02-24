@@ -188,5 +188,9 @@ class Task(object):
                     plug(switch.sout, output)
         return switch, (switch.sin1, switch.boolSelection)
 
+    def addTrace (self, tracer):
+        for task in self.tasks:
+            tracer.add (task.name + ".error", task.name + ".error")
+
     def _name (self, *args):
         return self.sep.join ((self.name_prefix,) + args)

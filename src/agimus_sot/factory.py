@@ -197,6 +197,10 @@ class TaskFactory(ConstraintFactoryAbstract):
                 useMeasurementOfObjectPose,
                 useMeasurementOfGripperPose,
                 useMeasurementOfOtherGripperPose)
+        if useMeasurementOfObjectPose \
+                or useMeasurementOfGripperPose \
+                or useMeasurementOfOtherGripperPose:
+            pregrasp.addVisualServoingTrace (gf.ViStracer)
 
         pregrasp_pa = PreGraspPostAction (gripper, otherGrasp[0] if otherGrasp is not None else None)
         pregrasp_pa.makeTasks (gf.sotrobot)
@@ -420,6 +424,7 @@ class Factory(GraphFactoryAbstract):
                 "addTracerToAdmittanceController": False,
                 "addTimerToSotControl": False,
                 "addTracerToSotControl": False,
+                "addTracerToVisualServoing": False,
                 "simulateTorqueFeedback": False,
                 }
 
@@ -456,16 +461,22 @@ class Factory(GraphFactoryAbstract):
             raise TypeError ("Argument should be of type Affordance or ObjectAffordance")
 
     def generate (self):
+        from dynamic_graph.tracer_real_time import TracerRealTime
+        def addTracer(name, prefix, dir="/tmp", suffix=".txt", size=10 * 1048576):
+            # default size: 10Mo
+            tracer = TracerRealTime (name)
+            self.tracers[tracer.name] = tracer
+            tracer.setBufferSize (size)
+            tracer.open (dir, prefix, suffix)
+            self.sotrobot.device.after.addSignal(name + ".triger")
+            return tracer
+        # init tracers
         if self.parameters["addTimerToSotControl"] or self.parameters["addTracerToSotControl"]:
-            # init tracer
-            from dynamic_graph.tracer_real_time import TracerRealTime
-            SoTtracer = TracerRealTime ("tracer_of_solvers")
-            self.tracers[SoTtracer.name] = SoTtracer
-            SoTtracer.setBufferSize (10 * 1048576) # 10 Mo
-            SoTtracer.open ("/tmp", "sot-control-trace", ".txt")
-            self.sotrobot.device.after.addSignal("tracer_of_solvers.triger")
-            self.supervisor.SoTtracer = SoTtracer
-            self.SoTtracer = SoTtracer
+            self.SoTtracer = self.supervisor.SoTtracer = addTrace(
+                    "tracer_of_solvers", "sot-control-trace")
+        if self.parameters["addTracerToVisualServoing"]:
+            self.ViStracer = self.supervisor.ViStracer = addTracer (
+                    "visual_servoing_tracer", "visual-servoing-trace")
         super(Factory, self).generate ()
 
         self.supervisor.sots = {}
