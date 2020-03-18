@@ -197,9 +197,10 @@ class TaskFactory(ConstraintFactoryAbstract):
                 useMeasurementOfObjectPose,
                 useMeasurementOfGripperPose,
                 useMeasurementOfOtherGripperPose)
-        if useMeasurementOfObjectPose \
+        if gf.parameters["addTracerToVisualServoing"] and \
+                (useMeasurementOfObjectPose \
                 or useMeasurementOfGripperPose \
-                or useMeasurementOfOtherGripperPose:
+                or useMeasurementOfOtherGripperPose):
             pregrasp.addVisualServoingTrace (gf.ViStracer)
 
         pregrasp_pa = PreGraspPostAction (gripper, otherGrasp[0] if otherGrasp is not None else None)

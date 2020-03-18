@@ -397,6 +397,7 @@ class PreGrasp (Task):
         self.tasks = [ self.task ]
 
     def addVisualServoingTrace (self, tracer):
+        from agimus_sot.tools import filename_escape
         self.addTrace(tracer)
-        tracer.add (self.feature.name + ".faMfbDes", self.feature.name + ".desired")
-        tracer.add (self.feature.name + ".faMfb", self.feature.name + ".actual")
+        tracer.add (self.feature.name + ".faMfbDes", filename_escape(self.feature.name) + ".desired")
+        tracer.add (self.feature.name + ".faMfb"   , filename_escape(self.feature.name) + ".actual")

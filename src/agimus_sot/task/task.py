@@ -189,8 +189,9 @@ class Task(object):
         return switch, (switch.sin1, switch.boolSelection)
 
     def addTrace (self, tracer):
+        from agimus_sot.tools import filename_escape
         for task in self.tasks:
-            tracer.add (task.name + ".error", task.name + ".error")
+            tracer.add (task.name + ".error", filename_escape(task.name) + ".error")
 
     def _name (self, *args):
         return self.sep.join ((self.name_prefix,) + args)
