@@ -58,25 +58,41 @@ def _read_position (xml):
         xyz_wxyz = []
         pass
     if len(xyz_wxyz) > 0:
+        if len(xyz_wxyz) != 7:
+            raise ValueError ("The text of tag position should contain 7 floats: x y z qw qx qy qz.\nCurrent value: " + positionsTag[0].text)
         xyz_xyzw = xyz_wxyz[0:3] + xyz_wxyz[4:7] + xyz_wxyz[3:4]
-    else:
+    else: # No text provided. Try to read attributes xyz, wxyz, xyzw and rpy
+        def get_attribute(att, expected_size):
+            val = attribs[att].split()
+            if len(val) != expected_size:
+                raise ValueError ("The attribute {} of tag position should contain {} floats\nCurrent value: {}"
+                        .format (att, expected_size, attribs[att]))
+            return [ float(v) for v in val ]
+
         attribs = positionsTag[0].attrib
-        xyz_xyzw = [ float(x) for x in attribs.get ("xyz", "0 0 0").split() ]
+        if "xyz" in attribs:
+            xyz_xyzw = get_attribute("xyz", 3)
+        else:
+            xyz_xyzw = [ 0., 0., 0., ]
+
         if int("xyzw" in attribs) + int("wxyz" in attribs) + int("rpy" in attribs) > 1:
             raise ValueError ("Tag position must have only one of rpy, wxyz, xyzw")
         if "xyzw" in attribs:
-            xyz_xyzw += [ float(x) for x in attribs["xyzw"].split() ]
+            xyz_xyzw += get_attribute("xyzw", 4)
         elif "wxyz" in attribs:
-            w, x, y, z = [ float(x) for x in attribs["wxyz"].split() ]
+            w, x, y, z = get_attribute("wxyz", 4)
             xyz_xyzw += [x, y, z, w]
         elif "rpy" in attribs:
             from math import cos, sin, sqrt
-            r, p, y = [ float(x) for x in attribs["rpy"].split() ]
+            r, p, y = get_attribute("rpy", 3)
             x = sin(r/2.) * cos(p/2.) * cos(y/2.) - cos(r/2.) * sin(p/2.) * sin(y/2.)
             y = cos(r/2.) * sin(p/2.) * cos(y/2.) + sin(r/2.) * cos(p/2.) * sin(y/2.)
             z = cos(r/2.) * cos(p/2.) * sin(y/2.) - sin(r/2.) * sin(p/2.) * cos(y/2.)
             w = cos(r/2.) * cos(p/2.) * cos(y/2.) + sin(r/2.) * sin(p/2.) * sin(y/2.)
             xyz_xyzw += [x, y, z, w]
+        else:
+            xyz_xyzw += [0., 0., 0., 1.]
+    assert len(xyz_xyzw) == 7
     return tuple (xyz_xyzw)
 
 def _read_link (xml):
