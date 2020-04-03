@@ -28,7 +28,7 @@
 
 ## \todo make it more general with respects to objects and robot
 
-import time, sys, os, argparse, rospy
+import time, sys, os, argparse, rospy, traceback
 import agimus_hpp.ros_tools as ros_tools
 from std_msgs.msg import String
 from std_srvs.srv import Empty
@@ -39,22 +39,6 @@ from tf2_msgs.msg import TFMessage
 from agimus_hpp.client import HppClient
 from agimus_hpp.tools import sotTransRPYToHppPose
 import hpp_idl
-
-TalosSlicesReducedToFull = [slice(7, 28, 1), slice(33, 34, 1),
-                            slice(35, 42, 1), slice(47, 48, 1),
-                            slice(49, 51, 1)]
-
-## Conversion of configuration for Talos robot
-#
-# The robot model in the SoT and in HPP are different. The SoT uses a reduced
-# model with less joints. This function updates the configuration of the
-# full model from a configuration coming from the SoT
-def convertTalosConfigReducedToFull (qReduced, qFull) :
-    index = 6
-    for s in TalosSlicesReducedToFull:
-        width = (s.stop - s.start) // s.step
-        qFull [s] = qReduced [index:index+width]
-        index += width
 
 ## Publish the pose of an object in tf
 #
@@ -102,12 +86,6 @@ def createGraphDict (client):
         return res
 
 class Simulation (object):
-    objectPose = {'box' : [0.000, -0.000, 0.857,
-                           0.500, -0.500, -0.500, -0.500],
-                   'table' : [0,0,0,0,0,0,1]
-                   }
-    objects = {'box', 'table'}
-
     subscriberDict = {
         "sot": {
             "transition_name": [String, "computeObjectPositions" ],
@@ -116,14 +94,66 @@ class Simulation (object):
         }
     def computeRanksInConfiguration (self):
         # Compute ranks of joints in HPP configuration vector
+        hpp = self.client.hpp()
         self.rankInConfiguration = dict ()
-        joints = self.client.hpp ().robot.getAllJointNames ()
+        joints = hpp.robot.getAllJointNames ()
         rank = 0
         for j in joints:
-            size = self.client.hpp().robot.getJointConfigSize (j)
+            size = hpp.robot.getJointConfigSize (j)
             if size != 0:
                 self.rankInConfiguration [j] = rank
                 rank += size
+
+    def initializeObjects (self, qinit):
+        hpp = self.client.hpp()
+        joints = hpp.robot.getJointNames ()
+        self.robotName = joints[0].split('/',1)[0]
+        self.objects = { j.split('/',1)[0] for j in joints }
+        self.objects.remove (self.robotName)
+        self.objectPose = {}
+        # Compute objects position
+        for jn in joints:
+            obj = jn.split('/',1)[0]
+            if obj in self.objects:
+                iq = self.rankInConfiguration[jn]
+                nq = hpp.robot.getJointConfigSize(jn)
+                if obj not in self.objectPose:
+                    self.objectPose[obj] = qinit[iq:iq+nq]
+                else:
+                    self.objectPose[obj].extend(qinit[iq:iq+nq])
+
+        rospy.loginfo ("objects pose: " + str(self.objectPose))
+
+    def initializeSoT2HPPconversion (self):
+        from agimus_sot_msgs.srv import GetJointNames
+        get_joint_names = ros_tools.wait_for_service("/agimus/sot/get_joint_names", GetJointNames)
+        self.sot_joint_names = get_joint_names().names
+        assert self.sot_joint_names[0] == "root_joint"
+
+        self.sot2hpp_slices = []
+        hpp = self.client.hpp()
+        # Special case for the root joint
+        rjt = hpp.robot.getJointType(self.robotName + "/root_joint")
+        if rjt == "JointModelFreeFlyer":
+            self.sot2hpp_rootJointConversion = sotTransRPYToHppPose
+        elif rjt == "JointModelPlanar":
+            from math import cos, sin
+            self.sot2hpp_rootJointConversion = lambda x: list(x[:2]) + [cos(x[5]), sin(x[5])]
+        else:
+            rospy.logerr("Cannot convert the root joint configuration into HPP root joint type {}."
+                    .format(rjt))
+        srk = 6
+        for sj in self.sot_joint_names[1:]:
+            hj = self.robotName + "/" + sj
+            if hj not in self.rankInConfiguration:
+                rospy.logwarn("SoT joint {} does not correspond to any HPP joint".format(sj))
+            else:
+                hrk = self.rankInConfiguration[hj]
+                hsz = hpp.robot.getJointConfigSize(hj)
+                hslice = slice(hrk,hrk+hsz)
+                sslice = slice(srk,srk+hsz)
+                self.sot2hpp_slices.append ((sslice, hslice))
+                srk += hsz
 
     def __init__ (self):
         from threading import Lock
@@ -131,13 +161,19 @@ class Simulation (object):
         self.client = HppClient (context = "simulation")
         self.mutex = Lock()
         # Initialize configuration of robot and objects from HPP
-        self.q = self.client.hpp ().robot.getConfigSize () * [0.,]
+        hpp = self.client.hpp()
+        self.q = hpp.problem.getInitialConfig()
         self.configSize = len (self.q)
         # Compute ranks of joints in HPP configuration
         self.computeRanksInConfiguration ()
+
         # Initialize ROS node
         rospy.init_node ("simulation")
         rospy.loginfo ("started simulation node")
+
+        self.initializeObjects (self.q)
+        self.initializeSoT2HPPconversion()
+
         self.transitionName = ""
         self.q_rhs = None
         self.objectPublisher = dict ()
@@ -162,14 +198,16 @@ class Simulation (object):
         self.mutex.acquire()
         try:
             # Convert RPY to quaternion
-            self.q [:7] = sotTransRPYToHppPose (msg.data [:6])
-            convertTalosConfigReducedToFull (msg.data, self.q)
+            rjq = self.sot2hpp_rootJointConversion (msg.data [:6])
+            self.q[:len(rjq)] = rjq
+            for sslice, hslice in self.sot2hpp_slices:
+                self.q[hslice] = msg.data[sslice]
             # update poses of objects
             for o in self.objects:
                 pose = self.objectPose [o]
                 self.objectPublisher [o].broadcast (pose)
-        except Exception as e:
-            rospy.logerr(e)
+        except Exception:
+            rospy.logerr(traceback.format_exc())
         finally:
             self.mutex.release()
 
