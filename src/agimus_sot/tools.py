@@ -83,6 +83,8 @@ def parseHppName (hppjointname):
 def transQuatToSE3 (p):
     from pinocchio import SE3, Quaternion
     from numpy import matrix
+    if len(p) != 7:
+        raise ValueError("Cannot convert {} to SE3".format(p))
     return SE3 (Quaternion (p[6],p[3],p[4],p[5]).matrix(), matrix(p[0:3]).transpose())
 
 def se3ToTuple (M):

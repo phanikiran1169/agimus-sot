@@ -225,8 +225,13 @@ class TaskFactory(ConstraintFactoryAbstract):
     def buildPlacement (self, o, grasp):
         gf = self.graphfactory
         io = gf.objects.index(o)
-        obj = gf.contactFrames[gf.contactsPerObjects[io][0]]
-        env = gf.contactFrames[gf.envContacts[0]]
+        if len(gf.contactsPerObjects[io]) == 0 or len(gf.envContacts[0]) == 0:
+            return {'preplace': Task(), 'preplace_postaction': Task() }
+        try:
+            obj = gf.contactFrames[gf.contactsPerObjects[io][0]]
+            env = gf.contactFrames[gf.envContacts[0]]
+        except KeyError as e:
+            raise KeyError("Contact frames not correctly filled. Use method setupContactFrames.\n", e)
 
         # get affordance to determine when to use vision.
         try:
@@ -297,7 +302,9 @@ class TaskFactory(ConstraintFactoryAbstract):
             ee = self._buildGripper ("open", gripper, handle)
         else:
             ee = self._buildGripper ("close", gripper, handle)
-        return ee.events.get(what, default)
+        if hasattr(ee, "events"):
+            return ee.events.get(what, default)
+        return default
 
 ## Create a set of controllers for a set of tasks.
 #

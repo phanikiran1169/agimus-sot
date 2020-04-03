@@ -2,7 +2,7 @@
   <arg name="script_file" doc="Full path to the script which initializes the SoT supervisor" />
   <arg name="robot_prefix"            />
   <arg name="simulate_torque_feedback"/>
-  <arg name="required" value="true"/>
+  <arg name="required" default="true"/>
 
   <group ns="agimus" >
     <group ns="sot">

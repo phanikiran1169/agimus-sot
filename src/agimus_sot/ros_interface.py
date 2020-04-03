@@ -26,7 +26,7 @@
 
 import rospy
 from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse, Empty, EmptyResponse
-from agimus_sot_msgs.srv import PlugSot, PlugSotResponse, SetString, SetJointNames, ReadQueue, ReadQueueResponse, WaitForMinQueueSize, WaitForMinQueueSizeResponse, SetPose
+from agimus_sot_msgs.srv import PlugSot, PlugSotResponse, GetJointNames, ReadQueue, WaitForMinQueueSize, WaitForMinQueueSizeResponse, SetPose
 from dynamic_graph_bridge_msgs.srv import RunCommand
 
 def wait_for_service (srv, time = 0.2):
@@ -61,6 +61,7 @@ class RosInterface(object):
         rospy.Service('stop_reading_queue', Empty, self.stopReadingQueue)
         rospy.Service('publish_state', Empty, self.publishState)
         rospy.Service('set_base_pose', SetPose, self.setBasePose)
+        rospy.Service('get_joint_names', GetJointNames, self.getJointNames)
         wait_for_service ("/run_command")
         self._runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor
@@ -141,6 +142,7 @@ class RosInterface(object):
         return rsp
 
     def setupHppJoints(self, prefix = ""):
+        from agimus_sot_msgs.srv import SetJointNames
         if self.supervisor is not None:
             names = self.supervisor.getJointList(prefix = prefix)
         else:
@@ -152,6 +154,18 @@ class RosInterface(object):
         if not ans.success:
             rospy.logerr("Could not set the joint list of hpp_ros_interface node")
 
+    def getJointNames(self, req):
+        if self.supervisor is not None:
+            names = self.supervisor.getJointList()
+        else:
+            answer = self.runCommand ("supervisor.getJointList()")
+            success, message = self._isNotError (answer)
+            if success:
+                exec ("names = " + answer.result)
+            else:
+                rospy.logerr("Could not get the joint names\n" + message)
+        return (names,)
+
     def clearQueues(self, req):
         if self.supervisor is not None:
             self.supervisor.clearQueues()
@@ -161,6 +175,7 @@ class RosInterface(object):
         return TriggerResponse (True, "ok")
 
     def readQueue(self, req):
+        from agimus_sot_msgs.srv import ReadQueueResponse
         rsp = ReadQueueResponse()
         if self.supervisor is not None:
             rsp.success, rsp.start_time = self.supervisor.readQueue(req.delay, req.minQueueSize, req.duration, req.timeout)
@@ -177,6 +192,7 @@ class RosInterface(object):
         return rsp
 
     def waitForMinQueueSize(self, req):
+        from agimus_sot_msgs.srv import WaitForMinQueueSizeResponse
         rsp = WaitForMinQueueSizeResponse()
         if self.supervisor is not None:
             rsp.success = self.supervisor.waitForQueue(req.minQueueSize, req.timeout)
@@ -211,6 +227,8 @@ class RosInterface(object):
     def requestHppTopics(self, req):
         for srv in ['add_center_of_mass', 'add_center_of_mass_velocity', 'add_operational_frame', 'add_operational_frame_velocity',]:
             wait_for_service("/hpp/target/" + srv)
+
+        from agimus_sot_msgs.srv import SetString
         handlers = {
                 'hppcom': rospy.ServiceProxy ('/hpp/target/add_center_of_mass', SetString),
                 'vel_hppcom': rospy.ServiceProxy ('/hpp/target/add_center_of_mass_velocity', SetString),
