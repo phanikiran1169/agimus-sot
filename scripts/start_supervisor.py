@@ -132,7 +132,7 @@ try:
     rz, ry, rx = toEulerAngles (orientation.matrix (), 2, 1, 0)
     code = ["q = list (robot.device.state.value)"]
     code += ["x={0}; y={1}; z={2}".format (x, y, z)]
-    code += ["rx={0}; ry={1}; rz={2}".format (rx[0,0], ry[0,0], rz[0,0])]
+    code += ["rx={0}; ry={1}; rz={2}".format (rx, ry, rz)]
     code += ["q [0:3] = x, y, z"]
     code += ["q [3:6] = rx, ry, rz"]
     code += ["robot.device.set (q)"]
