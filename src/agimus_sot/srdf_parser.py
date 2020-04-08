@@ -203,3 +203,45 @@ def parse_srdf (srdf, packageName = None, prefix = None):
 
     tree = ET.parse (srdfFn)
     return _parse_tree (tree.getroot(), prefix=prefix)
+
+def attach_to_link(model, link, gripper=None, handle=None, contact=None):
+    """
+    Attach a gripper, handle or contact to a different link.
+    - model: a pinocchio.Model that represents the kinematic chain.
+    - link: the link onto which to attach.
+    - gripper, handle, contact: exactly one of them should be provided
+    """
+    import pinocchio
+    if int(gripper is None) + int(handle is None) + int(contact is None) != 2:
+        raise ValueError("Exactly one of {gripper, handle, contact} should be provided")
+    srdf = ( contact if handle is None else handle ) if gripper is None else gripper
+    oid = model.getFrameId(srdf['link'])
+    nid = model.getFrameId(link)
+    if oid >= model.nframes or nid >= model.nframes:
+        raise ValueError("Could not find one of the frames")
+    if oid == nid: return
+    of = model.frames[oid]
+    nf = model.frames[nid]
+    if of.parent != nf.parent:
+        raise RuntimeError("The frames are not attached to the same joint")
+    srdf['link'] = nf.name
+    if contact is not None:
+        # Change srdf['points'] from old link to new link
+        raise NotImplementedError("Need to change srdf['points'] from old link to new link")
+    else:
+        olMf = pinocchio.XYZQUATToSE3(srdf["position"])
+        jMnl = nf.placement
+        jMol = of.placement
+        nlMf = jMnl.inverse() * jMol * olMf
+        srdf["position"] = pinocchio.SE3ToXYZQUAT(nlMf)
+
+def attach_all_to_link(model, link, srdf_content, grippers=True, handles=True, contacts=True):
+    if grippers:
+        for gripper in srdf_content["grippers"].values():
+            attach_to_link(model, link, gripper=gripper)
+    if handles:
+        for handle in srdf_content["handles"].values():
+            attach_to_link(model, link, handle=handle)
+    if contacts:
+        for contact in srdf_content["contacts"].values():
+            attach_to_link(model, link, contact=contact)
