@@ -134,3 +134,38 @@ def matrixHomoInverse(name, valueOrSignal=None, check=True):
     ent = Inverse_of_matrixHomo (name)
     plugMatrixHomo(valueOrSignal, ent.sin)
     return ent
+
+class IfEntity:
+    def __init__ (self, switch):
+        self.switch = switch
+    @property
+    def condition(self): return self.switch.boolSelection
+    @property
+    def then_(self): return self.switch.sin1
+    @property
+    def else_(self): return self.switch.sin0
+    @property
+    def out(self): return self.switch.sout
+
+def entityIfMatrixHomo (name, condition, value_then, value_else, check=True):
+    """
+    - name: the If entity name,
+    - condition: None, a boolean constant or a boolean signal.
+    - value_then, value_else: None, a constant MatrixHomo or a MatrixHomo signal.
+    """
+    from dynamic_graph.sot.core.switch import SwitchMatrixHomogeneous as Switch
+    from agimus_sot.tools import plugMatrixHomo, assertEntityDoesNotExist
+    from dynamic_graph.signal_base import SignalBase
+    from dynamic_graph import plug
+    if check: assertEntityDoesNotExist(name)
+    switch = Switch(name)
+    switch.setSignalNumber(2)
+    if_ = IfEntity(switch)
+    if value_then is not None: plugMatrixHomo (value_then, if_.then_)
+    if value_else is not None: plugMatrixHomo (value_else, if_.else_)
+    if condition  is not None:
+        if isinstance(condition, bool):
+            if_.condition.value = condition
+        else:
+            plug (condition, if_.condition)
+    return if_

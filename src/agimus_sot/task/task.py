@@ -168,8 +168,7 @@ class Task(object):
     ## \return a 2-uplet:
     ##         - the If entity, whose signal sin1 (resp. boolSelection) should be
     ##           plugged to tf output signal (resp tf availability signal)
-    ##         - a tuple to be added to
-    ##           plugged to tf output signal (resp tf availability signal)
+    ##         - a tuple that should be passed to addTfListenerTopic
     def makeTfListenerDefaultValue (self, name, value, outputs = None):
         from dynamic_graph.sot.core.switch import SwitchMatrixHomogeneous as Switch
         from agimus_sot.tools import plugMatrixHomo, assertEntityDoesNotExist

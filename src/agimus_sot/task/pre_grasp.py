@@ -51,6 +51,7 @@ from agimus_sot.tools import _createOpPoint, assertEntityDoesNotExist, \
 # the handle is on the object surface.
 class PreGrasp (Task):
     name_prefix = "pregrasp"
+    meas_suffix = "_measured"
 
     ## Constructor
     # \param gripper object of type OpFrame
@@ -99,22 +100,25 @@ class PreGrasp (Task):
 
     ## Plug the position of linkName to \c outSignal.
     #  The pose of linkName must be computable by the SoT robot entity.
-    #  \todo With measurements, this computes the transform from camera to link,
-    #        while from world to link without measurements.
     def _plugRobotLink (self, sotrobot, linkName, poseSignal, Jsignal, withMeasurement):
         if withMeasurement:
-            _createOpPoint (sotrobot, "rgbd_rgb_optical_frame")
-            self.addTfListenerTopic(linkName + "_measured",
-                    frame0 = "rgbd_rgb_optical_frame",
-                    frame1 = linkName + "_measured",
-                    defaultValue = matrixHomoProduct(linkName + "_wrt_" + "rgbd_rgb_optical_frame",
-                        matrixHomoInverse('rgbd_rgb_optical_frame_inv',
-                            sotrobot.dynamic.signal("rgbd_rgb_optical_frame"),
-                            check=False).sout,
-                        sotrobot.dynamic.signal(linkName),
-                        check=False,).sout,
-                    signalGetters = [poseSignal,],
+            _createOpPoint (sotrobot, sotrobot.camera_frame)
+            from agimus_sot.tools import entityIfMatrixHomo
+            oMl = matrixHomoProduct(linkName + self.meas_suffix + "_wrt_world",
+                    sotrobot.dynamic.signal(sotrobot.camera_frame), None,
+                    check=True)
+            if_ = entityIfMatrixHomo (linkName + self.meas_suffix + "_wrt_world_safe",
+                    name,
+                    condition=None,
+                    value_then=oMl.sout,
+                    value_else=sotrobot.dynamic.signal(linkName),
+                    check=True)
+            self.addTfListenerTopic(linkName + self.meas_suffix,
+                    frame0 = sotrobot.camera_frame,
+                    frame1 = linkName + self.meas_suffix,
+                    signalGetters = [ (oMl.sin1, if_.condition), ],
                     )
+            plug(if_.out, outSignal)
         else:
             plug(sotrobot.dynamic.signal(linkName), poseSignal)
             print("Plug robot link: no measument for " + linkName)
@@ -124,28 +128,31 @@ class PreGrasp (Task):
     ## Plug the position of linkName to \c outSignal.
     #  The pose of linkName is not computable by the SoT robot entity.
     #  \warning The topic linkName must have been created before.
-    #  \todo With measurements, this computes the transform from camera to link,
-    #        while from world to link without measurements.
     #  \todo reading the hpp joint topic sparsely will fail to provide the value
     #        at the expected time (the object pose will be asynchroneous with the
     #        rest of SoT).
     def _plugObjectLink (self, sotrobot, linkName, outSignal, withMeasurement):
         if withMeasurement:
             # Create default value
-            _createOpPoint (sotrobot, "rgbd_rgb_optical_frame")
-            cMl = matrixHomoProduct('hpp_' + linkName + "_wrt_" + "rgbd_rgb_optical_frame",
-                    matrixHomoInverse('rgbd_rgb_optical_frame_inv',
-                        sotrobot.dynamic.signal("rgbd_rgb_optical_frame"),
-                        check=False).sout,
+            _createOpPoint (sotrobot, sotrobot.camera_frame)
+            oMl = matrixHomoProduct(linkName + "_wrt_world",
+                    sotrobot.dynamic.signal(sotrobot.camera_frame),
                     None,
                     check=False,)
-            self.addHppJointTopic (linkName, signalGetters = [ cMl.sin1, ],)
-            self.addTfListenerTopic (linkName + "_measured",
-                    frame0 = "rgbd_rgb_optical_frame",
-                    frame1 = linkName + "_measured",
-                    signalGetters = [outSignal,],
-                    defaultValue = cMl.sout,
+            from agimus_sot.tools import entityIfMatrixHomo
+            # TODO I think this name is not unique
+            name = linkName + self.meas_suffix + "wrt_world"
+            if_ = entityIfMatrixHomo (name, condition=None,
+                    value_then=oMl.sout,
+                    value_else=None,
+                    check=True)
+            self.addTfListenerTopic (linkName + self.meas_suffix,
+                    frame0 = sotrobot.camera_frame,
+                    frame1 = linkName + self.meas_suffix,
+                    signalGetters = [(oMl.sin1, if_.condition),],
                     )
+            self.addHppJointTopic (linkName, signalGetters = [ if_.else_, ],)
+            plug(if_.out, outSignal)
         else:
             print("Plug object link: no measument for " + linkName)
             self.extendSignalGetters(linkName, outSignal)
@@ -291,9 +298,9 @@ class PreGrasp (Task):
                             self.otherGripper.lMf * self.otherHandle.lMf.inverse(),
                             outputs = self.jbMfb.sin0)
             self.addTfListenerTopic (
-                    self.otherHandle.fullLink + "_measured" + "_wrt_" + self.otherGripper.link + "_measured",
-                    frame0 = self.otherGripper.link + "_measured",
-                    frame1 = self.otherHandle.fullLink + "_measured",
+                    self.otherHandle.fullLink + self.meas_suffix + "_wrt_" + self.otherGripper.link + self.meas_suffix,
+                    frame0 = self.otherGripper.link + self.meas_suffix,
+                    frame1 = self.otherHandle.fullLink + self.meas_suffix,
                     signalGetters = [ signals, ],
                     )
 
@@ -382,9 +389,9 @@ class PreGrasp (Task):
                             self.otherGripper.lMf * self.otherHandle.lMf.inverse(),
                             outputs = self.jbMfb.sin0)
             self.addTfListenerTopic (
-                    self.otherHandle.fullLink + "_measured" + "_wrt_" + self.otherGripper.link + "_measured",
-                    frame0 = self.otherGripper.link + "_measured",
-                    frame1 = self.otherHandle.fullLink + "_measured",
+                    self.otherHandle.fullLink + self.meas_suffix + "_wrt_" + self.otherGripper.link + self.meas_suffix,
+                    frame0 = self.otherGripper.link + self.meas_suffix,
+                    frame1 = self.otherHandle.fullLink + self.meas_suffix,
                     signalGetters = [ signals, ],
                     )
 
