@@ -387,17 +387,28 @@ class Factory(GraphFactoryAbstract):
             self.objectsAlreadyGrasped = {}
 
             for ig, ih in enumerate(grasps):
+                gName = factory.grippers[ig]
                 if ih is not None:
+                    gFrame = factory.gripperFrames[gName]
+                    hName = factory.handles[ih]
+                    hFrame = factory.handleFrames[hName]
+                    io = factory.objectFromHandle[ih]
+                    oName = factory.objects[io]
+
                     # Add task gripper_close
-                    self.manifold += tasks.g (factory.grippers[ig], factory.handles[ih], 'gripper_close')
-                    otherGrasp = self.objectsAlreadyGrasped.get(factory.objectFromHandle[ih])
-                    self.manifold += tasks.g (factory.grippers[ig], factory.handles[ih], 'grasp', otherGrasp)
-                    self.objectsAlreadyGrasped[factory.objectFromHandle[ih]] = (
-                            factory.gripperFrames[factory.grippers[ig]],
-                            factory. handleFrames[factory.handles[ih]],)
+                    self.manifold += tasks.g (gName, hName, 'gripper_close')
+
+                    # Check if this graph interferes with another grasp
+                    if not gFrame.controllable and oName not in self.objectsAlreadyGrasped:
+                        otherGrasp = self.objectsAlreadyGrasped.get(gFrame.robotName)
+                    else:
+                        otherGrasp = self.objectsAlreadyGrasped.get(oName)
+
+                    self.manifold += tasks.g (gName, hName, 'grasp', otherGrasp)
+                    self.objectsAlreadyGrasped[oName] = (gFrame, hFrame)
                 else:
                     # Add task gripper_open
-                    self.manifold += tasks.g (factory.grippers[ig], None, 'gripper_open')
+                    self.manifold += tasks.g (gName, None, 'gripper_open')
 
     def __init__ (self, supervisor):
         super(Factory, self).__init__ ()
@@ -515,8 +526,8 @@ class Factory(GraphFactoryAbstract):
         self.grippersIdx = { g: i for i,g in enumerate(self.grippers) }
         self.handlesIdx  = { h: i for i,h in enumerate(self.handles) }
 
-        self.gripperFrames = { g: OpFrame(srdfGrippers[g], sotrobot.dynamic.model, g not in disabledGrippers) for g in self.grippers }
-        self.handleFrames  = { h: OpFrame(srdfHandles [h]                                                   ) for h in self.handles  }
+        self.gripperFrames = { g: OpFrame(srdfGrippers[g], sotrobot.name, sotrobot.dynamic.model, g not in disabledGrippers) for g in self.grippers }
+        self.handleFrames  = { h: OpFrame(srdfHandles [h], sotrobot.name                                                   ) for h in self.handles  }
 
     def setupContactFrames (self, srdfContacts):
         def addPose(c):
@@ -554,7 +565,10 @@ class Factory(GraphFactoryAbstract):
         #TODO compute other grasp on iobj
         # it must be a grasp or pregrasp task
         grasp = ( self.gripperFrames[self.grippers[ig]], self.handleFrames[self.handles[st.grasps[ig]]] )
-        otherGrasp = sf.objectsAlreadyGrasped.get(iobj ,None)
+        if not grasp[0].controllable and obj not in sf.objectsAlreadyGrasped:
+            otherGrasp = sf.objectsAlreadyGrasped.get(grasp[0].robotName)
+        else:
+            otherGrasp = sf.objectsAlreadyGrasped.get(obj)
 
         # The different cases:
         pregrasp = True

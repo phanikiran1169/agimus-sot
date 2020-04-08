@@ -52,12 +52,12 @@ class PreGraspPostAction (Task):
 
     # \param withDerivative not used. Kept for compatibility with other tasks.
     def makeTasks(self, sotrobot, withDerivative = False):
-        if self.gripper.enabled:
-            if self.otherGripper is not None and self.otherGripper.enabled:
+        if self.gripper.controllable:
+            if self.otherGripper is not None and self.otherGripper.controllable:
                 self._makeRelativeTask (sotrobot)
             else:
                 self._makeAbsoluteTask (sotrobot, self.gripper)
-        elif self.otherGripper is not None and self.otherGripper.enabled:
+        elif self.otherGripper is not None and self.otherGripper.controllable:
                 self._makeAbsoluteTask (sotrobot, self.otherGripper)
         else:
             # TODO Both grippers are disabled so nothing can be done...

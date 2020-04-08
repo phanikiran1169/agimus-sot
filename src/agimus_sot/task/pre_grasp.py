@@ -69,8 +69,11 @@ class PreGrasp (Task):
 
     def makeTasks(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos,
             withMeasurementOfOtherGripperPos = False, withDerivative = False):
-        if self.gripper.enabled:
-            if self.otherGripper is not None and self.otherGripper.enabled:
+        assert self.gripper.enabled
+        assert self.otherGripper is None or self.otherGripper.enabled
+
+        if self.gripper.controllable:
+            if self.otherGripper is not None and self.otherGripper.controllable:
                 self._makeRelativeTask (sotrobot,
                         withMeasurementOfObjectPos, withMeasurementOfGripperPos,
                         withMeasurementOfOtherGripperPos, withDerivative)
@@ -79,7 +82,12 @@ class PreGrasp (Task):
                         withMeasurementOfObjectPos, withMeasurementOfGripperPos,
                         withDerivative)
         else:
-            if self.otherGripper is not None and self.otherGripper.enabled:
+            if self.otherGripper is not None and self.otherGripper.controllable:
+                if self.handle.robotName != self.otherHandle.robotName and \
+                        self.gripper.robotName == self.otherHandle.robotName:
+                    # locally inverse the gripper and the handle
+                    print("swapping gripper {} and handle {}".format(self.gripper, self.handle))
+                    self.gripper, self.handle = self.handle, self.gripper
                 self._makeAbsoluteBasedOnOther (sotrobot,
                         withMeasurementOfObjectPos, withMeasurementOfGripperPos,
                         withMeasurementOfOtherGripperPos,
