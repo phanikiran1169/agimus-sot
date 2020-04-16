@@ -29,20 +29,37 @@ from agimus_sot.tools import transQuatToSE3
 
 ## Represents a gripper or a handle
 class OpFrame(object):
-    def __init__ (self, srdf, model = None, enabled = None):
+    """
+    Attributes are:
+    - enabled: whether tasks for this frame should be generated.
+    - controllable: whether the position of the frame can be controlled by this robot.
+    - lMf, jMf: pose of frame wrt to link or joint (when relevant)
+    - hasVisualTag: whether visual feedback is available for this frame. That triggers visual servoing task generation.
+    """
+    def __init__ (self, srdf, modelName, model = None, enabled = None):
+        """
+        Arguments are:
+        - srdf: a dictionnary as returned by function parse_srdf
+        - model: a pinocchio.Model object
+        - modelName: the name of the controlled robot. All joints starting with *robotName/*
+                     are considered active while the other are passive.
+        - enabled: whether tasks for this frame should be generated.
+        """
         self.robotName = srdf["robot"]
         self.name = srdf["name"]
         self.key = self.robotName + "/" + self.name
         self.link = srdf["link"]
         self.lMf = transQuatToSE3 (srdf["position"])
         self.enabled = enabled
-        if srdf.has_key ("joints"):
+        self.controllable = self.robotName == modelName
+        if "joints" in srdf:
             assert model is not None
             ## Only for grippers
             self.joints = srdf["joints"]
-            self._setupParentJoint (self.link, self.lMf, model)
+            if self.controllable:
+                self._setupParentJoint (self.link, self.lMf, model)
             if self.enabled is None:
-                self.enabled = True
+                self.enabled = self.controllable
             if srdf.has_key("torque_constant"):
                 self.torque_constant = srdf["torque_constant"]
         else:
