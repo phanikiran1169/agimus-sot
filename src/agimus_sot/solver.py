@@ -49,6 +49,18 @@ class Solver(object):
         self.sot.push(task.name)
         self.tasks.append(task)
 
+    def setProjector (self, projector):
+        """
+        projector: a signal of type matrix type
+
+        A projector is a NxK matrix, where N is the number of DoF of the
+        robot and K the dimension of the solver search space. This matrix
+        computes a robot velocity from a vector in the search space.
+        When not set, the search space is the robot velocity space.
+        """
+        from dynamic_graph import plug
+        plug(projector, self.sot.proj0)
+
     ## \name Events
     # \{
 
