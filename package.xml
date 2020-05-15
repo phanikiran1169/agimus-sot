@@ -10,4 +10,10 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <run_depend>agimus_sot_msgs</run_depend>
+
+  <depend>dynamic_graph_bridge</depend>
+  <depend>sot-core</depend>
+  <depend>dynamic-graph-python</depend>
+
+  <depend>hpp-manipulation-corba</depend>
 </package>
