@@ -61,9 +61,18 @@ class Task(object):
         #
         #
         self.topics = dict(topics)
+        ## Projector for the solver.
+        # A projector is a NxK matrix, where N is the number of DoF of the
+        # robot and K the dimension of the solver search space. This matrix
+        # computes a robot velocity from a vector in the search space.
+        # When not set, the search space is the robot velocity space.
+        #
+        # When stacking Task object, at most one of the Task can have a projector.
+        self.projector = None
 
     def __add__ (self, other):
         res = Task(list(self.tasks), list(self.constraints), dict(self.topics))
+        res.projector = other.projector
         res += other
         return res
 
@@ -92,6 +101,10 @@ class Task(object):
                 # print k, "has", len(a["signalGetters"]), "signals"
             else:
                 self.topics[k] = v
+        if self.projector is None:
+            self.projector = other.projector
+        elif other.projector is not None:
+            raise ValueError('Cannot merge Task when both have a projector')
         return self
 
     def setControlSelection (self, selection):
@@ -104,6 +117,8 @@ class Task(object):
         """
         for t in self.tasks:
             solver.push(t)
+        if self.projector is not None:
+            solver.setProjector(self.projector)
 
     def extendSignalGetters (self, topicName, signalGetters):
         """Add signal getters to a topic"""
