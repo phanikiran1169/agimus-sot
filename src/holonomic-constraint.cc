@@ -24,7 +24,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <../src/holonomic-constraint.hh>
+#include "holonomic-constraint.hh"
 
 #include <dynamic-graph/command-bind.h>
 #include <dynamic-graph/factory.h>
