@@ -1,5 +1,6 @@
-<package>
-  <name>agimus_sot</name>
+<?xml version="1.0"?>
+<package format="2">
+  <name>agimus-sot</name>
   <version>0.0.0</version>
   <description> Package to link SoT to the Agimus framework. </description>
   <maintainer email="jmirabel@laas.fr">Joseph Mirabel</maintainer>
@@ -9,7 +10,7 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <run_depend>agimus_sot_msgs</run_depend>
+  <exec_depend>agimus_sot_msgs</exec_depend>
 
   <depend>dynamic_graph_bridge</depend>
   <depend>sot-core</depend>

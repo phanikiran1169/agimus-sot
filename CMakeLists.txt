@@ -23,7 +23,7 @@ SET(CXX_DISABLE_WERROR TRUE)
 INCLUDE(cmake/base.cmake)
 INCLUDE(cmake/python.cmake)
 
-SET(PROJECT_NAME agimus_sot)
+SET(PROJECT_NAME agimus-sot)
 SET(PROJECT_DESCRIPTION "Package to link SoT to the Agimus framework.")
 SET(PROJECT_URL "https://github.com/agimus/agimus-sot")
 
