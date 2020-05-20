@@ -6,7 +6,7 @@
 
   <group ns="agimus" >
     <group ns="sot">
-      <node name="start_supervisor" pkg="agimus_sot"
+      <node name="start_supervisor" pkg="agimus-sot"
         type="start_supervisor.py"
         required="$(arg required)"
         output="screen" >
