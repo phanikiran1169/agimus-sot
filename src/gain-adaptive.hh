@@ -11,7 +11,7 @@ namespace dynamicgraph {
 namespace agimus {
 
 /** Exponentially decreasing gain that is safer than
- * dynamicgraph::sot::core::GainAdaptive
+ * dynamicgraph::sot::GainAdaptive
  *
  * It follows the law \f[ g(e) = a \exp (-b ||e||) + c \frac{\tanh(d ||e||)}{||e||} \f].
  *
