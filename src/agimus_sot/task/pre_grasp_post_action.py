@@ -28,7 +28,6 @@ import numpy as np
 from dynamic_graph import plug
 from dynamic_graph.sot.core import FeaturePose, Task as SotTask
 
-from agimus_sot.sot import SafeGainAdaptive
 from .task import Task
 from dynamic_graph.entity import Entity
 from agimus_sot.tools import _createOpPoint, assertEntityDoesNotExist, \

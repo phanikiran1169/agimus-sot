@@ -79,13 +79,7 @@ class EndEffector (Task):
             for i in range(idx_v, idx_v + nv):
                 self.tp.feature.selectDof (i, True)
 
-        self.tp.gain = GainAdaptive("gain_"+self.name)
         self.tp.add(self.tp.feature.name)
-
-        # Set the gain of the posture task
-        setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
-        plug(self.tp.gain.gain, self.tp.controlGain)
-        plug(self.tp.error, self.tp.gain.error)
         if len(self.jointNames) > 0:
             self.tasks = [ self.tp ]
 
@@ -142,7 +136,7 @@ class EndEffector (Task):
             mix_of_vector.addSelec(1, idx_v, nv)
 
         # Plug the admittance controller to the posture task
-        setGain(self.tp.gain,1.)
+        self.tp.controlGain.value = 1.
         plug(self.ac.outputPosition, mix_of_vector.signal("sin1"))
         plug(mix_of_vector.sout, self.tp.feature.posture)
         # TODO plug posture dot ?
@@ -171,7 +165,12 @@ class EndEffector (Task):
             ip += nv
         assert ip == len(position)
         self.tp.feature.posture.value = q
-        setGain(self.tp.gain,(4.9,0.9,0.01,0.9))
+
+        from agimus_sot.sot import SafeGainAdaptive
+        self.gain = SafeGainAdaptive(name + "_gain")
+        self.gain.computeParameters(4.9, .3, 0.02, 0.2)
+        plug(self.gain.gain, self.tp.controlGain)
+        plug(self.tp.error, self.gain.error)
 
         n, c = norm_inferior_to (self.name + "_positioncmp",
                 self.tp.error, self.thr_task_error)
