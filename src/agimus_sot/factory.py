@@ -534,7 +534,7 @@ class Factory(GraphFactoryAbstract):
             if 'position' not in c:
                 c.update ({'position': (0,0,0, 0,0,0,1)})
             return c
-        self.contactFrames = { name: OpFrame(addPose(contact)) for name, contact in srdfContacts.items() }
+        self.contactFrames = { name: OpFrame(addPose(contact), self.sotrobot.name) for name, contact in srdfContacts.items() }
 
     def makeState (self, grasps, priority):
         # Nothing to do here
