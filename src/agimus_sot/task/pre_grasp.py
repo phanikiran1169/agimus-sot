@@ -104,21 +104,22 @@ class PreGrasp (Task):
         if withMeasurement:
             _createOpPoint (sotrobot, sotrobot.camera_frame)
             from agimus_sot.tools import entityIfMatrixHomo
-            oMl = matrixHomoProduct(linkName + self.meas_suffix + "_wrt_world",
+            linkNameMeas = linkName + self.meas_suffix
+            oMl = matrixHomoProduct(linkNameMeas + "_wrt_world",
                     sotrobot.dynamic.signal(sotrobot.camera_frame), None,
-                    check=True)
-            if_ = entityIfMatrixHomo (linkName + self.meas_suffix + "_wrt_world_safe",
+                    check=False)
+            if_ = entityIfMatrixHomo (linkNameMeas + "_wrt_world_safe",
                     name,
                     condition=None,
                     value_then=oMl.sout,
                     value_else=sotrobot.dynamic.signal(linkName),
-                    check=True)
-            self.addTfListenerTopic(linkName + self.meas_suffix,
+                    check=False)
+            self.addTfListenerTopic(linkNameMeas,
                     frame0 = sotrobot.camera_frame,
-                    frame1 = linkName + self.meas_suffix,
+                    frame1 = linkNameMeas,
                     signalGetters = [ (oMl.sin1, if_.condition), ],
                     )
-            plug(if_.out, outSignal)
+            plug(if_.out, poseSignal)
         else:
             plug(sotrobot.dynamic.signal(linkName), poseSignal)
             print("Plug robot link: no measument for " + linkName)
@@ -133,22 +134,23 @@ class PreGrasp (Task):
     #        rest of SoT).
     def _plugObjectLink (self, sotrobot, linkName, outSignal, withMeasurement):
         if withMeasurement:
+            linkNameMeas = linkName + self.meas_suffix
+
             # Create default value
             _createOpPoint (sotrobot, sotrobot.camera_frame)
-            oMl = matrixHomoProduct(linkName + "_wrt_world",
+            oMl = matrixHomoProduct(linkNameMeas + "_wrt_world",
                     sotrobot.dynamic.signal(sotrobot.camera_frame),
                     None,
                     check=False,)
             from agimus_sot.tools import entityIfMatrixHomo
-            # TODO I think this name is not unique
-            name = linkName + self.meas_suffix + "wrt_world"
+            name = linkNameMeas + "wrt_world"
             if_ = entityIfMatrixHomo (name, condition=None,
                     value_then=oMl.sout,
                     value_else=None,
-                    check=True)
-            self.addTfListenerTopic (linkName + self.meas_suffix,
+                    check=False)
+            self.addTfListenerTopic (linkNameMeas,
                     frame0 = sotrobot.camera_frame,
-                    frame1 = linkName + self.meas_suffix,
+                    frame1 = linkNameMeas,
                     signalGetters = [(oMl.sin1, if_.condition),],
                     )
             self.addHppJointTopic (linkName, signalGetters = [ if_.else_, ],)
