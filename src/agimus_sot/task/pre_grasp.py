@@ -377,22 +377,49 @@ class PreGrasp (Task):
             plug(self.jbMfb.sout, self.feature.jbMfb)
         elif method == 1:
             # jbMfb        = ogMo * oMh
-            self.jbMfb = matrixHomoProduct (name + "_jbMfb",
-                None,                    # ogMo -> TF
-                self.handle.lMf,         # oMh
-                )
-            plug(self.jbMfb.sout, self.feature.jbMfb)
-            # ogMo
-            self._defaultValue, signals = \
-                    self.makeTfListenerDefaultValue(name+"_defaultValue",
-                            self.otherGripper.lMf * self.otherHandle.lMf.inverse(),
-                            outputs = self.jbMfb.sin0)
-            self.addTfListenerTopic (
-                    self.otherHandle.fullLink + self.meas_suffix + "_wrt_" + self.otherGripper.link + self.meas_suffix,
-                    frame0 = self.otherGripper.link + self.meas_suffix,
-                    frame1 = self.otherHandle.fullLink + self.meas_suffix,
-                    signalGetters = [ signals, ],
+            # Two options for ogMo measured:
+            if withMeasurementOfOtherGripperPos:
+                self.jbMfb = matrixHomoProduct (name + "_jbMfb",
+                    None,                    # ogMo -> TF
+                    self.handle.lMf,         # oMh
                     )
+                plug(self.jbMfb.sout, self.feature.jbMfb)
+                # We use TF to get the position of the otherHandle wrt to the otherGripper
+                self._defaultValue, signals = \
+                        self.makeTfListenerDefaultValue(name+"_defaultValue",
+                                self.otherGripper.lMf * self.otherHandle.lMf.inverse(),
+                                outputs = self.jbMfb.sin0)
+                self.addTfListenerTopic (
+                        self.otherHandle.fullLink + self.meas_suffix + "_wrt_" + self.otherGripper.link + self.meas_suffix,
+                        frame0 = self.otherGripper.link + self.meas_suffix,
+                        frame1 = self.otherHandle.fullLink + self.meas_suffix,
+                        signalGetters = [ signals, ],
+                        )
+            else:
+                ogMo = matrixHomoProduct(name + "_jbMfb_meas",
+                        matrixHomoInverse (self.otherGripper.link + "_inv", sotrobot.dynamic.signal(self.otherGripper.link)).sout,
+                        sotrobot.dynamic.signal(sotrobot.camera_frame),
+                        None, # Tf
+                        self.handle.lMf,
+                        check=True,)
+                if_ = entityIfMatrixHomo (name + "_jbMfb_cond",
+                        condition=None,
+                        value_then=ogMo.sout,
+                        value_else=self.otherGripper.lMf * self.otherHandle.lMf.inverse() * self.handle.lMf,
+                        check=True)
+                plug(if_.out, self.feature.jbMfb)
+                # We use TF to get the position of the otherHandle wrt to the camera
+                # and then we compute
+                # Who should we trust ?
+                # - other grasp: i.e. wMjb = wMog = wMc * cMo (measured) * oMog, jbMfb = ogMo (constant) * oMh
+                # - kinematics: i.e. wMjb = wMog(q), jbMfb = ogMw(q) * wMc(q) * cMo (measured) * oMh  (needs good localisation)
+                # Below we trust kinematics
+                self.addTfListenerTopic (
+                        self.otherHandle.fullLink + self.meas_suffix,
+                        frame0 = sotrobot.camera_frame,
+                        frame1 = self.handle.fullLink + self.meas_suffix,
+                        signalGetters = [ (ogMo.sin2, if_.condition), ],
+                        )
 
             self.addHppJointTopic (self.handle.fullLink)
 
