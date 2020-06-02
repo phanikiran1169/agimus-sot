@@ -26,7 +26,7 @@
 
 import numpy as np
 from dynamic_graph import plug
-from dynamic_graph.sot.core import FeaturePosture, GainAdaptive, Task as SotTask
+from dynamic_graph.sot.core import FeaturePosture, Task as SotTask
 from dynamic_graph.sot.core.meta_tasks import setGain
 from dynamic_graph.sot.core.operator import Mix_of_vector
 
@@ -167,7 +167,7 @@ class EndEffector (Task):
         self.tp.feature.posture.value = q
 
         from agimus_sot.sot import SafeGainAdaptive
-        self.gain = SafeGainAdaptive(name + "_gain")
+        self.gain = SafeGainAdaptive(self.name + "_gain")
         self.gain.computeParameters(4.9, .3, 0.02, 0.2)
         plug(self.gain.gain, self.tp.controlGain)
         plug(self.tp.error, self.gain.error)
