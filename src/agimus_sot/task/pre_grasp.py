@@ -31,7 +31,7 @@ from dynamic_graph.sot.core import FeaturePose, Task as SotTask
 from agimus_sot.sot import SafeGainAdaptive
 from .task import Task
 from agimus_sot.tools import _createOpPoint, assertEntityDoesNotExist, \
-    matrixHomoInverse, matrixHomoProduct, se3ToTuple
+    matrixHomoInverse, matrixHomoProduct, se3ToTuple, entityIfMatrixHomo
 
 ## \brief A pregrasp (and preplace) task.
 # It creates a task to pose of the gripper with respect to the handle.
@@ -87,7 +87,7 @@ class PreGrasp (Task):
                 if self.handle.robotName != self.otherHandle.robotName and \
                         self.gripper.robotName == self.otherHandle.robotName:
                     # locally inverse the gripper and the handle
-                    print("swapping gripper {} and handle {}".format(self.gripper, self.handle))
+                    print("swapping gripper {} and handle {}".format(self.gripper.fullName, self.handle.fullName))
                     self.gripper, self.handle = self.handle, self.gripper
                 self._makeAbsoluteBasedOnOther (sotrobot,
                         withMeasurementOfObjectPos, withMeasurementOfGripperPos,
@@ -103,13 +103,11 @@ class PreGrasp (Task):
     def _plugRobotLink (self, sotrobot, linkName, poseSignal, Jsignal, withMeasurement):
         if withMeasurement:
             _createOpPoint (sotrobot, sotrobot.camera_frame)
-            from agimus_sot.tools import entityIfMatrixHomo
             linkNameMeas = linkName + self.meas_suffix
             oMl = matrixHomoProduct(linkNameMeas + "_wrt_world",
                     sotrobot.dynamic.signal(sotrobot.camera_frame), None,
                     check=False)
             if_ = entityIfMatrixHomo (linkNameMeas + "_wrt_world_safe",
-                    name,
                     condition=None,
                     value_then=oMl.sout,
                     value_else=sotrobot.dynamic.signal(linkName),
@@ -142,7 +140,6 @@ class PreGrasp (Task):
                     sotrobot.dynamic.signal(sotrobot.camera_frame),
                     None,
                     check=False,)
-            from agimus_sot.tools import entityIfMatrixHomo
             name = linkNameMeas + "wrt_world"
             if_ = entityIfMatrixHomo (name, condition=None,
                     value_then=oMl.sout,
