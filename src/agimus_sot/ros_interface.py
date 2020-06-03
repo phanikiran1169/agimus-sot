@@ -32,10 +32,11 @@ from dynamic_graph_bridge_msgs.srv import RunCommand
 def wait_for_service (srv, time = 0.2):
     try:
         rospy.wait_for_service(srv, time)
+        rospy.loginfo("Service {0} found.".format(srv))
     except rospy.ROSException:
         rospy.logwarn("Waiting for service: {0}".format(srv))
         rospy.wait_for_service(srv)
-    rospy.loginfo("Service {0} found.".format(srv))
+        rospy.logwarn("Service {0} found.".format(srv))
 
 ## Ros interface for \ref supervisor.Supervisor.
 #
