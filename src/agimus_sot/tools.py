@@ -118,6 +118,10 @@ def assertEntityDoesNotExist(name):
     from dynamic_graph.entity import Entity
     assert name not in Entity.entities, "Entity " + name + " already exists."
 
+def entityExists(name):
+    from dynamic_graph.entity import Entity
+    return name in Entity.entities
+
 def matrixHomoProduct(name, *args, **kwargs):
     from dynamic_graph.sot.core import Multiply_of_matrixHomo
     if kwargs.get('check',True): assertEntityDoesNotExist(name)
