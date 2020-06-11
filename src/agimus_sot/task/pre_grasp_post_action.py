@@ -26,7 +26,8 @@
 
 import numpy as np
 from dynamic_graph import plug
-from dynamic_graph.sot.core import FeaturePose, Task as SotTask
+from dynamic_graph.sot.core.feature_pose import FeaturePose
+from . import SotTask
 
 from agimus_sot.sot import SafeGainAdaptive
 from .task import Task

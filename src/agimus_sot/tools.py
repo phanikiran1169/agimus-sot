@@ -117,7 +117,7 @@ def assertEntityDoesNotExist(name):
     assert name not in Entity.entities, "Entity " + name + " already exists."
 
 def matrixHomoProduct(name, *args, **kwargs):
-    from dynamic_graph.sot.core import Multiply_of_matrixHomo
+    from dynamic_graph.sot.core.operator import Multiply_of_matrixHomo
     if kwargs.get('check',True): assertEntityDoesNotExist(name)
     ent = Multiply_of_matrixHomo (name)
     ent.setSignalNumber(len(args))
@@ -127,7 +127,7 @@ def matrixHomoProduct(name, *args, **kwargs):
     return ent
 
 def matrixHomoInverse(name, valueOrSignal=None, check=True):
-    from dynamic_graph.sot.core import Inverse_of_matrixHomo
+    from dynamic_graph.sot.core.operator import Inverse_of_matrixHomo
     if check: assertEntityDoesNotExist(name)
     ent = Inverse_of_matrixHomo (name)
     plugMatrixHomo(valueOrSignal, ent.sin)
