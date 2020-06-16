@@ -117,6 +117,7 @@ try:
     launchScript(initCode,'initialize SoT')
     ri = makeRosInterface ()
 
+    ## \todo this should be moved somewhere else (in agimus).
     ## Initialize pose of robot root_joint
     # read SE(3) pose from ROS parameter
     rootJointPose = rospy.get_param ("/robot_initial_pose")
@@ -129,7 +130,7 @@ try:
     q = res.data
     orientation = Quaternion (W, X, Y, Z)
     rz, ry, rx = toEulerAngles (orientation.matrix (), 2, 1, 0)
-    code = ["q = list (robot.device.state.value)"]
+    code = ["q = robot.device.state.value"]
     code += ["x={0}; y={1}; z={2}".format (x, y, z)]
     code += ["rx={0}; ry={1}; rz={2}".format (rx, ry, rz)]
     code += ["q [0:3] = x, y, z"]

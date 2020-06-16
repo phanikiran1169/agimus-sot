@@ -29,7 +29,7 @@ from . import FeaturePose, GainAdaptive, SotTask
 from dynamic_graph.sot.core.meta_tasks import setGain
 
 from .task import Task
-from agimus_sot.tools import se3ToTuple, _createOpPoint
+from agimus_sot.tools import _createOpPoint
 
 ## A grasp task
 # It creates a grasp constraint only in the case where
@@ -68,7 +68,7 @@ class Grasp (Task):
             def set(oMj, jMf, jJj, g, h):
                 # Create the operational points
                 _createOpPoint (sotrobot, g.link)
-                jMf.value = se3ToTuple(g.lMf * h.lMf.inverse())
+                jMf.value = (g.lMf * h.lMf.inverse()).homogeneous
                 plug(sotrobot.dynamic.signal(    g.link), oMj)
                 plug(sotrobot.dynamic.signal('J'+g.link), jJj)
 

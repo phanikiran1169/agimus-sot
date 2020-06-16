@@ -31,7 +31,7 @@ from . import SotTask, FeaturePose
 from agimus_sot.sot import SafeGainAdaptive
 from .task import Task
 from agimus_sot.tools import _createOpPoint, assertEntityDoesNotExist, \
-    matrixHomoInverse, matrixHomoProduct, se3ToTuple, entityIfMatrixHomo
+    matrixHomoInverse, matrixHomoProduct, entityIfMatrixHomo
 
 ## \brief A pregrasp (and preplace) task.
 # It creates a task to pose of the gripper with respect to the handle.
@@ -200,12 +200,12 @@ class PreGrasp (Task):
         self._plugRobotLink (sotrobot, self.gripper.link,
                 self.feature.oMja, self.feature.jaJja,
                 withMeasurementOfGripperPos)
-        self.feature.jaMfa.value = se3ToTuple(self.gripper.lMf)
+        self.feature.jaMfa.value = self.gripper.lMf.homogeneous
 
         self.addHppJointTopic (self.handle.fullLink)
         self._plugObjectLink (sotrobot, self.handle.fullLink,
                 self.feature.oMjb, withMeasurementOfObjectPos)
-        self.feature.jbMfb.value = se3ToTuple(self.handle.lMf)
+        self.feature.jbMfb.value = self.handle.lMf.homogeneous
         self.feature.jbJjb.value = np.zeros((6, sotrobot.dynamic.getDimension()))
 
         # Compute desired pose between gripper and handle.
@@ -245,7 +245,7 @@ class PreGrasp (Task):
                 withMeasurementOfGripperPos)
         # Frame A is the gripper frame
         self.feature.jaJja.value = np.zeros((6, sotrobot.dynamic.getDimension()))
-        self.feature.jaMfa.value = se3ToTuple(self.gripper.lMf)
+        self.feature.jaMfa.value = self.gripper.lMf.homogeneous
 
         # Joint B is the other gripper link
         self._plugRobotLink (sotrobot, self.otherGripper.link,
@@ -258,10 +258,10 @@ class PreGrasp (Task):
         method = 3
         if method == 0: # Works
             # jbMfb        = ogMoh * ohMo * oMh
-            self.feature.jbMfb.value = se3ToTuple (
+            self.feature.jbMfb.value = (
                     self.otherGripper.lMf
                     * self.otherHandle.lMf.inverse()
-                    * self.handle.lMf)
+                    * self.handle.lMf).homogeneous
             self.addHppJointTopic (self.handle.fullLink)
         elif method == 1: # Does not work
             # Above, it is assumed that ogMoh = Id, which must be corrected.
@@ -305,8 +305,8 @@ class PreGrasp (Task):
 
             self.addHppJointTopic (self.handle.fullLink)
         elif method == 3:
-            self.feature.jbMfb.value = se3ToTuple (self.otherGripper.lMf
-                    * self.otherHandle.lMf.inverse() * self.handle.lMf)
+            self.feature.jbMfb.value = (self.otherGripper.lMf
+                    * self.otherHandle.lMf.inverse() * self.handle.lMf).homogeneous
             self.addHppJointTopic (self.handle.fullLink)
 
         # Compute desired pose between gripper and handle.
@@ -348,7 +348,7 @@ class PreGrasp (Task):
         self._plugObjectLink (sotrobot, self.gripper.fullLink,
                 self.feature.oMja, withMeasurementOfGripperPos)
         # Frame A is the gripper frame
-        self.feature.jaMfa.value = se3ToTuple(self.gripper.lMf)
+        self.feature.jaMfa.value = self.gripper.lMf.homogeneous
         self.feature.jaJja.value = np.zeros((6, sotrobot.dynamic.getDimension()))
 
         # Joint B is the other gripper link
