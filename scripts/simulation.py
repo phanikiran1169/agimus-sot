@@ -107,6 +107,7 @@ class Simulation (object):
                    'table' : [0,0,0,0,0,0,1]
                    }
     objects = {'box', 'table'}
+    baseLink = {'box':'/base_link', 'table':'/table_link'}
 
     subscriberDict = {
         "sot": {
@@ -145,7 +146,7 @@ class Simulation (object):
         prefix = rospy.get_param ('tf_prefix', 'sim_')
         for o in self.objects:
             self.objectPublisher [o] = PublishObjectPose \
-                                       ('world', prefix+o+'/base_link')
+                                       ('world', prefix+o+self.baseLink[o])
             self.objectPublisher [o].broadcast (self.objectPose [o])
 
             pose = self.objectPose [o]
