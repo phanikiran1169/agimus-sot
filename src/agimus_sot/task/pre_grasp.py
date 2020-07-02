@@ -169,7 +169,7 @@ class PreGrasp (Task):
         self.gain = SafeGainAdaptive(name + "_gain")
         # See doc of SafeGainAdaptive to see how to plot the gain associated
         # to those values.
-        self.gain.computeParameters(0.9,0.1,0.3,1.)
+        self.gain.computeParameters(0.3,0.05,0.3,1.)
         plug(self.gain.gain, self.task.controlGain)
         plug(self.task.error, self.gain.error)
 
