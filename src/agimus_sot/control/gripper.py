@@ -58,7 +58,7 @@ class AdmittanceControl(object):
 
     ### Internal method
     def _makeIntegrationOfVelocity (self):
-        from dynamic_graph.sot.core import Add_of_vector
+        from dynamic_graph.sot.core.operator import Add_of_vector
         self.omega2theta = Add_of_vector (self.name + "_omega2theta")
         self.omega2theta.setCoeff2(self.dt)
         # self.omega2theta.sin1 <- current position
@@ -68,7 +68,7 @@ class AdmittanceControl(object):
     ### Setup event to tell when object is grasped and simulate torque feedback.
     def setupFeedbackSimulation (self, mass, damping, spring, theta0):
         from agimus_sot.control.controllers import Controller
-        from dynamic_graph.sot.core import Add_of_vector
+        from dynamic_graph.sot.core.operator import Add_of_vector
         from agimus_sot.sot import DelayVector
 
         ## theta -> phi = theta - theta0

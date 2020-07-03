@@ -27,7 +27,7 @@
 class Solver(object):
     def __init__ (self, name, dimension, damping = None, timer = False):
         from dynamic_graph.entity import VerbosityLevel
-        from dynamic_graph.sot.core import SOT
+        from dynamic_graph.sot.core.sot import SOT
         sot = SOT(name)
         sot.setSize(dimension)
         sot.setMaxControlIncrementSquaredNorm(10.)
