@@ -103,7 +103,7 @@ def createGraphDict (client):
 
 class Simulation (object):
     objectPose = {'box' : [0.000, -0.000, 0.857,
-                           0.500, -0.500, -0.500, -0.500],
+                           -0.500, 0.500, 0.500, 0.500],
                    'table' : [0,0,0,0,0,0,1]
                    }
     objects = {'box', 'table'}
