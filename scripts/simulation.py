@@ -143,7 +143,7 @@ class Simulation (object):
         self.q_rhs = None
         self.objectPublisher = dict ()
         # Create an object publisher by object
-        prefix = rospy.get_param ('tf_prefix', 'sim_')
+        prefix = rospy.get_param ('tf_prefix', '')
         for o in self.objects:
             self.objectPublisher [o] = PublishObjectPose \
                                        ('world', prefix+o+self.baseLink[o])
