@@ -26,7 +26,7 @@
 
 import numpy as np
 from dynamic_graph import plug
-from dynamic_graph.sot.core import FeaturePosture, Task as SotTask
+from dynamic_graph.sot.core.feature_posture import FeaturePosture
 from dynamic_graph.sot.core.meta_tasks import setGain
 from dynamic_graph.sot.core.operator import Mix_of_vector
 
@@ -58,6 +58,7 @@ class EndEffector (Task):
 
         self.name = self._name(gripper.name, name_suffix)
 
+        from . import SotTask
         self.tp = SotTask ('task' + self.name)
         self.tp.dyn = sotrobot.dynamic
         self.tp.feature = FeaturePosture ('feature_' + self.name)
