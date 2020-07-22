@@ -17,50 +17,6 @@
 # agimus_sot  If not, see
 # <http://www.gnu.org/licenses/>.
 
-MACRO(AGIMUS_SOT_PYTHON_MODULE SUBMODULENAME LIBRARYNAME TARGETNAME)
-  SET(PYTHON_MODULE ${TARGETNAME})
-
-  ADD_LIBRARY(${PYTHON_MODULE}
-    MODULE
-    ${PROJECT_SOURCE_DIR}/cmake/dynamic_graph/python-module-py.cc)
-
-  FILE(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/src/agimus_sot/${SUBMODULENAME})
-  SET_TARGET_PROPERTIES(${PYTHON_MODULE}
-    PROPERTIES PREFIX ""
-    OUTPUT_NAME agimus_sot/${SUBMODULENAME}/wrap
-   )
-
-  TARGET_LINK_LIBRARIES(${PYTHON_MODULE} "-Wl,--no-as-needed")
-  TARGET_LINK_LIBRARIES(${PYTHON_MODULE} ${LIBRARYNAME} ${PYTHON_LIBRARY})
-
-  INCLUDE_DIRECTORIES(${PYTHON_INCLUDE_PATH})
-
-  #
-  # Installation
-  #
-  SET(PYTHON_INSTALL_DIR ${PYTHON_SITELIB}/agimus_sot/${SUBMODULENAME})
-
-  INSTALL(TARGETS ${PYTHON_MODULE}
-    DESTINATION
-    ${PYTHON_INSTALL_DIR})
-
-  SET(ENTITY_CLASS_LIST "")
-  FOREACH (ENTITY ${NEW_ENTITY_CLASS})
-    SET(ENTITY_CLASS_LIST "${ENTITY_CLASS_LIST}${ENTITY}('')\n")
-  ENDFOREACH(ENTITY ${NEW_ENTITY_CLASS})
-
-  CONFIGURE_FILE(
-    ${PROJECT_SOURCE_DIR}/cmake/dynamic_graph/submodule/__init__.py.cmake
-    ${PROJECT_BINARY_DIR}/src/agimus_sot/${SUBMODULENAME}/__init__.py
-    )
-
-  INSTALL(
-    FILES ${PROJECT_BINARY_DIR}/src/agimus_sot/${SUBMODULENAME}/__init__.py
-    DESTINATION ${PYTHON_INSTALL_DIR}
-    )
-
-ENDMACRO()
-
 SET(LIBRARY_NAME ${PROJECT_NAME})
 
 ADD_LIBRARY(${LIBRARY_NAME}
@@ -81,12 +37,22 @@ INSTALL(TARGETS ${LIBRARY_NAME}
   DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
   )
 
-SET(NEW_ENTITY_CLASS "HolonomicConstraint" "SafeGainAdaptive")
-
-AGIMUS_SOT_PYTHON_MODULE("sot" ${LIBRARY_NAME} wrap)
-FILE(WRITE ${CMAKE_CURRENT_BINARY_DIR}/agimus_sot/__init__.py "")
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/agimus_sot/__init__.py
-    DESTINATION ${PYTHON_SITELIB}/agimus_sot/)
+#AGIMUS_SOT_PYTHON_MODULE("sot" ${LIBRARY_NAME} wrap)
+add_library(wrap MODULE python-module-py.cc)
+file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/src/agimus_sot/${SUBMODULENAME})
+set_target_properties(wrap
+  PROPERTIES PREFIX ""
+  OUTPUT_NAME agimus_sot/sot/wrap)
+target_compile_options(wrap PRIVATE "-Wl,--no-as-needed")
+target_link_libraries(wrap PUBLIC
+  dynamic-graph-python::dynamic-graph-python
+  ${PYTHON_LIBRARY} ${LIBRARY_NAME})
+target_include_directories(wrap PRIVATE ${PYTHON_INCLUDE_PATH})
+install(TARGETS wrap
+  DESTINATION ${PYTHON_SITELIB}/agimus_sot/sot)
+install(
+  FILES ${CMAKE_CURRENT_SOURCE_DIR}/agimus_sot/sot/__init__.py
+  DESTINATION ${PYTHON_SITELIB}/agimus_sot/sot)
 
 SET(FILES
   supervisor.py

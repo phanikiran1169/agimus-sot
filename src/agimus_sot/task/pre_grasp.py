@@ -115,7 +115,7 @@ class PreGrasp (Task):
             self.addTfListenerTopic(linkNameMeas,
                     frame0 = sotrobot.camera_frame,
                     frame1 = linkNameMeas,
-                    signalGetters = [ (oMl.sin1, if_.condition), ],
+                    signalGetters = [ (oMl.sin(1), if_.condition), ],
                     )
             plug(if_.out, poseSignal)
         else:
@@ -148,7 +148,7 @@ class PreGrasp (Task):
             self.addTfListenerTopic (linkNameMeas,
                     frame0 = sotrobot.camera_frame,
                     frame1 = linkNameMeas,
-                    signalGetters = [(oMl.sin1, if_.condition),],
+                    signalGetters = [(oMl.sin(1), if_.condition),],
                     )
             self.addHppJointTopic (linkName, signalGetters = [ if_.else_, ],)
             plug(if_.out, outSignal)
@@ -172,7 +172,7 @@ class PreGrasp (Task):
             handle.lMf,            # lhMh
             )
         # oMlh -> HPP joint
-        self.extendSignalGetters(handle.fullLink, self.faMfbDes.sin2)
+        self.extendSignalGetters(handle.fullLink, self.faMfbDes.sin(2))
 
     def _createTaskAndGain (self, name):
         # Create a task
@@ -281,7 +281,7 @@ class PreGrasp (Task):
             # wMo
             self.addHppJointTopic (self.handle.fullLink)
             self._plugObjectLink (sotrobot, self.handle.fullLink,
-                    self.jbMfb.sin1, withMeasurementOfObjectPos)
+                    self.jbMfb.sin(1), withMeasurementOfObjectPos)
             # Plug it to FeaturePose
             plug(self.jbMfb.sout, self.feature.jbMfb)
         elif method == 2: # Seems to work
@@ -295,7 +295,7 @@ class PreGrasp (Task):
             self._defaultValue, signals = \
                     self.makeTfListenerDefaultValue(name+"_defaultValue",
                             self.otherGripper.lMf * self.otherHandle.lMf.inverse(),
-                            outputs = self.jbMfb.sin0)
+                            outputs = self.jbMfb.sin(0))
             self.addTfListenerTopic (
                     self.otherHandle.fullLink + self.meas_suffix + "_wrt_" + self.otherGripper.link + self.meas_suffix,
                     frame0 = self.otherGripper.link + self.meas_suffix,
@@ -372,7 +372,7 @@ class PreGrasp (Task):
             # wMo
             self.addHppJointTopic (self.handle.fullLink)
             self._plugObjectLink (self.handle.fullLink,
-                    self.jbMfb.sin1, withMeasurementOfObjectPos)
+                    self.jbMfb.sin(1), withMeasurementOfObjectPos)
             # Plug it to FeaturePose
             plug(self.jbMfb.sout, self.feature.jbMfb)
         elif method == 1:
@@ -388,7 +388,7 @@ class PreGrasp (Task):
                 self._defaultValue, signals = \
                         self.makeTfListenerDefaultValue(name+"_defaultValue",
                                 self.otherGripper.lMf * self.otherHandle.lMf.inverse(),
-                                outputs = self.jbMfb.sin0)
+                                outputs = self.jbMfb.sin(0))
                 self.addTfListenerTopic (
                         self.otherHandle.fullLink + self.meas_suffix + "_wrt_" + self.otherGripper.link + self.meas_suffix,
                         frame0 = self.otherGripper.link + self.meas_suffix,
@@ -418,7 +418,7 @@ class PreGrasp (Task):
                         self.otherHandle.fullLink + self.meas_suffix,
                         frame0 = sotrobot.camera_frame,
                         frame1 = self.handle.fullLink + self.meas_suffix,
-                        signalGetters = [ (ogMo.sin2, if_.condition), ],
+                        signalGetters = [ (ogMo.sin(2), if_.condition), ],
                         )
 
             self.addHppJointTopic (self.handle.fullLink)

@@ -26,7 +26,7 @@ class TestAgimusTools(unittest.TestCase):
         Id = pinocchio.SE3.Identity()
         a = matrixHomoProduct(name_a, None, Id)
         b = matrixHomoInverse(name_b, a.sout)
-        plugMatrixHomo(b.sout, a.sin0)
+        plugMatrixHomo(b.sout, a.sin(0))
 
     def test_if_entity(self):
         name = "test_if_entity"
@@ -42,11 +42,11 @@ class TestAgimusTools(unittest.TestCase):
 
         if_.condition.value = 1
         if_.out.recompute(0)
-        self.assertEqual(if_.out.value, se3ToTuple(Id))
+        np.testing.assert_almost_equal(if_.out.value, Id.homogeneous)
 
         if_.condition.value = 0
         if_.out.recompute(1)
-        np.testing.assert_almost_equal(np.array(if_.out.value), M0.homogeneous)
+        np.testing.assert_almost_equal(if_.out.value, M0.homogeneous)
 
 if __name__ == '__main__':
     unittest.main()

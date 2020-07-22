@@ -39,7 +39,7 @@ add_project_dependency (dynamic_graph_bridge 3 REQUIRED)
 # Needs only the Python classes related to ConstraintGraphFactory.
 add_project_dependency (hpp-manipulation-corba 4 REQUIRED)
 add_project_dependency (sot-core 4 REQUIRED)
-add_project_dependency (dynamic-graph-python 3 REQUIRED)
+add_project_dependency (dynamic-graph-python 4 REQUIRED)
 add_project_dependency (agimus_sot_msgs REQUIRED)
 
 INSTALL(FILES
