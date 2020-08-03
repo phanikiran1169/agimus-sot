@@ -84,11 +84,12 @@ def _read_position (xml):
             xyz_xyzw += [x, y, z, w]
         elif "rpy" in attribs:
             from math import cos, sin, sqrt
-            r, p, y = get_attribute("rpy", 3)
-            x = sin(r/2.) * cos(p/2.) * cos(y/2.) - cos(r/2.) * sin(p/2.) * sin(y/2.)
-            y = cos(r/2.) * sin(p/2.) * cos(y/2.) + sin(r/2.) * cos(p/2.) * sin(y/2.)
-            z = cos(r/2.) * cos(p/2.) * sin(y/2.) - sin(r/2.) * sin(p/2.) * cos(y/2.)
-            w = cos(r/2.) * cos(p/2.) * cos(y/2.) + sin(r/2.) * sin(p/2.) * sin(y/2.)
+            R, P, Y = get_attribute("rpy", 3)
+            x = sin(R/2.) * cos(P/2.) * cos(Y/2.) - cos(R/2.) * sin(P/2.) * sin(Y/2.)
+            y = cos(R/2.) * sin(P/2.) * cos(Y/2.) + sin(R/2.) * cos(P/2.) * sin(Y/2.)
+            z = cos(R/2.) * cos(P/2.) * sin(Y/2.) - sin(R/2.) * sin(P/2.) * cos(Y/2.)
+            w = cos(R/2.) * cos(P/2.) * cos(Y/2.) + sin(R/2.) * sin(P/2.) * sin(Y/2.)
+            assert abs(x**2+y**2+z**2+w**2 - 1) < 1e-6
             xyz_xyzw += [x, y, z, w]
         else:
             xyz_xyzw += [0., 0., 0., 1.]
