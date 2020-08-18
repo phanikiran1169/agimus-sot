@@ -40,6 +40,25 @@ from agimus_hpp.client import HppClient
 from agimus_hpp.tools import sotTransRPYToHppPose
 import hpp_idl
 
+def initialize():
+    # Initialize ROS node
+    rospy.init_node ("simulation")
+    rospy.loginfo ("started simulation node")
+
+    from hpp.corbaserver import createContext
+    if createContext("simulation"):
+        # initialize the simulation
+        if rospy.has_param("~initialization_command"):
+            cmd = rospy.get_param("~initialization_command")
+            rospy.loginfo ("Initialization with " + cmd)
+            os.system(cmd)
+        else:
+            msg = "Server is not initialized and ros parameter initialization_command is not set."
+            rospy.logerr (msg)
+            raise RuntimeError(msg)
+    else:
+        rospy.loginfo ("Simulation already initialized.")
+
 ## Publish the pose of an object in tf
 #
 #  Build class with parent and child frames and call instance
@@ -167,10 +186,6 @@ class Simulation (object):
         # Compute ranks of joints in HPP configuration
         self.computeRanksInConfiguration ()
 
-        # Initialize ROS node
-        rospy.init_node ("simulation")
-        rospy.loginfo ("started simulation node")
-
         self.initializeObjects (self.q)
         self.initializeSoT2HPPconversion()
 
@@ -244,5 +259,6 @@ class Simulation (object):
 
 # Create a client to Hpp and instantiate the robot and constraint graph
 
+initialize()
 s = Simulation ()
 rospy.spin ()

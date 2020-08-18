@@ -26,7 +26,7 @@
 
 from dynamic_graph import plug
 from dynamic_graph.sot.core.integrator_euler import IntegratorEulerVectorMatrix, IntegratorEulerVectorDouble
-import dynamic_graph.sot.core as dgsc
+from dynamic_graph.sot.core.operator import Add_of_vector
 
 class Controller:
     def __init__ (self, name, nums, denoms, period, initialValue):
@@ -50,7 +50,7 @@ class Controller:
 
     def addFeedback (self):
         if self.ref_m_meas is None:
-            self.ref_m_meas = dgsc.Add_of_vector(self.name + "_ref_m_meas")
+            self.ref_m_meas = Add_of_vector(self.name + "_ref_m_meas")
             self.ref_m_meas.setCoeff1( 1)
             self.ref_m_meas.setCoeff2(-1)
             plug(self.ref_m_meas.sout, self.function.sin)
