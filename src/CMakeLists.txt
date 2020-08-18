@@ -18,8 +18,6 @@
 # <http://www.gnu.org/licenses/>.
 
 MACRO(AGIMUS_SOT_PYTHON_MODULE SUBMODULENAME LIBRARYNAME TARGETNAME)
-  FINDPYTHON()
-
   SET(PYTHON_MODULE ${TARGETNAME})
 
   ADD_LIBRARY(${PYTHON_MODULE}
@@ -73,10 +71,13 @@ ADD_LIBRARY(${LIBRARY_NAME}
   time.cc
   )
 
-PKG_CONFIG_USE_DEPENDENCY (${LIBRARY_NAME} dynamic-graph-python)
-PKG_CONFIG_USE_DEPENDENCY (${LIBRARY_NAME} dynamic_graph_bridge)
-PKG_CONFIG_USE_DEPENDENCY (${LIBRARY_NAME} sot-core)
+target_link_libraries (${LIBRARY_NAME} PUBLIC
+    dynamic-graph-python::dynamic-graph-python
+    dynamic_graph_bridge::ros_bridge
+    sot-core::sot-core
+    )
 INSTALL(TARGETS ${LIBRARY_NAME}
+  EXPORT ${TARGETS_EXPORT_NAME}
   DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
   )
 

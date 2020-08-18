@@ -19,25 +19,28 @@
 
 CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
-SET(CXX_DISABLE_WERROR TRUE)
-INCLUDE(cmake/base.cmake)
-INCLUDE(cmake/test.cmake)
-INCLUDE(cmake/python.cmake)
+set(CXX_DISABLE_WERROR TRUE)
 
-SET(PROJECT_NAME agimus-sot)
-SET(PROJECT_DESCRIPTION "Package to link SoT to the Agimus framework.")
-SET(PROJECT_URL "https://github.com/agimus/agimus-sot")
+set(PROJECT_NAME agimus-sot)
+set(PROJECT_DESCRIPTION "Package to link SoT to the Agimus framework.")
+set(PROJECT_URL "https://github.com/agimus/agimus-sot")
+set(PROJECT_USE_CMAKE_EXPORT TRUE)
 
-SETUP_PROJECT()
+include(cmake/base.cmake)
+include(cmake/test.cmake)
+include(cmake/python.cmake)
+
+compute_project_args(PROJECT_ARGS LANGUAGES CXX)
+project(${PROJECT_NAME} ${PROJECT_ARGS})
 
 FINDPYTHON(REQUIRED EXACT 2.7)
 
-ADD_REQUIRED_DEPENDENCY ("dynamic_graph_bridge >= 3")
+add_project_dependency (dynamic_graph_bridge 3 REQUIRED)
 # Needs only the Python classes related to ConstraintGraphFactory.
-ADD_REQUIRED_DEPENDENCY ("hpp-manipulation-corba >= 3")
-ADD_REQUIRED_DEPENDENCY ("sot-core >= 3")
-ADD_REQUIRED_DEPENDENCY ("dynamic-graph-python >= 2")
-ADD_REQUIRED_DEPENDENCY ("agimus_sot_msgs")
+add_project_dependency (hpp-manipulation-corba 4 REQUIRED)
+add_project_dependency (sot-core 4 REQUIRED)
+add_project_dependency (dynamic-graph-python 3 REQUIRED)
+add_project_dependency (agimus_sot_msgs REQUIRED)
 
 INSTALL(FILES
   package.xml
