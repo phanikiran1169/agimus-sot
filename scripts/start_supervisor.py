@@ -94,7 +94,6 @@ def makeRosInterface():
     from agimus_sot.ros_interface import RosInterface
     import rospy
     ri = RosInterface ()
-    ri.setupHppJoints (prefix = prefix)
     return ri
 
 # Waiting for services

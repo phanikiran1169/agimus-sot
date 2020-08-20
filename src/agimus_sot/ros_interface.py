@@ -142,24 +142,13 @@ class RosInterface(object):
         rsp.msg = "Successfully called supervisor."
         return rsp
 
-    def setupHppJoints(self, prefix = ""):
-        from agimus_sot_msgs.srv import SetJointNames
+    def getJointNames(self, req):
+        prefix = rospy.get_param("~prefix","")
         if self.supervisor is not None:
             names = self.supervisor.getJointList(prefix = prefix)
         else:
             answer = self.runCommand ("supervisor.getJointList(prefix = '{}')".format(prefix))
-            exec ("names = " + answer.result)
-        wait_for_service ("/hpp/target/set_joint_names")
-        setJoints = rospy.ServiceProxy ('/hpp/target/set_joint_names', SetJointNames)
-        ans = setJoints (names)
-        if not ans.success:
-            rospy.logerr("Could not set the joint list of hpp_ros_interface node")
 
-    def getJointNames(self, req):
-        if self.supervisor is not None:
-            names = self.supervisor.getJointList()
-        else:
-            answer = self.runCommand ("supervisor.getJointList()")
             success, message = self._isNotError (answer)
             if success:
                 exec ("names = " + answer.result)
@@ -196,17 +185,14 @@ class RosInterface(object):
         from agimus_sot_msgs.srv import WaitForMinQueueSizeResponse
         rsp = WaitForMinQueueSizeResponse()
         if self.supervisor is not None:
-            rsp.success = self.supervisor.waitForQueue(req.minQueueSize, req.timeout)
+            rsp.success, rsp.message = self.supervisor.waitForQueue(req.minQueueSize, req.timeout)
         else:
             cmd = "supervisor.waitForQueue({},{})".format(req.minQueueSize, req.timeout)
             answer = self.runCommand (cmd)
+            rospy.loginfo(answer.standarderror)
             rsp.success, rsp.message = self._isNotError (answer)
             if rsp.success:
-                exec ("rsp.success = " + answer.result)
-            else:
-                return rsp
-        if not rsp.success:
-            rsp.message = "Timeout reached"
+                exec ("rsp.success, rsp.message = " + answer.result)
         return rsp
 
     def stopReadingQueue(self, req):
