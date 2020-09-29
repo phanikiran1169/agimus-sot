@@ -212,12 +212,9 @@ class Supervisor(object):
         for queue in queues:
             while self.rosSubscribe.queueSize(queue) < minQueueSize:
                 if self.sotrobot.device.control.time > start_it + to:
-                    print("Queue {} has received {} points."
-                            .format(queue, self.rosSubscribe.queueSize(queue)),
-                        file=sys.stderr)
-                    return False
+                    return False, "Queue {} has received {} points.".format(queue, self.rosSubscribe.queueSize(queue))
                 sleep(ts)
-        return True
+        return True, ""
 
     ## Start reading values received by the RosQueuedSubscribe entity.
     # \param delay (integer) how many periods to wait before reading.
@@ -236,7 +233,7 @@ class Supervisor(object):
         if delay < 0:
             print ("Delay argument should be >= 0")
             return False, -1
-        minSizeReached = self.waitForQueue (minQueueSize, timeout)
+        minSizeReached, msg = self.waitForQueue (minQueueSize, timeout)
         if not minSizeReached:
             return False, -1
         durationStep = int(duration / self.sotrobot.device.getTimeStep())
