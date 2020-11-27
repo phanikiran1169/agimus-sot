@@ -39,7 +39,7 @@ INSTALL(TARGETS ${LIBRARY_NAME}
 
 #AGIMUS_SOT_PYTHON_MODULE("sot" ${LIBRARY_NAME} wrap)
 add_library(wrap MODULE python-module-py.cc)
-file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/src/agimus_sot/${SUBMODULENAME})
+file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/src/agimus_sot/sot/${SUBMODULENAME})
 set_target_properties(wrap
   PROPERTIES PREFIX ""
   OUTPUT_NAME agimus_sot/sot/wrap)
