@@ -44,7 +44,7 @@ class Posture(Task):
         self._task.dyn = sotrobot.dynamic
         self._feature = FeaturePosture(n + '_feature_')
 
-        q = list(sotrobot.dynamic.position.value)
+        q = sotrobot.dynamic.position.value
         self._feature.state.value = q
         self._feature.posture.value = q
 

@@ -25,6 +25,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from dynamic_graph import plug
+import numpy as np
 
 class AdmittanceControl(object):
     """
@@ -41,7 +42,7 @@ class AdmittanceControl(object):
            \sum_i denoms[i] * d^i theta / dt^i = \sum_j nums[j] d^j torque / dt^j
         """
         self.name = name
-        self.est_theta_closed = estimated_theta_closed
+        self.est_theta_closed = np.array(estimated_theta_closed)
         self.desired_torque = desired_torque
         self.dt = period
 
@@ -52,7 +53,7 @@ class AdmittanceControl(object):
     ### Feed-forward - contact phase
     def _makeTorqueControl (self, nums, denoms):
         from agimus_sot.control.controllers import Controller
-        self.torque_controller = Controller (self.name + "_torque", nums, denoms, self.dt, [0. for _ in self.est_theta_closed])
+        self.torque_controller = Controller (self.name + "_torque", nums, denoms, self.dt, np.zeros_like(self.est_theta_closed))
         self.torque_controller.addFeedback()
         self.torque_controller.reference.value = self.desired_torque
 
@@ -94,10 +95,10 @@ class AdmittanceControl(object):
         # else          contact phase
         if reverse:
             plug (self._sim_theta2phi.sout, self.sim_contact_condition.sin2)
-            self.sim_contact_condition.sin1.value = [0. for _ in self.est_theta_closed]
+            self.sim_contact_condition.sin1.value = np.zeros_like(self.est_theta_closed)
         else:
             plug (self._sim_theta2phi.sout, self.sim_contact_condition.sin1)
-            self.sim_contact_condition.sin2.value = [0. for _ in self.est_theta_closed]
+            self.sim_contact_condition.sin2.value = np.zeros_like(self.est_theta_closed)
         # Non contact phase
         # torque = 0, done above
         # Contact phase
@@ -109,7 +110,7 @@ class AdmittanceControl(object):
 
         # Condition
         # if phi < 0 -> no contact -> torque = 0
-        self._sim_torque.sin1.value = [0. for _ in self.est_theta_closed]
+        self._sim_torque.sin1.value = np.zeros_like(self.est_theta_closed)
         # else       ->    contact -> phi2torque
         plug (self.phi2torque.output, self._sim_torque.sin0)
 

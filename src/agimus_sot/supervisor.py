@@ -95,7 +95,9 @@ class Supervisor(object):
         if self.currentSot == "" or len(basePose) != 6:
             # We are using the SOT to keep the current posture.
             # The 6 first DoF are not used by the task so we can change them safely.
-            self.sotrobot.device.set(tuple(basePose + list(self.sotrobot.device.state.value[6:])))
+            q = self.sotrobot.device.state.value
+            q[:6] = basePose
+            self.sotrobot.device.set(q)
             self.keep_posture._signalPositionRef().value = self.sotrobot.device.state.value
             return True
         else:
@@ -131,7 +133,7 @@ class Supervisor(object):
             assert events.getSignalNumber() == n, "Wrong number of events."
             events.setSignalNumber(n+1)
             events.setConditionString(n, name)
-            if isinstance(e, (bool,int)): events.conditionSignal(n).value = int(e)
+            if isinstance(e, (bool,int)): events.conditionSignal(n).value = e
             else: plug (e, events.conditionSignal(n))
 
         _plug (solver. doneSignal, self. done_events, n, solver.name)
@@ -266,7 +268,7 @@ class Supervisor(object):
                 .format(devicetime, transitionName, solver.sot.display()))
         self.currentSot = transitionName
         if hasattr (self, 'ros_publish_state'):
-            self.ros_publish_state.transition_name.value = transitionName
+            self.ros_publish_state.signal("transition_name").value = transitionName
         return True, devicetime
 
     # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
@@ -316,9 +318,9 @@ class Supervisor(object):
         self.ros_publish_state.add ("vector", "reference_state", "/agimus/sot/reference_state")
         self.ros_publish_state.add ("string", "transition_name",
                                     "/agimus/sot/transition_name")
-        self.ros_publish_state.transition_name.value = ""
-        plug (self.sotrobot.device.state, self.ros_publish_state.state)
-        plug (self.rosSubscribe.posture, self.ros_publish_state.reference_state)
+        self.ros_publish_state.signal("transition_name").value = ""
+        plug (self.sotrobot.device.state, self.ros_publish_state.signal("state"))
+        plug (self.rosSubscribe.signal("posture"), self.ros_publish_state.signal("reference_state"))
         self.sotrobot.device.after.addDownsampledSignal ("ros_publish_state.trigger", subsampling)
 
 def _defaultHandler(name,topic_info,rosSubscribe,rosTf):

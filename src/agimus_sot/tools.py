@@ -80,16 +80,12 @@ def parseHppName (hppjointname):
     if hppjointname == "universe": return "", "universe"
     return hppjointname.split('/', 1)
 
-def transQuatToSE3 (p):
-    from pinocchio import SE3, Quaternion
-    from numpy import matrix
-    if len(p) != 7:
-        raise ValueError("Cannot convert {} to SE3".format(p))
-    return SE3 (Quaternion (p[6],p[3],p[4],p[5]).matrix(), matrix(p[0:3]).transpose())
+from pinocchio import XYZQUATToSE3 as transQuatToSE3
 
 def se3ToTuple (M):
-    from dynamic_graph.sot.core.matrix_util import matrixToTuple
-    return matrixToTuple (M.homogeneous)
+    import warnings
+    warnings.warn("use M.homogeneous", DeprecationWarning)
+    return M.homogeneous
 
 def computeControlSelection (robot, joint_to_be_removed):
     pinmodel = robot.dynamic.model
@@ -107,9 +103,9 @@ def plugMatrixHomo(sigout, sigin):
     from dynamic_graph.signal_base import SignalBase
     from pinocchio import SE3
     if isinstance(sigout, tuple):
-        sigin.value = sigout
+        sigin.value = np.array(sigout)
     elif isinstance(sigout, SE3):
-        sigin.value = se3ToTuple(sigout)
+        sigin.value = sigout.homogeneous
     elif isinstance(sigout, SignalBase):
         plug(sigout, sigin)
 
@@ -145,9 +141,9 @@ class IfEntity:
     @property
     def condition(self): return self.switch.boolSelection
     @property
-    def then_(self): return self.switch.sin1
+    def then_(self): return self.switch.sin(1)
     @property
-    def else_(self): return self.switch.sin0
+    def else_(self): return self.switch.sin(0)
     @property
     def out(self): return self.switch.sout
 

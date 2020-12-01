@@ -32,7 +32,7 @@ from . import SotTask
 from .task import Task
 from dynamic_graph.entity import Entity
 from agimus_sot.tools import _createOpPoint, assertEntityDoesNotExist, \
-    matrixHomoInverse, matrixHomoProduct, se3ToTuple
+    matrixHomoInverse, matrixHomoProduct
 
 ## \brief A post-action for pregrasp and preplace task.
 #
@@ -84,7 +84,7 @@ class PreGraspPostAction (Task):
             _createOpPoint (sotrobot, gripper.link)
             plug(sotrobot.dynamic.signal(gripper.link), self.feature.oMjb)
             plug(sotrobot.dynamic.signal("J"+gripper.link), self.feature.jbJjb)
-            self.feature.jbMfb.value = se3ToTuple(gripper.lMf)
+            self.feature.jbMfb.value = gripper.lMf.homogeneous
 
             self.feature.jaJja.value = np.zeros((6, sotrobot.dynamic.getDimension()))
 
@@ -104,11 +104,11 @@ class PreGraspPostAction (Task):
 
             plug(sotrobot.dynamic.signal(self.gripper.link), self.feature.oMja)
             plug(sotrobot.dynamic.signal("J"+self.gripper.link), self.feature.jaJja)
-            self.feature.jaMfa.value = se3ToTuple(self.gripper.lMf)
+            self.feature.jaMfa.value = self.gripper.lMf.homogeneous
 
             plug(sotrobot.dynamic.signal(self.otherGripper.link), self.feature.oMjb)
             plug(sotrobot.dynamic.signal("J"+self.otherGripper.link), self.feature.jbJjb)
-            self.feature.jbMfb.value = se3ToTuple(self.otherGripper.lMf)
+            self.feature.jbMfb.value = self.otherGripper.lMf.homogeneous
 
         self._createTaskAndGain(name)
         self.tasks = [ self.task, ]
