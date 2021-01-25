@@ -122,12 +122,8 @@ try:
     # read SE(3) pose from ROS parameter
     rootJointPose = rospy.get_param ("/robot_initial_pose")
     x, y, z, X, Y, Z, W = map (float, rootJointPose.split (' '))
-    # request SoT to publish robot state
-    ri.publishState (Empty)
-    runCommandStartDynamicGraph()
+
     # read current value of state signal in SoT
-    res = rospy.wait_for_message ("/agimus/sot/state", Vector, 5.)
-    q = res.data
     orientation = Quaternion (W, X, Y, Z)
     rz, ry, rx = toEulerAngles (orientation.matrix (), 2, 1, 0)
     code = ["q = robot.device.state.value"]
@@ -137,6 +133,10 @@ try:
     code += ["q [3:6] = rx, ry, rz"]
     code += ["robot.device.set (q)"]
     launchScript(code,'move robot root_joint to pose specified by ros param')
+
+    # request SoT to publish robot state
+    ri.publishState (Empty)
+    runCommandStartDynamicGraph()
 
     del runCommandClient
     del runCommandStartDynamicGraph

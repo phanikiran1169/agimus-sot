@@ -237,6 +237,7 @@ class Supervisor(object):
             return False, -1
         minSizeReached, msg = self.waitForQueue (minQueueSize, timeout)
         if not minSizeReached:
+            print (msg)
             return False, -1
         durationStep = int(duration / self.sotrobot.device.getTimeStep())
         t = self.sotrobot.device.control.time + delay
