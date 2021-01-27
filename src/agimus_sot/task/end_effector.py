@@ -131,7 +131,8 @@ class EndEffector (Task):
             # self.ac.readTorquesFromRobot(self.robot, self.jointNames)
 
         mix_of_vector = Mix_of_vector (self.name + "_control_to_robot_control")
-        mix_of_vector.default.value = no.zeros_like(self.tp.feature.posture.value)
+        mix_of_vector.signal("default").value = \
+          np.zeros_like(self.tp.feature.posture.value)
         mix_of_vector.setSignalNumber(2)
         for idx_v,nv in self.jointRanks:
             mix_of_vector.addSelec(1, idx_v, nv)

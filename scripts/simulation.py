@@ -147,7 +147,8 @@ class Simulation (object):
         from agimus_sot_msgs.srv import GetJointNames
         get_joint_names = ros_tools.wait_for_service("/agimus/sot/get_joint_names", GetJointNames)
         self.sot_joint_names = get_joint_names().names
-        assert self.sot_joint_names[0] == "root_joint"
+        # Assert that first joint name ends by "root_joint"
+        assert self.sot_joint_names[0].endswith("root_joint")
 
         self.sot2hpp_slices = []
         hpp = self.client.hpp()

@@ -24,6 +24,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import numpy as np
 from dynamic_graph import plug
 from dynamic_graph.sot.core.switch import SwitchVector
 from dynamic_graph.sot.core.latch import Latch
@@ -45,14 +46,14 @@ class ControllerSwitch:
         # any(threshold_up < measured_torque) => torque control
         self._condition_up = CompareVector (name + "_condition_up")
         self._condition_up.setTrueIfAny(True)
-        self._condition_up.sin1.value = threshold_up
-        self._condition_up.sin2.value = threshold_up
+        self._condition_up.sin1.value = np.array(threshold_up)
+        self._condition_up.sin2.value = np.array(threshold_up)
 
         # all(measured_torque < threshold_down) => position control
         self._condition_down = CompareVector (name + "_condition_down")
         self._condition_down.setTrueIfAny(False)
-        self._condition_down.sin1.value = threshold_down
-        self._condition_down.sin2.value = threshold_down
+        self._condition_down.sin1.value = np.array(threshold_down)
+        self._condition_down.sin2.value = np.array(threshold_down)
 
         self._event_up   = Event (name + "_event_up")
         self._event_down = Event (name + "_event_down")

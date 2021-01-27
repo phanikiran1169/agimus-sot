@@ -24,6 +24,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import numpy as np
 from dynamic_graph import plug
 from dynamic_graph.sot.core.integrator_euler import IntegratorEulerVectorMatrix, IntegratorEulerVectorDouble
 from dynamic_graph.sot.core.operator import Add_of_vector
@@ -42,7 +43,7 @@ class Controller:
         for n in nums  : self.function.pushNumCoef   (n)
         for n in denoms: self.function.pushDenomCoef (n)
 
-        self.function.sin.value = initialValue
+        self.function.sin.value = np.array(initialValue)
         self.function.initialize()
         self.function.setSamplingPeriod(period)
 
@@ -51,8 +52,7 @@ class Controller:
     def addFeedback (self):
         if self.ref_m_meas is None:
             self.ref_m_meas = Add_of_vector(self.name + "_ref_m_meas")
-            self.ref_m_meas.setCoeff1( 1)
-            self.ref_m_meas.setCoeff2(-1)
+            self.ref_m_meas.coeffs = np.array([1., -1.])
             plug(self.ref_m_meas.sout, self.function.sin)
 
     @property
@@ -63,7 +63,7 @@ class Controller:
     def reference (self):
         """ input signal """
         if self.ref_m_meas is not None:
-            return self.ref_m_meas.sin1
+            return self.ref_m_meas.sin(0)
         else:
             return self.function.sin
 
@@ -79,7 +79,7 @@ class Controller:
     def measurement (self):
         """ input signal """
         assert self.ref_m_meas is not None
-        return self.ref_m_meas.sin2
+        return self.ref_m_meas.sin(1)
 
     @property
     def measurementName (self):

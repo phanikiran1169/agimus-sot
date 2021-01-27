@@ -193,14 +193,14 @@ class Task(object):
         assertEntityDoesNotExist(name)
         switch = Switch(name)
         switch.setSignalNumber(2)
-        plugMatrixHomo(value, switch.sin0)
+        plugMatrixHomo(value, switch.sin(0))
         if outputs is not None:
             if isinstance(outputs, SignalBase):
                 plug(switch.sout, outputs)
             elif isinstance(outputs, (list, tuple)):
                 for output in outputs:
                     plug(switch.sout, output)
-        return switch, (switch.sin1, switch.boolSelection)
+        return switch, (switch.sin(1), switch.boolSelection)
 
     def addTrace (self, tracer):
         from agimus_sot.tools import filename_escape

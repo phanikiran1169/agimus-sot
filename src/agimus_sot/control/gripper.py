@@ -43,7 +43,7 @@ class AdmittanceControl(object):
         """
         self.name = name
         self.est_theta_closed = np.array(estimated_theta_closed)
-        self.desired_torque = desired_torque
+        self.desired_torque = np.array(desired_torque)
         self.dt = period
 
         self._makeTorqueControl (nums, denoms)
@@ -61,22 +61,20 @@ class AdmittanceControl(object):
     def _makeIntegrationOfVelocity (self):
         from dynamic_graph.sot.core.operator import Add_of_vector
         self.omega2theta = Add_of_vector (self.name + "_omega2theta")
-        self.omega2theta.setCoeff2(self.dt)
-        # self.omega2theta.sin1 <- current position
-        # self.omega2theta.sin2 <- desired velocity
-        plug (self.torque_controller.output, self.omega2theta.sin2)
+        self.omega2theta.coeffs = np.array([0, self.dt])
+        # self.omega2theta.sin(0) <- current position
+        # self.omega2theta.sin(1) <- desired velocity
+        plug (self.torque_controller.output, self.omega2theta.sin(1))
 
     ### Setup event to tell when object is grasped and simulate torque feedback.
     def setupFeedbackSimulation (self, mass, damping, spring, theta0):
         from agimus_sot.control.controllers import Controller
         from dynamic_graph.sot.core.operator import Add_of_vector
-        from agimus_sot.sot import DelayVector
 
         ## theta -> phi = theta - theta0
         self._sim_theta2phi = Add_of_vector(self.name + "_sim_theta2phi")
-        self._sim_theta2phi.setCoeff1 ( 1)
-        self._sim_theta2phi.setCoeff2 (-1)
-        self._sim_theta2phi.sin2.value = theta0
+        self._sim_theta2phi.coeffs = np.array([1.,-1.])
+        self._sim_theta2phi.sin(0).value = np.array(theta0)
 
         ## phi -> torque
         from dynamic_graph.sot.core.switch import SwitchVector
@@ -110,9 +108,9 @@ class AdmittanceControl(object):
 
         # Condition
         # if phi < 0 -> no contact -> torque = 0
-        self._sim_torque.sin1.value = np.zeros_like(self.est_theta_closed)
+        self._sim_torque.sin(0).value = np.zeros_like(self.est_theta_closed)
         # else       ->    contact -> phi2torque
-        plug (self.phi2torque.output, self._sim_torque.sin0)
+        plug (self.phi2torque.output, self._sim_torque.sin(0))
 
         plug (self._sim_torque.sout, self.currentTorqueIn)
 
@@ -149,7 +147,8 @@ class AdmittanceControl(object):
         from dynamic_graph.sot.core.operator import Multiply_of_vector
         plug (robot.device.currents, self._current_selec.sin)
         self._multiply_by_torque_constants = Multiply_of_vector (self.name + "_multiply_by_torque_constants")
-        self._multiply_by_torque_constants.sin0.value = torque_constants
+        self._multiply_by_torque_constants.sin0.value = \
+          np.array(torque_constants)
 
         if first_order_filter:
             from agimus_sot.control.controllers import Controller
@@ -217,9 +216,9 @@ class AdmittanceControl(object):
         return self.torque_controller.reference
 
     def setCurrentPositionIn (self, sig):
-        plug (sig, self.omega2theta.sin1)
+        plug (sig, self.omega2theta.sin(0))
         if hasattr(self, "_sim_theta2phi"):
-            plug(sig, self._sim_theta2phi.sin1)
+            plug(sig, self._sim_theta2phi.sin(0))
 
     @property
     def currentTorqueIn (self):
