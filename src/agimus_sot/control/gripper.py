@@ -61,7 +61,7 @@ class AdmittanceControl(object):
     def _makeIntegrationOfVelocity (self):
         from dynamic_graph.sot.core.operator import Add_of_vector
         self.omega2theta = Add_of_vector (self.name + "_omega2theta")
-        self.omega2theta.coeffs = np.array([0, self.dt])
+        self.omega2theta.coeffs = np.array([1, self.dt])
         # self.omega2theta.sin(0) <- current position
         # self.omega2theta.sin(1) <- desired velocity
         plug (self.torque_controller.output, self.omega2theta.sin(1))
