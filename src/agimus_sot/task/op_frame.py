@@ -74,7 +74,8 @@ class OpFrame(object):
     def _setupParentJoint (self, link, pose, model):
         frameid = model.getFrameId (link)
         if frameid < 0 or frameid >= len(model.frames):
-            raise ValueError("Link " + self.link + " not found")
+            links = "\n".join([ f.name for f in model.frames ])
+            raise ValueError("Link " + self.link + " not found in\n" + links)
         frame = model.frames[frameid]
 
         # kept for backward compat

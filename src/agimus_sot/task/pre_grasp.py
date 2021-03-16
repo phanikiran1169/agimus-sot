@@ -24,6 +24,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import print_function
 import numpy as np
 from dynamic_graph import plug
 from . import SotTask, FeaturePose
@@ -72,6 +73,10 @@ class PreGrasp (Task):
             withMeasurementOfOtherGripperPos = False, withDerivative = False):
         assert self.gripper.enabled
         assert self.otherGripper is None or self.otherGripper.enabled
+        header = "{} / {}".format(self.gripper.name, self.handle.name)
+        if self.otherGripper is not None:
+            header += " - {} / {}".format(self.otherGripper.name, self.otherHandle.name)
+        header += ":"
 
         if self.gripper.controllable:
             if self.otherGripper is not None and self.otherGripper.controllable:
@@ -87,7 +92,7 @@ class PreGrasp (Task):
                 if self.handle.robotName != self.otherHandle.robotName and \
                         self.gripper.robotName == self.otherHandle.robotName:
                     # locally inverse the gripper and the handle
-                    print("swapping gripper {} and handle {}".format(self.gripper.fullName, self.handle.fullName))
+                    print(header, "swapping gripper {} and handle {}".format(self.gripper.fullName, self.handle.fullName))
                     self.gripper, self.handle = self.handle, self.gripper
                 self._makeAbsoluteBasedOnOther (sotrobot,
                         withMeasurementOfObjectPos, withMeasurementOfGripperPos,
@@ -96,7 +101,7 @@ class PreGrasp (Task):
             else:
                 # TODO Both grippers are disabled so nothing can be done...
                 # add a warning ?
-                print("Both grippers are disabled so nothing can be done")
+                print(header, "Both grippers are disabled so nothing can be done")
 
     ## Plug the position of linkName to \c outSignal.
     #  The pose of linkName must be computable by the SoT robot entity.
@@ -397,7 +402,7 @@ class PreGrasp (Task):
                         )
             else:
                 ogMo = matrixHomoProduct(name + "_jbMfb_meas",
-                        matrixHomoInverse (self.otherGripper.link + "_inv", sotrobot.dynamic.signal(self.otherGripper.link)).sout,
+                        matrixHomoInverse (self.otherGripper.link + "_inv", sotrobot.dynamic.signal(self.otherGripper.link), check=False).sout,
                         sotrobot.dynamic.signal(sotrobot.camera_frame),
                         None, # Tf
                         self.handle.lMf,
