@@ -164,7 +164,7 @@ class Simulation (object):
                     .format(rjt))
         srk = 6
         for sj in self.sot_joint_names[1:]:
-            hj = self.robotName + "/" + sj
+            hj = sj
             if hj not in self.rankInConfiguration:
                 rospy.logwarn("SoT joint {} does not correspond to any HPP joint".format(sj))
             else:

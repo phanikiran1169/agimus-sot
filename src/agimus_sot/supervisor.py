@@ -307,7 +307,8 @@ class Supervisor(object):
         print ("No post action {0} --> {1}".format(self.currentSot, targetStateName))
         return False, -1
 
-    def getJointList (self, prefix = ""):
+    def getJointList (self):
+        prefix = self.sotrobot.name + "/"
         return [ prefix + n for n in self.sotrobot.dynamic.model.names[1:] ]
 
     def publishState (self, subsampling = 40):

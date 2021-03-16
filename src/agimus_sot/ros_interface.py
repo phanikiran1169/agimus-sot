@@ -143,11 +143,10 @@ class RosInterface(object):
         return rsp
 
     def getJointNames(self, req):
-        prefix = rospy.get_param("~prefix","")
         if self.supervisor is not None:
-            names = self.supervisor.getJointList(prefix = prefix)
+            names = self.supervisor.getJointList()
         else:
-            answer = self.runCommand ("supervisor.getJointList(prefix = '{}')".format(prefix))
+            answer = self.runCommand ("supervisor.getJointList()")
 
             success, message = self._isNotError (answer)
             if success:
