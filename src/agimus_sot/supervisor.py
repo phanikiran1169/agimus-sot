@@ -182,8 +182,8 @@ class Supervisor(object):
             topic_handler (name,topic_info,self.rosSubscribe,self.rosTf)
 
     def printQueueSize (self):
-        exec ("tmp = " + self.rosSubscribe.list())
-        for l in tmp: print (l, self.rosSubscribe.queueSize(l))
+        for l in self.rosSubscribe.list():
+            print (l, self.rosSubscribe.queueSize(l))
 
     ## Check consistency between two Actions.
     #
@@ -209,8 +209,7 @@ class Supervisor(object):
 
     def clearQueues(self):
         self.rosSubscribe.readQueue (-1)
-        exec ("tmp = " + self.rosSubscribe.list())
-        for s in tmp:
+        for s in self.rosSubscribe.list():
             print ('{} queue size: {}'.format(s, self.rosSubscribe.queueSize(s)))
             self.rosSubscribe.clearQueue(s)
 
@@ -224,8 +223,7 @@ class Supervisor(object):
         to = int(timeout / self.sotrobot.device.getTimeStep())
         from time import sleep
         start_it = self.sotrobot.device.control.time
-        exec ("queues = " + self.rosSubscribe.list())
-        for queue in queues:
+        for queue in self.rosSubscribe.list():
             while self.rosSubscribe.queueSize(queue) < minQueueSize:
                 if self.sotrobot.device.control.time > start_it + to:
                     return False, "Queue {} has received {} points.".format(queue, self.rosSubscribe.queueSize(queue))
