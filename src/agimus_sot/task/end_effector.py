@@ -71,7 +71,10 @@ class EndEffector (Task):
         self.jointRanks = []
         for name in self.jointNames:
             idJ = pinmodel.getJointId(name)
-            assert idJ < pinmodel.njoints
+            if not idJ < pinmodel.njoints:
+                print("idj={}, pinmodel.njoins={}".format(idJ,pinmodel.njoints))
+                print("name={}".format(name))
+                assert(False)
             joint = pinmodel.joints[idJ]
             idx_v = joint.idx_v
             nv = joint.nv
