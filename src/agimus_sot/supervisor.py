@@ -50,8 +50,12 @@ class Supervisor(object):
     ##
     # \param lpTasks list of low priority tasks. If None, a Posture task will be used.
     # \param hpTasks list of high priority tasks (like balance)
-    def __init__ (self, sotrobot, lpTasks = None, hpTasks = None):
+    def __init__ (self, sotrobot, lpTasks=None, hpTasks=None, prefix=None):
         self.sotrobot = sotrobot
+        if prefix is None:
+            self.prefix = sotrobot.name + "/"
+        else:
+            self.prefix = prefix + "/"
         self.hpTasks = hpTasks if hpTasks is not None else _hpTasks(sotrobot)
         self.lpTasks = lpTasks if lpTasks is not None else _lpTasks(sotrobot)
         self.currentSot = None
@@ -306,8 +310,7 @@ class Supervisor(object):
         return False, -1
 
     def getJointList (self):
-        prefix = self.sotrobot.name + "/"
-        return [ prefix + n for n in self.sotrobot.dynamic.model.names[1:] ]
+        return [self.prefix + n for n in self.sotrobot.dynamic.model.names[1:]]
 
     def publishState (self, subsampling = 40):
         if hasattr (self, "ros_publish_state"):
