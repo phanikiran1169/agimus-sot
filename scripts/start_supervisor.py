@@ -120,19 +120,21 @@ try:
     ## \todo this should be moved somewhere else (in agimus).
     ## Initialize pose of robot root_joint
     # read SE(3) pose from ROS parameter
-    rootJointPose = rospy.get_param ("/robot_initial_pose")
-    x, y, z, X, Y, Z, W = map (float, rootJointPose.split (' '))
+    if rospy.has_param("/robot_initial_pose"):
+        rootJointPose = rospy.get_param ("/robot_initial_pose")
+        x, y, z, X, Y, Z, W = map (float, rootJointPose.split (' '))
 
-    # read current value of state signal in SoT
-    orientation = Quaternion (W, X, Y, Z)
-    rz, ry, rx = toEulerAngles (orientation.matrix (), 2, 1, 0)
-    code = ["q = robot.device.state.value"]
-    code += ["x={0}; y={1}; z={2}".format (x, y, z)]
-    code += ["rx={0}; ry={1}; rz={2}".format (rx, ry, rz)]
-    code += ["q [0:3] = x, y, z"]
-    code += ["q [3:6] = rx, ry, rz"]
-    code += ["robot.device.set (q)"]
-    launchScript(code,'move robot root_joint to pose specified by ros param')
+        # read current value of state signal in SoT
+        orientation = Quaternion (W, X, Y, Z)
+        rz, ry, rx = toEulerAngles (orientation.matrix (), 2, 1, 0)
+        code = ["q = robot.device.state.value"]
+        code += ["x={0}; y={1}; z={2}".format (x, y, z)]
+        code += ["rx={0}; ry={1}; rz={2}".format (rx, ry, rz)]
+        code += ["q [0:3] = x, y, z"]
+        code += ["q [3:6] = rx, ry, rz"]
+        code += ["robot.device.set (q)"]
+        launchScript(code,'move robot root_joint to pose specified by ROS' +
+                     ' param')
 
     # request SoT to publish robot state
     ri.publishState (Empty)

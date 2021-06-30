@@ -48,8 +48,7 @@ class Posture(Task):
         self._feature.state.value = q
         self._feature.posture.value = q
 
-        robotDim = sotrobot.dynamic.getDimension()
-        for i in range(6, robotDim):
+        for i in sotrobot.getActuatedJoints():
             self._feature.selectDof (i, True)
         self._gain = GainAdaptive(n + "_gain")
         self._task.add(self._feature.name)
