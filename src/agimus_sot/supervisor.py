@@ -27,6 +27,7 @@
 from __future__ import print_function
 from .task import Task, Posture
 from dynamic_graph import plug
+from dynamic_graph.sot.core.feature_posture import FeaturePosture
 import sys
 
 def _hpTasks (sotrobot):
@@ -257,7 +258,16 @@ class Supervisor(object):
             # raise Exception ("Sot %d not consistent with sot %d" % (self.currentSot, id))
             print("Sot {0} not consistent with sot {1}".format(self.currentSot, transitionName))
         if transitionName == "":
-            self.keep_posture._signalPositionRef().value = self.sotrobot.dynamic.position.value
+            # Retrieve the posture feature common to all SoT
+            f = FeaturePosture(self.lpTasks._feature.name)
+            # Set reference posture as the latest reference read from
+            # the reference trajectory topic.
+            if len(f.posture.value > 0):
+                self.keep_posture._signalPositionRef().value = f.posture.value
+            else:
+                # reference of posture feature has not been initialized yet
+                self.keep_posture._signalPositionRef().value = \
+                    self.sotrobot.dynamic.position.value
         solver = self.sots[transitionName]
 
         # No done events should be triggered before call
