@@ -33,7 +33,7 @@ import sys
 def _hpTasks (sotrobot):
     return Task()
 def _lpTasks (sotrobot):
-    return Posture ("posture", sotrobot)
+    return Posture ("posture", sotrobot, True)
 
 ## Supervise the consecutive execution of several SoT.
 #
