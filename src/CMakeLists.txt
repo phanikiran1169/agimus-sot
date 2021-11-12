@@ -93,3 +93,12 @@ SET(FILES
 FOREACH(F ${FILES})
   PYTHON_INSTALL_ON_SITE("agimus_sot/task" ${F})
 ENDFOREACH()
+
+SET(FILES
+  __init__.py
+  task_factory.py
+  pre_grasp.py)
+
+FOREACH(F ${FILES})
+  PYTHON_INSTALL_ON_SITE("agimus_sot/react" ${F})
+ENDFOREACH()
