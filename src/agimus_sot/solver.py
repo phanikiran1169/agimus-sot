@@ -25,12 +25,13 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 class Solver(object):
+    maxControlSqrNorm = 10.
     def __init__ (self, name, dimension, damping = None, timer = False):
         from dynamic_graph.entity import VerbosityLevel
         from dynamic_graph.sot.core.sot import SOT
         sot = SOT(name)
         sot.setSize(dimension)
-        sot.setMaxControlIncrementSquaredNorm(10.)
+        sot.setMaxControlIncrementSquaredNorm(self.maxControlSqrNorm)
         sot.setLoggerVerbosityLevel(VerbosityLevel.VERBOSITY_ALL)
         if damping is not None: sot.damping.value = damping
 
