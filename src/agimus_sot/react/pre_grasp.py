@@ -26,7 +26,7 @@
 
 import numpy as np
 from dynamic_graph import plug
-from agimus_sot.sot import SafeGainAdaptive
+from agimus_sot.sot import SafeGainAdaptive, ObjectLocalization
 from agimus_sot.task import Task, SotTask, FeaturePose
 from agimus_sot.tools import _createOpPoint, assertEntityDoesNotExist, \
     matrixHomoInverse, matrixHomoProduct, entityIfMatrixHomo
@@ -83,17 +83,18 @@ class PreGrasp (Task):
                                 None,
                                 check=False,)
         name = linkNameMeas + "wrt_world"
-        if_ = entityIfMatrixHomo (name, condition=None,
-                                  value_then=oMl.sout,
-                                  value_else=None,
-                                  check=False)
+        ol = ObjectLocalization(name + "_ol")
+        plug(sotrobot.dynamic.signal(sotrobot.camera_frame), ol.wMc)
+        plug(ol.cMo, oMl.sin(1))
+
         self.addTfListenerTopic (linkNameMeas,
                                  frame0 = sotrobot.camera_frame,
                                  frame1 = linkNameMeas,
-                                 signalGetters = [(oMl.sin(1), if_.condition),],
+                                 signalGetters = [(ol.cMoMeasured,
+                                                   ol.cMoAvailable),],
         )
-        self.addHppJointTopic (linkName, signalGetters = [ if_.else_, ],)
-        plug(if_.out, outSignal)
+        self.addHppJointTopic (linkName, signalGetters = [],)
+        plug(oMl.sout, outSignal)
 
     ## Compute desired pose between gripper and handle.
     #  It is decomposed as \f$ jgMg^-1 * oMjg^-1 * oMlh * lhMh \f$.
