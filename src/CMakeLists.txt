@@ -23,6 +23,7 @@ ADD_LIBRARY(${LIBRARY_NAME}
   SHARED
   gain-adaptive.cc
   holonomic-constraint.cc
+  object-localization.cc
   delay.cc
   time.cc
   )
