@@ -83,7 +83,7 @@ class PreGrasp (Task):
                                 None,
                                 check=False,)
         name = linkNameMeas + "wrt_world"
-        ol = ObjectLocalization(name + "_ol")
+        ol = self.objectLocalization = ObjectLocalization(name + "_ol")
         plug(sotrobot.dynamic.signal(sotrobot.camera_frame), ol.wMc)
         plug(ol.cMo, oMl.sin(1))
 
