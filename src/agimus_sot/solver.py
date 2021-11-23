@@ -24,11 +24,22 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+##
+#  Action associated to a transition pre-action, action, or post-ation
+#
+#  An action is composed of
+#  \li a list of pre-actions, i.e. fonctions that are called sequentially;
+#      if one of them return false, the action returns failure,
+#  \li a controller of type SOT (stack of task) that is activated upon
+#      completion of the preactions,
+
 class Solver(object):
     maxControlSqrNorm = 10.
     def __init__ (self, name, dimension, damping = None, timer = False):
         from dynamic_graph.entity import VerbosityLevel
         from dynamic_graph.sot.core.sot import SOT
+        # Initialize list of pre-actions and post-actions
+        self.preActions = list()
         sot = SOT(name)
         sot.setSize(dimension)
         sot.setMaxControlIncrementSquaredNorm(self.maxControlSqrNorm)
@@ -61,6 +72,11 @@ class Solver(object):
         """
         from dynamic_graph import plug
         plug(projector, self.sot.proj0)
+
+    def runPreactions(self):
+        for action in self.preActions:
+            # trigger error if action returns false
+            errorSignal = not action()
 
     ## \name Events
     # \{

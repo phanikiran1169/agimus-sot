@@ -145,6 +145,7 @@ class Supervisor(object):
         _plug (solver.errorSignal, self.error_events, n, solver.name)
 
     def _selectSolver (self, solver):
+        solver.runPreactions()
         n = self.sots_indexes[solver.name]
         self.  sot_switch.selection.value = n
         self. done_events.setSelectedSignal(n)
