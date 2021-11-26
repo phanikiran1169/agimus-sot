@@ -218,8 +218,10 @@ def attach_to_link(model, link, gripper=None, handle=None, contact=None):
     srdf = ( contact if handle is None else handle ) if gripper is None else gripper
     oid = model.getFrameId(srdf['link'])
     nid = model.getFrameId(link)
-    if oid >= model.nframes or nid >= model.nframes:
-        raise ValueError("Could not find one of the frames")
+    if oid >= model.nframes:
+        raise ValueError("Could not find frame '{}'".format(srdf['link']))
+    if nid >= model.nframes:
+        raise ValueError("Could not find frame '{}'".format(link))
     if oid == nid: return
     of = model.frames[oid]
     nf = model.frames[nid]
