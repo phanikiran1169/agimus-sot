@@ -60,7 +60,7 @@ class OpFrame(object):
                 self._setupParentJoint (self.link, self.lMf, model)
             if self.enabled is None:
                 self.enabled = self.controllable
-            if srdf.has_key("torque_constant"):
+            if "torque_constant" in srdf.keys():
                 self.torque_constant = srdf["torque_constant"]
         else:
             ## Only for handles

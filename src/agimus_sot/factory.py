@@ -136,7 +136,7 @@ class TaskFactory(ConstraintFactoryAbstract):
 
     def _buildGripper (self, type, gripper, handle):
         key = (type, gripper, handle)
-        if self._grippers.has_key (key):
+        if key in self._grippers.keys():
             return self._grippers[key]
         try:
             aff = self.graphfactory.affordances[(gripper, handle)]
@@ -273,7 +273,7 @@ class TaskFactory(ConstraintFactoryAbstract):
             k = (ig, ih, otherIg, otherIh)
         else:
             k = (ig, ih)
-        if not self._grasp.has_key(k):
+        if not k in self._grasp.keys():
             self._grasp[k] = self.buildGrasp(self.graphfactory.grippers[ig], None if ih is None else self.graphfactory.handles[ih], otherGrasp)
             assert isinstance (self._grasp[k], dict)
         return self._grasp[k]
@@ -287,7 +287,7 @@ class TaskFactory(ConstraintFactoryAbstract):
         ig = self.graphfactory.grippers.index(grasp[0].key)
         ih = self.graphfactory.handles .index(grasp[1].key)
         k = (io, ig, ih,)
-        if not self._placements.has_key(k):
+        if not k in self._placements.keys():
             self._placements[k] = self.buildPlacement(self.graphfactory.objects[io], grasp)
             assert isinstance (self._placements[k], dict)
         return self._placements[k]
@@ -510,14 +510,14 @@ class Factory(GraphFactoryAbstract):
 
         from dynamic_graph import plug
         self.supervisor.sots_indexes = dict()
-        for tn,sot in self.sots.iteritems():
+        for tn,sot in self.sots.items():
             # Pre action
-            if self.preActions.has_key(tn):
+            if tn in self.preActions.keys():
                 self.supervisor.addPreAction (tn, self.preActions[tn])
             # Action
             self.supervisor.addSolver (tn, sot)
             # Post action
-            if self.postActions.has_key(tn):
+            if tn in self.postActions.keys():
                 self.supervisor.addPostActions (tn, self.postActions[tn])
 
     def setupFrames (self, srdfGrippers, srdfHandles, sotrobot, disabledGrippers = ()):
@@ -638,7 +638,7 @@ class Factory(GraphFactoryAbstract):
                     self.supervisor.done_events.controlNormSignal),
                     self.supervisor.done_events.timeEllapsedSignal])
         #TODO add error_events "gripper_closed_failed"
-        if not self.postActions.has_key(key):
+        if not key in self.postActions.keys():
             self.postActions[ key ] = dict()
         self.postActions[ key ] [ st.name ] = sot
 
@@ -651,7 +651,7 @@ class Factory(GraphFactoryAbstract):
         self.hpTasks.pushTo (sot)
         sf.manifold.pushTo (sot)
         self.lpTasks.pushTo (sot)
-        if not self.postActions.has_key(key):
+        if not key in self.postActions.keys():
             self.postActions[ key ] = dict()
         self.postActions[ key ] [ sf.name ] = sot
 

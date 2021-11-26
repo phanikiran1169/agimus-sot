@@ -80,13 +80,13 @@ class Task(object):
         self.tasks += other.tasks
         self.constraints += other.constraints
         for k,v in other.topics.items():
-            if self.topics.has_key(k):
+            if k in self.topics.keys():
                 a = self.topics[k]
                 assert a["type"] == v["type"]
-                if a.has_key('topic'): assert a["topic"] == v["topic"]
+                if 'topic' in a.keys(): assert a["topic"] == v["topic"]
                 else: assert a["handler"] == v["handler"]
                 self.extendSignalGetters(k, v["signalGetters"])
-                if a.has_key('defaultValue') and v.has_key("defaultValue"):
+                if 'defaultValue' in a.keys() and 'defaultValue' in v.keys():
                     from dynamic_graph.signal_base import SignalBase
                     if isinstance(a["defaultValue"], SignalBase):
                         assert a["defaultValue"].name == v["defaultValue"].name, \

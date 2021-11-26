@@ -143,7 +143,7 @@ try:
     del runCommandClient
     del runCommandStartDynamicGraph
 
-except rospy.ServiceException, e:
+except rospy.ServiceException as e:
     rospy.logerr("Service call failed: %s" % e)
 
 # We need to spin to provide the SoT ros interface.

@@ -229,7 +229,7 @@ class RosInterface(object):
             exec ("topics = " + answer.result)
         for n, t in topics.items():
             for k in ['hppjoint', 'hppcom']:
-                if t.has_key(k):
+                if k in t.keys():
                     kk = k if not t["velocity"] else ("vel_" + k)
                     handlers[kk] (t[k])
                     rospy.loginfo("Requested " + kk + " " + t[k])

@@ -124,7 +124,7 @@ class Supervisor(object):
 
     def addPostActions (self, name, postActionSolvers):
         self.postActions[name] = postActionSolvers
-        for targetState, pa_sot in postActionSolvers.iteritems():
+        for targetState, pa_sot in postActionSolvers.items():
             self._addSignalToSotSwitch (pa_sot)
 
     ## This is for internal purpose
@@ -287,7 +287,7 @@ class Supervisor(object):
 
     # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
     def runPreAction(self, transitionName):
-        if self.preActions.has_key(transitionName):
+        if transitionName in self.preActions.keys():
             solver = self.preActions[transitionName]
 
             t = self.sotrobot.device.control.time + 2
@@ -303,9 +303,9 @@ class Supervisor(object):
     ## Execute a post-action
     # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
     def runPostAction(self, targetStateName):
-        if self.postActions.has_key(self.currentSot):
+        if self.currentSot in self.postActions.keys():
             d = self.postActions[self.currentSot]
-            if d.has_key(targetStateName):
+            if targetStateName in d.keys():
                 solver = d[targetStateName]
 
                 devicetime = self.sotrobot.device.control.time

@@ -96,7 +96,7 @@ class TaskFactory(ConstraintFactoryAbstract):
             k = (ig, ih, otherIg, otherIh)
         else:
             k = (ig, ih)
-        if not self._grasp.has_key(k):
+        if not k in self._grasp.keys():
             self._grasp[k] = self.buildGrasp(self.graphfactory.grippers[ig], None if ih is None else self.graphfactory.handles[ih], otherGrasp)
             assert isinstance (self._grasp[k], dict)
         return self._grasp[k]
@@ -110,7 +110,7 @@ class TaskFactory(ConstraintFactoryAbstract):
         ig = self.graphfactory.grippers.index(grasp[0].key)
         ih = self.graphfactory.handles .index(grasp[1].key)
         k = (io, ig, ih,)
-        if not self._placements.has_key(k):
+        if not k in self._placements.keys():
             self._placements[k] = self.buildPlacement(self.graphfactory.objects[io], grasp)
             assert isinstance (self._placements[k], dict)
         return self._placements[k]
