@@ -97,7 +97,7 @@ class RosInterface(object):
             answer = self.runCommand ("supervisor.runPreAction('{}')".format(req.transition_name))
             rsp.success, rsp.msg = self._isNotError (answer)
             if rsp.success:
-                exec ("rsp.success, rsp.start_time = " + answer.result)
+                rsp.success, rsp.start_time = eval(answer.result)
             else:
                 return rsp
         rsp.msg = "Successfully called supervisor."
@@ -117,7 +117,7 @@ class RosInterface(object):
             answer = self.runCommand ("supervisor.plugSot('{}', False)".format(req.transition_name))
             rsp.success, rsp.msg = self._isNotError (answer)
             if rsp.success:
-                exec ("rsp.success, rsp.start_time = " + answer.result)
+                rsp.success, rsp.start_time = eval(answer.result)
             else:
                 return rsp
         return rsp
@@ -136,7 +136,7 @@ class RosInterface(object):
             answer = self.runCommand ("supervisor.runPostAction('{}')".format(req.transition_name))
             rsp.success, rsp.msg = self._isNotError (answer)
             if rsp.success:
-                exec ("rsp.success, rsp.start_time = " + answer.result)
+                rsp.success, rsp.start_time = eval(answer.result)
             else:
                 return rsp
         rsp.msg = "Successfully called supervisor."
@@ -150,7 +150,7 @@ class RosInterface(object):
 
             success, message = self._isNotError (answer)
             if success:
-                exec ("names = " + answer.result)
+                names = eval(answer.result)
             else:
                 rospy.logerr("Could not get the joint names\n" + message)
         return (names,)
@@ -173,7 +173,7 @@ class RosInterface(object):
             answer = self.runCommand (cmd)
             rsp.success, rsp.message = self._isNotError (answer)
             if rsp.success:
-                exec ("rsp.success, rsp.start_time = " + answer.result)
+                rsp.success, rsp.start_time = eval(answer.result)
             else:
                 return rsp
         if not rsp.success:
@@ -191,7 +191,7 @@ class RosInterface(object):
             rospy.loginfo(answer.standarderror)
             rsp.success, rsp.message = self._isNotError (answer)
             if rsp.success:
-                exec ("rsp.success, rsp.message = " + answer.result)
+                rsp.success, rsp.message = eval(answer.result)
         return rsp
 
     def stopReadingQueue(self, req):
@@ -226,7 +226,7 @@ class RosInterface(object):
         else:
             cmd = "{ n: { k: v for k, v in t.items() if k in ['hppjoint', 'hppcom', 'velocity'] } for n, t in supervisor.topics().items() }"
             answer = self.runCommand (cmd)
-            exec ("topics = " + answer.result)
+            topics = eval(answer.result)
         for n, t in topics.items():
             for k in ['hppjoint', 'hppcom']:
                 if k in t.keys():
