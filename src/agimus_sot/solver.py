@@ -76,7 +76,7 @@ class Solver(object):
     def runPreactions(self):
         for action in self.preActions:
             # trigger error if action returns false
-            errorSignal = not action()
+            self.errorSignal = not action()
 
     ## \name Events
     # \{
