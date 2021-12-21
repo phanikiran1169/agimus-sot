@@ -85,9 +85,11 @@ class RosInterface(object):
 
     def runPreAction (self, req):
         rsp = PlugSotResponse()
+        rsp.msg = "Successfully called supervisor."
         if self.supervisor is not None:
             try:
-                rsp.success, rsp.start_time = self.supervisor.runPreAction(req.transition_name)
+                rsp.success, rsp.start_time, rsp.msg = \
+                    self.supervisor.runPreAction(req.transition_name)
             except Exception as e:
                 rospy.logerr(str(e))
                 rsp.success = False
@@ -97,17 +99,17 @@ class RosInterface(object):
             answer = self.runCommand ("supervisor.runPreAction('{}')".format(req.transition_name))
             rsp.success, rsp.msg = self._isNotError (answer)
             if rsp.success:
-                rsp.success, rsp.start_time = eval(answer.result)
+                rsp.success, rsp.start_time, rsp.msg = eval(answer.result)
             else:
                 return rsp
-        rsp.msg = "Successfully called supervisor."
         return rsp
 
     def plugSot (self, req):
         rsp = PlugSotResponse()
         if self.supervisor is not None:
             try:
-                rsp.success, rsp.start_time = self.supervisor.plugSot(req.transition_name, False)
+                rsp.success, rsp.start_time, rsp.msg = \
+                    self.supervisor.plugSot(req.transition_name, False)
             except Exception as e:
                 rospy.logerr(str(e))
                 rsp.success = False
@@ -117,7 +119,7 @@ class RosInterface(object):
             answer = self.runCommand ("supervisor.plugSot('{}', False)".format(req.transition_name))
             rsp.success, rsp.msg = self._isNotError (answer)
             if rsp.success:
-                rsp.success, rsp.start_time = eval(answer.result)
+                rsp.success, rsp.start_time, rsp.msg = eval(answer.result)
             else:
                 return rsp
         return rsp
@@ -126,20 +128,19 @@ class RosInterface(object):
         rsp = PlugSotResponse()
         if self.supervisor is not None:
             try:
-                rsp.success, rsp.start_time = self.supervisor.runPostAction(req.transition_name)
+                rsp.success, rsp.start_time, rsp.msg = \
+                    self.supervisor.runPostAction(req.transition_name)
             except Exception as e:
                 rospy.logerr(str(e))
                 rsp.success = False
                 rsp.msg = str(e)
                 return rsp
+            return rsp
         else:
             answer = self.runCommand ("supervisor.runPostAction('{}')".format(req.transition_name))
             rsp.success, rsp.msg = self._isNotError (answer)
             if rsp.success:
-                rsp.success, rsp.start_time = eval(answer.result)
-            else:
-                return rsp
-        rsp.msg = "Successfully called supervisor."
+                rsp.success, rsp.start_time, rsp.msg = eval(answer.result)
         return rsp
 
     def getJointNames(self, req):

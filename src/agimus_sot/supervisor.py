@@ -145,11 +145,14 @@ class Supervisor(object):
         _plug (solver.errorSignal, self.error_events, n, solver.name)
 
     def _selectSolver (self, solver):
-        solver.runPreactions()
+        res, msg = solver.runPreactions()
+        if not res:
+            return False, msg
         n = self.sots_indexes[solver.name]
         self.  sot_switch.selection.value = n
         self. done_events.setSelectedSignal(n)
         self.error_events.setSelectedSignal(n)
+        return True, ""
 
     ## \}
 
@@ -253,7 +256,14 @@ class Supervisor(object):
     def stopReadingQueue(self):
         self.rosSubscribe.readQueue (-1)
 
-    # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
+    ## Activate action corresponding to a transition
+    #
+    # \param transitionName name of the transition
+    # \param check whether to check if the control computed by the new
+    #        action solver is close to the control computed by the current one.
+    #
+    # \return whether action succeeded, SoT time at which reading starts, error
+    #         message if failure.
     def plugSot(self, transitionName, check = False):
         if check and not self.isSotConsistentWithCurrent (transitionName):
             # raise Exception ("Sot %d not consistent with sot %d" % (self.currentSot, id))
@@ -277,48 +287,56 @@ class Supervisor(object):
         devicetime = self.sotrobot.device.control.time
         self. done_events.setFutureTime (devicetime + 100000)
 
-        self._selectSolver (solver)
+        res, msg = self._selectSolver (solver)
+        if not res:
+            return False, -1, msg
         print("{0}: Current solver {1}\n{2}"
                 .format(devicetime, transitionName, solver.sot.display()))
         self.currentSot = transitionName
         if hasattr (self, 'ros_publish_state'):
             self.ros_publish_state.signal("transition_name").value = transitionName
-        return True, devicetime
+        return True, devicetime, ""
 
     # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
     def runPreAction(self, transitionName):
+        t = self.sotrobot.device.control.time + 2
         if transitionName in self.preActions.keys():
             solver = self.preActions[transitionName]
 
-            t = self.sotrobot.device.control.time + 2
             self. done_events.setFutureTime (t)
 
-            self._selectSolver (solver)
+            res, msg = self._selectSolver (solver)
+            if not res:
+                return False, -1, msg
             print("{0}: Running pre action {1}\n{2}"
                     .format(t, transitionName, solver.sot.display()))
-            return True, t - 2
-        print ("No pre action", transitionName)
-        return False, -1
+            return True, t - 2, ""
+        else:
+            print ("No pre action", transitionName)
+            return True, -1, "no pre action"
+
 
     ## Execute a post-action
     # \return success, time boolean, SoT time at which reading starts (invalid if success is False)
     def runPostAction(self, targetStateName):
+        devicetime = self.sotrobot.device.control.time
         if self.currentSot in self.postActions.keys():
             d = self.postActions[self.currentSot]
             if targetStateName in d.keys():
                 solver = d[targetStateName]
 
-                devicetime = self.sotrobot.device.control.time
                 self. done_events.setFutureTime (devicetime + 2)
 
-                self._selectSolver (solver)
+                res, msg = self._selectSolver (solver)
+                if not res:
+                    return False, -1, msg
 
                 print("{0}: Running post action {1} --> {2}\n{3}"
                         .format(devicetime, self.currentSot, targetStateName,
                             solver.sot.display()))
                 return True, devicetime
         print ("No post action {0} --> {1}".format(self.currentSot, targetStateName))
-        return False, -1
+        return True, -1, "no post action"
 
     def getJointList (self):
         return [self.prefix + n for n in self.sotrobot.dynamic.model.names[1:]]
