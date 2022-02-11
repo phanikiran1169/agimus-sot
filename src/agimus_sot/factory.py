@@ -526,8 +526,12 @@ class Factory(GraphFactoryAbstract):
         self.grippersIdx = { g: i for i,g in enumerate(self.grippers) }
         self.handlesIdx  = { h: i for i,h in enumerate(self.handles) }
 
-        self.gripperFrames = { g: OpFrame(srdfGrippers[g], sotrobot.name, sotrobot.dynamic.model, g not in disabledGrippers) for g in self.grippers }
-        self.handleFrames  = { h: OpFrame(srdfHandles [h], sotrobot.name                                                   ) for h in self.handles  }
+        self.gripperFrames = { g: OpFrame(srdfGrippers[g], sotrobot.name, g,
+                                          sotrobot.dynamic.model,
+                                          g not in disabledGrippers)
+                               for g in self.grippers }
+        self.handleFrames  = { h: OpFrame(srdfHandles [h], sotrobot.name, h)
+                               for h in self.handles  }
 
     def setupContactFrames (self, srdfContacts):
         def addPose(c):
