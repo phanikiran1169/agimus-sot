@@ -36,18 +36,24 @@ class OpFrame(object):
     - lMf, jMf: pose of frame wrt to link or joint (when relevant)
     - hasVisualTag: whether visual feedback is available for this frame. That triggers visual servoing task generation.
     """
-    def __init__ (self, srdf, modelName, model = None, enabled = None):
+    def __init__ (self, srdf, modelName, name = None, model = None,
+                  enabled = None):
         """
         Arguments are:
         - srdf: a dictionnary as returned by function parse_srdf
-        - model: a pinocchio.Model object
+        - model: a pinocchio.Model object,
+        - name: name of the instance, used to build the name of the SoT entity,
         - modelName: the name of the controlled robot. All joints starting with *robotName/*
                      are considered active while the other are passive.
         - enabled: whether tasks for this frame should be generated.
         """
         self.robotName = srdf["robot"]
-        self.name = srdf["name"]
-        self.key = self.robotName + "/" + self.name
+        if name is None:
+            self.name = srdf["name"]
+            self.key = self.robotName + "/" + self.name
+        else:
+            self.name = name
+            self.key = name
         self.link = srdf["link"]
         self.lMf = transQuatToSE3 (srdf["position"])
         self.enabled = enabled
@@ -87,5 +93,3 @@ class OpFrame(object):
     def fullLink  (self): return self.robotName + "/" + self.link
     @property
     def fullJoint (self): return self.robotName + "/" + self.joint
-    @property
-    def fullName  (self): return self.robotName + "/" + self.name

@@ -194,7 +194,7 @@ class PreGrasp (Task):
 
     ## \todo implement tracking of velocity
     def _makeAbsolute(self, sotrobot, withMeasurementOfObjectPos, withMeasurementOfGripperPos, withDerivative):
-        name = self._name(self.gripper.name, self.handle.fullName)
+        name = self._name(self.gripper.name, self.handle.full)
 
         assertEntityDoesNotExist(name+"_feature")
         self.feature = FeaturePose (name + "_feature")
@@ -234,8 +234,8 @@ class PreGrasp (Task):
             withDerivative):
         assert self.handle.robotName == self.otherHandle.robotName
         assert self.handle.link      == self.otherHandle.link
-        name = self._name(self.gripper.name, self.handle.fullName,
-            "relative", self.otherGripper.name, self.otherHandle.fullName)
+        name = self._name(self.gripper.name, self.handle.name,
+            "relative", self.otherGripper.name, self.otherHandle.name)
 
         assertEntityDoesNotExist(name+"_feature")
         self.feature = FeaturePose (name + "_feature")
@@ -339,8 +339,8 @@ class PreGrasp (Task):
             withMeasurementOfOtherGripperPos, withDerivative):
         assert self.handle.robotName == self.otherHandle.robotName
         assert self.handle.link      == self.otherHandle.link
-        name = self._name(self.gripper.fullName, self.handle.fullName,
-            "based", self.otherGripper.name, self.otherHandle.fullName)
+        name = self._name(self.gripper.name, self.handle.name,
+            "based", self.otherGripper.name, self.otherHandle.name)
 
         assertEntityDoesNotExist(name+"_feature")
         self.feature = FeaturePose (name + "_feature")
