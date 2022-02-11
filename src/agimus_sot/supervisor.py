@@ -334,7 +334,7 @@ class Supervisor(object):
                 print("{0}: Running post action {1} --> {2}\n{3}"
                         .format(devicetime, self.currentSot, targetStateName,
                             solver.sot.display()))
-                return True, devicetime
+                return True, devicetime, ""
         print ("No post action {0} --> {1}".format(self.currentSot, targetStateName))
         return True, -1, "no post action"
 
