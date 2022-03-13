@@ -225,7 +225,8 @@ class TaskFactory(ConstraintFactoryAbstract):
     def buildPlacement (self, o, grasp):
         gf = self.graphfactory
         io = gf.objects.index(o)
-        if len(gf.contactsPerObjects[io]) == 0 or len(gf.envContacts[0]) == 0:
+        if len(gf.contactsPerObjects[io]) == 0 or len(gf.envContacts) == 0\
+           or len(gf.envContacts[0]) == 0:
             return {'preplace': Task(), 'preplace_postaction': Task() }
         try:
             obj = gf.contactFrames[gf.contactsPerObjects[io][0]]
