@@ -1,5 +1,8 @@
 \documentclass{article}
 \usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{color}
+\usepackage{graphicx}
 \usepackage{bm}
 
 \newcommand{\M}[3]{{^#1}M^{#2}_{#3}}
@@ -8,7 +11,23 @@
 \newcommand{\oM}[2]{M^{#1}_{#2}}
 \newcommand{\oMinv}[2]{{\left( \oM{#1}{#2} \right) }^{-1}}
 
+\newcommand\wrench{W}
+\newcommand\resultant{F}
+\newcommand\moment{M}
+\newcommand\wrenchdes{W^{*}}
+\newcommand\resultantdes{F^{*}}
+\newcommand\momentdes{M^{*}}
+\newcommand\conf{\mathbf{q}}
+\newcommand\dconf{\mathbf{\dot{q}}}
+\newcommand\error{\mathbf{e}}
+\newcommand\derror{\mathbf{\dot{e}}}
+
+\title{Documentation on classes and functions implemented in \texttt{agimus-sot}}
+\author{Joseph Mirabel and Florent Lamiraux}
+\date{}
 \begin{document}
+
+\maketitle
 
 \section{Visual servoing}
 
@@ -67,4 +86,152 @@ The desired gripper position is then:
 $$ \delta_g = \Minv{3}{c}{1} \M{3}{v}{1} $$
 $$ \delta_h = \Minv{3}{c}{2} \M{3}{v}{2} $$
 
+\section{Admittance control for contact detection}
+
+\begin{figure}
+    \centering
+    \def\svgwidth{\columnwidth}
+    \graphicspath{{./figures/}}
+    \scalebox{.8}{\input{figures/contact-admittance.pdf_tex}}
+    \caption{Contact between a robot link and the environment. We assume that
+      all joints between the force sensor and the contact points are controlled
+      in position in order to remain static. When in contact, small
+      displacements of the joint that holds the force sensor imply variation
+      of the force.}
+    \label{fig:contact}
+\end{figure}
+
+Admittance control for contact detection is implemented by C++ class \\ \texttt{dynamicgraph::agimus::ContactAdmittance}, accessible as a feature in \texttt{dynamic-graph} through python module \texttt{agimus\_sot.sot}.
+
+The input signals are
+\begin{itemize}
+\item[-]\texttt{inputError}: error of the feature controlling the end
+  effector when there is no contact,
+\item[-] \texttt{inputJacobian}: corresponding Jacobian,
+\item[-] \texttt{wrench}: wrench measured by the force sensor,
+\item[-] \texttt{ftJacobian}: Jacobian of the pose of the force sensor with respect to the robot configuration,
+\item[-] \texttt{threshold}: norm of the force/moment above which the contact is
+    considered as active.
+\item[-] \texttt{wrenchDes}: the desired wrench in the force sensor when
+  there is contact
+\item[-] \texttt{stiffness}: the stiffness matrix of the admittance control law.
+\end{itemize}
+
+The output signals are
+\begin{itemize}
+\item[-] \texttt{error}: (from FeatureAbstract)
+\item[-] \texttt{jacobian}: (from FeatureAbstract)
+\item[-] \texttt{contact}: boolean signal informing whether a contact is detected.
+\end{itemize}
+
+\subsection{Notation}
+
+We denote by
+\begin{itemize}
+\item [-] $\error_{in}$ the error of the input task,
+\item [-] $J_{in}$ the error Jacobian of the input task,
+\item[-] $\wrench = (\resultant, \moment)$ the wrench applied by the environment (through contact) and by the gravity to the robot end-effector, measured at the force sensor position,
+\item[-] $\resultant$ the resultant force of $\wrench$ expressed in the sensor frame,
+\item[-] $\moment$ the moment at the force sensor of $\wrench$ expressed in the sensor frame,
+\item[-] $\wrenchdes = (\resultantdes, \momentdes)$ the desired value of $\wrench$ when the end-effector is in contact,
+\item[-] $\oM{w}{sensor}\in SE(3)$ the pose of the end-effector in the world frame,
+\item[-] $\oM{w\ *}{sensor}\in SE(3)$ the pose of the end-effector that yields the desired wrench. We assume that such a pose exists.
+\item[-] $J_{sensor}$, the Jacobian of the force sensor pose with respect to the
+  robot configuration,
+\item[-] $S$ a 6x6 positive definite stiffness matrix defined in Section~\ref{subsec:contact detected}.
+\end{itemize}
+
+\subsection{Contact detection}
+
+A contact is assumed to be detected when the following measured value is above
+the input threshold:
+$$
+\sqrt{\|\resultant\|^2 + \|\moment\|^2}.
+$$
+Note that the above expression is not homogeneous and that the force norm should
+be multiplyed by a length.
+
+The detection information is sent to ouput signal \texttt{contact}.
+
+\subsection{No contact detected}
+
+When no contact is detected, the entity simply forwards to output signal
+\texttt{error} and \texttt{jacobian} the values of the input task \texttt{errorIn} and \texttt{jacobianIn}. This enables to perform any type of control like visual servoing for instance.
+
+\subsection{Contact detected}\label{subsec:contact detected}
+
+When a contact is detected, the output error is defined as the difference between the measured and desired wrench:
+$$
+\bm{e} = \wrench - \wrenchdes
+$$
+We assume that the deviation of the force with respect to the desired value follows the following law:
+$$
+\wrench - \wrenchdes = -S\nu,
+$$
+where
+\begin{eqnarray*}
+  \nu &=& \oM{w}{sensor} \ominus \oM{w\ *}{sensor}\in\mathbb{R}^{6}\\
+  &=& \log_{SE(3)} \oM{w\ *\ -1}{sensor} \oM{w}{sensor}
+\end{eqnarray*}
+is the screw velocity that drives from $\oM{w\ *}{sensor}$ to $\oM{w}{sensor}$ in unit time.
+
+Let us recall that left multiplying a motion in $SE(3)$ by a constant element of $SE(3)$ keeps the velocity $(\mathbf{v},\bm{\omega})$ unchanged. Thus,
+\begin{eqnarray*}
+  \dot{\nu} &=& J_{log_{SE(3)}}(\oM{w\ *\ -1}{sensor} \oM{w}{sensor})\left(\begin{array}{c}\mathbf{v}_{sensor}\\ \bm{\omega}_{sensor}\end{array}\right)\\
+  &=& J_{log_{SE(3)}}(\oM{w\ *\ -1}{sensor} \oM{w}{sensor}) J_{sensor}\dconf
+\end{eqnarray*}
+
+The Jacobian of the error is given by
+$$
+J = -S J_{log_{SE(3)}}(\oM{w\ *\ -1}{sensor} \oM{w}{sensor}) J_{sensor}
+$$
+Making the asumption that $\oM{w}{sensor}$ remains close to $\oM{w\ *}{sensor}$, we can replace $J_{log_{SE(3)}}(\oM{w\ *\ -1}{sensor} \oM{w}{sensor})$ by the identity matrix:
+$$
+J = -S J_{sensor}
+$$
+this value is sent to output signal \texttt{jacobian}.
+
+Note that for the contact control to be stable, we should make sure that
+$\|\wrenchdes\|$ is above the detection threshold.
+
+\subsection{Releasing contact}
+
+When the contact is detected, the contact wrench is controlled to converge toward the desired wrench and thus the contact will remain whatever the error of the feature controlling the end effector when there is no contact.
+This behavior is not desirable. If the input error and Jacobian tend to make
+the link leave the contact, this feature should switch back to the input error and Jacobian.
+
+Let consider the hierarchical task based solver (S) in which we replace the
+admittance control task by the input task. If the input task is compatible
+with the higher priority tasks of (S), the decreasing rate of $\error_{in}$ is
+the same as if the input task was the only task of the solver. In other words, if we define
+$$
+\dconf_{in} = -\lambda_{in} J_{in}^{+}\error_{in},
+$$
+where $\lambda_{in} > 0$ is the control gain of the input task, velocity $\dconf_{in}$ implies the same decreasing rate of $\error_{in}$ as solver (S).
+
+Therefore under the following asumptions
+\begin{itemize}
+\item[-] the input task is compatible with the higher priority tasks,
+\item[-] the input task controls the pose of the robot link that holds the
+force sensor,
+\end{itemize}
+$$
+J_{sensor}\ \dconf_{in}
+$$
+represents the velocity of the link holding the force sensor under the robot
+velocity computed by (S).
+
+We now want to compute how this robot velocity affects the norm of the wrench.
+
+\begin{eqnarray*}
+  \frac{1}{2}\frac{d}{dt}\|W\|^2 &=& W^T\dot{W} \\
+  &=& W^T\derror \\
+  &=& -S J_{sensor}\ \dconf_{in} \\
+  &=& \lambda_{in} W^T S J_{sensor}\ J_{in}^{+}\error_{in}
+\end{eqnarray*}
+Thus, if
+$$
+W^T S J_{sensor}\ J_{in}^{+}\error_{in} < 0
+$$
+the input task tends to make the force decrease and the controller switches back to the input task.
 \end{document}
