@@ -21,6 +21,7 @@ SET(LIBRARY_NAME ${PROJECT_NAME})
 
 ADD_LIBRARY(${LIBRARY_NAME}
   SHARED
+  contact-admittance.cc
   gain-adaptive.cc
   holonomic-constraint.cc
   object-localization.cc
