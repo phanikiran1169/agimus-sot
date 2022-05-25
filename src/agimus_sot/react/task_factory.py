@@ -126,3 +126,13 @@ class TaskFactory(ConstraintFactoryAbstract):
         if hasattr(ee, "events"):
             return ee.events.get(what, default)
         return default
+
+# In loop transition, copy the controller of the
+# pregrasp to grasp transition in order to make a
+# rotation motion of the tool around a hole controlled
+# with the object position
+def localizeObjectOnLoopTransition(supervisor, handles):
+    for h in handles:
+        if h[:12] == 'part/handle_':
+            i = h[12:]
+            supervisor.sots['Loop | 0-'+i] = supervisor.sots['ur10e/gripper > part/handle_'+ i.zfill(2) +' | f_12']
