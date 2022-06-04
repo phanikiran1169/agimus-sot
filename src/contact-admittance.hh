@@ -64,13 +64,19 @@ namespace agimus {
 /// The output signals are
 /// \li error (from FeatureAbstract)
 /// \li jacobian (from FeatureAbstract)
-/// \li contact boolean signal informing whether there is contact.
+/// \li contact integer signal providing the state of the contact:
+///    0 no contact, 1 contact controlled, 2 contact released
   
 using dynamicgraph::sot::FeatureAbstract;
   
 class AGIMUS_SOT_DLLAPI ContactAdmittance : public FeatureAbstract
 {
  public:
+  enum ContactType{
+    NO_CONTACT = 0,
+    ACTIVE_CONTACT,
+    CONTACT_RELEASED
+  };
   typedef dynamicgraph::sot::MatrixHomogeneous MatrixHomogeneous;
   static const std::string CLASS_NAME;
   virtual void display(std::ostream &os) const;
@@ -101,7 +107,7 @@ class AGIMUS_SOT_DLLAPI ContactAdmittance : public FeatureAbstract
   // stiffness
   SignalPtr<dynamicgraph::Matrix, int> stiffnessSIN;
   // Output signals
-  SignalTimeDependent<bool, int> contactSOUT;
+  SignalTimeDependent<int, int> contactSOUT;
 
    // \brief Compute the error
   virtual dynamicgraph::Vector& computeError(dynamicgraph::Vector &res,
@@ -112,7 +118,7 @@ class AGIMUS_SOT_DLLAPI ContactAdmittance : public FeatureAbstract
                                                 int time);
 
   // Compute whether a contact is detected
-  bool& computeContact(bool& res, int time);
+  int& computeContact(int& res, int time);
   void addCommands();
   DECLARE_NO_REFERENCE;
   }; // class ContactAdmittance

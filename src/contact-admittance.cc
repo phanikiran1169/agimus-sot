@@ -33,7 +33,8 @@ namespace agimus {
 DYNAMICGRAPH_FACTORY_ENTITY_PLUGIN(ContactAdmittance, "ContactAdmittance");
 
 typedef dynamicgraph::sot::MatrixHomogeneous MatrixHomogeneous;
-
+typedef dynamicgraph::Matrix matrix_t;
+typedef dynamicgraph::Vector vector_t;
 
 
 void ContactAdmittance::display(std::ostream& os) const
@@ -55,8 +56,9 @@ ContactAdmittance::ContactAdmittance(const std::string& name) :
   wrenchDesSIN(0x0, "ContactAdmittance("+name+")::input(vector)::wrenchDes"),
   stiffnessSIN(0x0, "ContactAdmittance("+name+")::input(matrix)::stiffness"),
   contactSOUT(boost::bind(&ContactAdmittance::computeContact, this, _1, _2),
-              errorSIN << thresholdSIN,
-              "ContactAdmittance("+name+")::output(bool)::contact")
+              errorSIN << thresholdSIN << wrenchSIN << stiffnessSIN <<
+              ftJacobianSIN << jacobianSIN,
+              "ContactAdmittance("+name+")::output(int)::contact")
 {
   addCommands();
   signalRegistration(errorSIN << jacobianSIN << wrenchSIN << ftJacobianSIN <<
@@ -64,11 +66,11 @@ ContactAdmittance::ContactAdmittance(const std::string& name) :
                      stiffnessSIN);
 }
 
-dynamicgraph::Vector& ContactAdmittance::computeError
-(dynamicgraph::Vector &res, int time)
+vector_t& ContactAdmittance::computeError
+(vector_t &res, int time)
 {
-  bool contact(contactSOUT(time));
-  if (contact){
+  ContactType contact((ContactType)contactSOUT(time));
+  if (contact == NO_CONTACT || contact == CONTACT_RELEASED){
     res = errorSIN(time);
   } else {
     // in case of contact, the error is the difference between the measured
@@ -81,8 +83,8 @@ dynamicgraph::Vector& ContactAdmittance::computeError
 dynamicgraph::Matrix& ContactAdmittance::computeJacobian
 (dynamicgraph::Matrix &res, int time)
 {
-  bool contact(contactSOUT(time));
-  if (contact){
+  int contact(contactSOUT(time));
+  if (contact == NO_CONTACT || contact == CONTACT_RELEASED){
     res = jacobianSIN(time);
   } else {
     res = -stiffnessSIN(time) * ftJacobianSIN(time);
@@ -90,10 +92,24 @@ dynamicgraph::Matrix& ContactAdmittance::computeJacobian
   return res;
 }
 
-bool& ContactAdmittance::computeContact(bool& res, int time)
+int& ContactAdmittance::computeContact(int& res, int time)
 {
-  dynamicgraph::Vector wrench(wrenchSIN(time));
-  res = (wrench.norm() >= thresholdSIN(time));
+  vector_t wrench(wrenchSIN(time));
+
+  // If norm of wrench is below the threshold, there is no contact
+  if (wrench.norm() < thresholdSIN(time)){
+    res = (int)NO_CONTACT;
+    return res;
+  }
+  matrix_t JinPinv = jacobianSIN(time).completeOrthogonalDecomposition().
+    pseudoInverse();
+  matrix_t a = wrenchSIN(time).transpose()*stiffnessSIN(time)*
+    ftJacobianSIN(time)*JinPinv*errorSIN(time);
+  if (a(0,0) < 0) {
+    res = (int)CONTACT_RELEASED;
+  } else {
+    res = (int)ACTIVE_CONTACT;
+  }
   return res;
 }
 
