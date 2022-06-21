@@ -59,7 +59,7 @@ install(
 SET(FILES
   supervisor.py
   tools.py
-  solver.py
+  action.py
   events.py
   ros_interface.py
   factory.py

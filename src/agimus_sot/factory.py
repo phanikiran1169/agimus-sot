@@ -26,7 +26,7 @@
 
 from hpp.corbaserver.manipulation.constraint_graph_factory import ConstraintFactoryAbstract, GraphFactoryAbstract
 from .task import Task, Grasp, PreGrasp, PreGraspPostAction, OpFrame, EndEffector
-from .solver import Solver
+from .action import Action
 
 ## Affordance between a gripper and a handle.
 #
@@ -418,7 +418,7 @@ class Factory(GraphFactoryAbstract):
         self.lpTasks = supervisor.lpTasks
         self.affordances = dict()
         self.objectAffordances = dict()
-        self.sots = dict()
+        self.actions = dict()
         ## A dictionnary
         # - key: name of the transition after which an action must be done
         # - value: dictionnary:
@@ -449,8 +449,8 @@ class Factory(GraphFactoryAbstract):
                 }
 
     def _newSoT (self, name):
-        # Create a solver
-        sot = Solver (name,
+        # Create a action
+        sot = Action (name,
                 self.sotrobot.dynamic.getDimension(),
                 damping = 0.001,
                 timer = self.parameters["addTimerToSotControl"],
@@ -465,10 +465,10 @@ class Factory(GraphFactoryAbstract):
 
         if self.parameters["addTimerToSotControl"]:
             id = len(self.SoTtracer.signals()) - 1
-            self.SoTtracer.add (sot.timer.name + ".timer", "solver_"+str(id) + ".timer")
+            self.SoTtracer.add (sot.timer.name + ".timer", "action_"+str(id) + ".timer")
         if self.parameters["addTracerToSotControl"]:
             id = len(self.SoTtracer.signals()) - 1
-            self.SoTtracer.add (sot.controlname, "solver_"+str(id) + ".control")
+            self.SoTtracer.add (sot.controlname, "action_"+str(id) + ".control")
         return sot
 
     ## Add an Affordance or ObjectAffordance
@@ -493,13 +493,13 @@ class Factory(GraphFactoryAbstract):
         # init tracers
         if self.parameters["addTimerToSotControl"] or self.parameters["addTracerToSotControl"]:
             self.SoTtracer = self.supervisor.SoTtracer = addTrace(
-                    "tracer_of_solvers", "sot-control-trace")
+                    "tracer_of_actions", "sot-control-trace")
         if self.parameters["addTracerToVisualServoing"]:
             self.ViStracer = self.supervisor.ViStracer = addTracer (
                     "visual_servoing_tracer", "visual-servoing-trace")
         super(Factory, self).generate ()
 
-        self.supervisor.sots = {}
+        self.supervisor.actions = {}
         self.supervisor.grasps = { (gh, w): t for gh, ts in self.tasks._grasp.items() for w, t in ts.items() }
         self.supervisor.placements = { (ogh, w): t for ogh, ts in self.tasks._placements.items() for w, t in ts.items() }
         self.supervisor.hpTasks = self.hpTasks
@@ -510,13 +510,13 @@ class Factory(GraphFactoryAbstract):
         self.supervisor.controllers = self.controllers
 
         from dynamic_graph import plug
-        self.supervisor.sots_indexes = dict()
-        for tn,sot in self.sots.items():
+        self.supervisor.action_indices = dict()
+        for tn,sot in self.actions.items():
             # Pre action
             if tn in self.preActions.keys():
                 self.supervisor.addPreAction (tn, self.preActions[tn])
             # Action
-            self.supervisor.addSolver (tn, sot)
+            self.supervisor.addAction (tn, sot)
             # Post action
             if tn in self.postActions.keys():
                 self.supervisor.addPostActions (tn, self.postActions[tn])
@@ -557,7 +557,7 @@ class Factory(GraphFactoryAbstract):
         state.manifold.pushTo(sot)
         self.lpTasks.pushTo(sot)
 
-        self.sots[n] = sot
+        self.actions[n] = sot
 
     def makeTransition (self, stateFrom, stateTo, ig):
         sf = stateFrom
@@ -588,7 +588,7 @@ class Factory(GraphFactoryAbstract):
         transitions = names[:]
         assert nWaypoints > 0
         M = 1 + pregrasp
-        sots = [ ]
+        actions = [ ]
         for i in range(nTransitions):
             ns = ("{0}_{1}{2}".format(names[0], i, i+1),
                   "{0}_{2}{1}".format(names[1], i, i+1))
@@ -614,8 +614,8 @@ class Factory(GraphFactoryAbstract):
                 else:     st.manifold.pushTo(s)
 
                 self.lpTasks.pushTo(s)
-                self.sots[n] = s
-                sots.append (n)
+                self.actions[n] = s
+                actions.append (n)
 
         ## Post-actions for transitions from
         # 1. pregrasp to intersec, intersec (st) reached:
@@ -623,7 +623,7 @@ class Factory(GraphFactoryAbstract):
         #      the object is not perfectly grasped (which is obviously always the case.
         #   - keep gripper pose
         #   - "gripper_close"
-        key = sots[2*(M-1)]
+        key = actions[2*(M-1)]
         sot = self._newSoT ("postAction_" + key)
         self.hpTasks.pushTo (sot)
         # "gripper_close" is in st.manifold
@@ -650,7 +650,7 @@ class Factory(GraphFactoryAbstract):
         # 2. intersec to pregrasp, pregrasp (sf) reached:
         # TODO Should this post-action be done ?
         # Force the re-alignment with planning.
-        key = sots[2*(M-1)+1]
+        key = actions[2*(M-1)+1]
         sot = self._newSoT ("postAction_" + key)
         # TODO Any events ?
         self.hpTasks.pushTo (sot)
@@ -669,7 +669,7 @@ class Factory(GraphFactoryAbstract):
         #   pregrasp_postaction.
         #   - "pregrasp": the motion must be relative to the object
         #   - "gripper_open"
-        key = sots[2*(M-1) + 1]
+        key = actions[2*(M-1) + 1]
         sot = self._newSoT ("preAction_" + key)
         self.hpTasks.pushTo (sot)
         # "gripper_open" is in sf.manifold
@@ -691,7 +691,7 @@ class Factory(GraphFactoryAbstract):
         # 2. pregrasp to intersec:
         #   - "pregrasp": the motion must be relative to the object
         # Required to force the alignment gripper / handle before the actual grasp.
-        key = sots[2*(M-1)]
+        key = actions[2*(M-1)]
         sot = self._newSoT ("preAction_" + key)
         self.hpTasks.pushTo (sot)
         self.tasks.g (self.grippers[ig], self.handles[st.grasps[ig]], 'pregrasp', otherGrasp).pushTo (sot)

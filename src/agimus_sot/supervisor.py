@@ -37,7 +37,7 @@ def _lpTasks (sotrobot):
 
 ## Supervise the consecutive execution of several SoT.
 #
-# Typically, these sots are created via factory.Factory. They can also be added manually.
+# Typically, these actions are created via factory.Factory. They can also be added manually.
 class Supervisor(object):
     """
     Steps: P = placement, G = grasp, p = pre-P, g = pre-G
@@ -48,6 +48,15 @@ class Supervisor(object):
     4. GP <-> Gp
     5. Gp <-> G
     """
+
+    ##
+    # Warn on use of deprecated sots attribute
+    def __getattr__(self, arg):
+        if arg == "sots":
+            print("Attribute Supervisor.sots is deprecated and replaced by supervisor.actions.")
+            return self.actions
+        return self.__dict__[arg]
+
     ##
     # \param lpTasks list of low priority tasks. If None, a Posture task will be used.
     # \param hpTasks list of high priority tasks (like balance)
@@ -73,8 +82,8 @@ class Supervisor(object):
 
     def makeInitialSot (self):
         # Create the initial sot (keep)
-        from .solver import Solver
-        sot = Solver ('sot_keep', self.sotrobot.dynamic.getDimension())
+        from .action import Action
+        sot = Action ('sot_keep', self.sotrobot.dynamic.getDimension())
 
         self.keep_posture = Posture ("posture_keep", self.sotrobot)
         self.keep_posture._task.setWithDerivative (False)
@@ -83,7 +92,7 @@ class Supervisor(object):
         self.keep_posture.pushTo(sot)
         sot. doneSignal = self.done_events.controlNormSignal
         sot.errorSignal = False
-        self.addSolver ("", sot)
+        self.addAction ("", sot)
 
     ## Set the robot base pose in the world.
     # \param basePose a list: [x,y,z,r,p,y] or [x,y,z,qx,qy,qz,qw]
@@ -115,12 +124,16 @@ class Supervisor(object):
         self.preActions[name] = preActionSolver
         self._addSignalToSotSwitch (preActionSolver)
 
-    def addSolver (self, name, solver):
-        self.sots[name] = solver
-        self._addSignalToSotSwitch (solver)
+    def addSolver(self, name, action):
+        print('Supervisor.addSolver is deprecated. Use Supervisor.addAction instead.')
+        self.addAction(name, action)
+
+    def addAction (self, name, action):
+        self.actions[name] = action
+        self._addSignalToSotSwitch (action)
 
     def duplicateSolver (self, existingSolver, newSolver):
-        self.sots[newSolver] = self.sots[existingSolver]
+        self.actions[newSolver] = self.actions[existingSolver]
 
     def addPostActions (self, name, postActionSolvers):
         self.postActions[name] = postActionSolvers
@@ -128,11 +141,11 @@ class Supervisor(object):
             self._addSignalToSotSwitch (pa_sot)
 
     ## This is for internal purpose
-    def _addSignalToSotSwitch (self, solver):
+    def _addSignalToSotSwitch (self, action):
         n = self.sot_switch.getSignalNumber()
         self.sot_switch.setSignalNumber(n+1)
-        self.sots_indexes[solver.name] = n
-        plug (solver.control, self.sot_switch.signal("sin" + str(n)))
+        self.action_indices[action.name] = n
+        plug (action.control, self.sot_switch.signal("sin" + str(n)))
 
         def _plug (e, events, n, name):
             assert events.getSignalNumber() == n, "Wrong number of events."
@@ -141,14 +154,14 @@ class Supervisor(object):
             if isinstance(e, (bool,int)): events.conditionSignal(n).value = e
             else: plug (e, events.conditionSignal(n))
 
-        _plug (solver. doneSignal, self. done_events, n, solver.name)
-        _plug (solver.errorSignal, self.error_events, n, solver.name)
+        _plug (action. doneSignal, self. done_events, n, action.name)
+        _plug (action.errorSignal, self.error_events, n, action.name)
 
-    def _selectSolver (self, solver):
-        res, msg = solver.runPreactions()
+    def _selectSolver (self, action):
+        res, msg = action.runPreactions()
         if not res:
             return False, msg
-        n = self.sots_indexes[solver.name]
+        n = self.action_indices[action.name]
         self.  sot_switch.selection.value = n
         self. done_events.setSelectedSignal(n)
         self.error_events.setSelectedSignal(n)
@@ -180,15 +193,15 @@ class Supervisor(object):
         exec ("tmp = " + self.rosSubscribe.list())
         for l in tmp: print (l, self.rosSubscribe.queueSize(l))
 
-    ## Check consistency between two SoTs.
+    ## Check consistency between two Actions.
     #
     # This is not used anymore because it must be synchronized with the real-time thread.
-    # \todo Re-enable consistency check between two SoTs.
+    # \todo Re-enable consistency check between two Actions.
     def isSotConsistentWithCurrent(self, transitionName, thr = 1e-3):
         if self.currentSot is None or transitionName == self.currentSot:
             return True
-        csot = self.sots[self.currentSot]
-        nsot = self.sots[transitionName]
+        csot = self.actions[self.currentSot]
+        nsot = self.actions[transitionName]
         t = self.sotrobot.device.control.time
         # This is not safe since it would be run concurrently with the
         # real time thread.
@@ -240,7 +253,7 @@ class Supervisor(object):
     #          be received by rosSubscribe, this function does an infinite loop.
     def readQueue(self, delay, minQueueSize, duration, timeout):
         from time import sleep
-        print("Current solver {0}".format(self.currentSot))
+        print("Current action {0}".format(self.currentSot))
         if delay < 0:
             print ("Delay argument should be >= 0")
             return False, -1
@@ -262,7 +275,8 @@ class Supervisor(object):
     #
     # \param transitionName name of the transition
     # \param check whether to check if the control computed by the new
-    #        action solver is close to the control computed by the current one.
+    #        action controller is close to the control computed by the current
+    #        one.
     #
     # \return whether action succeeded, SoT time at which reading starts, error
     #         message if failure.
@@ -281,7 +295,7 @@ class Supervisor(object):
                 # reference of posture feature has not been initialized yet
                 self.keep_posture._signalPositionRef().value = \
                     self.sotrobot.dynamic.position.value
-        solver = self.sots[transitionName]
+        action = self.actions[transitionName]
 
         # No done events should be triggered before call
         # to readQueue. We expect it to happen with 1e6 milli-seconds
@@ -289,11 +303,11 @@ class Supervisor(object):
         devicetime = self.sotrobot.device.control.time
         self. done_events.setFutureTime (devicetime + 100000)
 
-        res, msg = self._selectSolver (solver)
+        res, msg = self._selectSolver (action)
         if not res:
             return False, -1, msg
-        print("{0}: Current solver {1}\n{2}"
-                .format(devicetime, transitionName, solver.sot.display()))
+        print("{0}: Current action {1}\n{2}"
+                .format(devicetime, transitionName, action.sot.display()))
         self.currentSot = transitionName
         if hasattr (self, 'ros_publish_state'):
             self.ros_publish_state.signal("transition_name").value = transitionName
@@ -303,15 +317,15 @@ class Supervisor(object):
     def runPreAction(self, transitionName):
         t = self.sotrobot.device.control.time + 2
         if transitionName in self.preActions.keys():
-            solver = self.preActions[transitionName]
+            action = self.preActions[transitionName]
 
             self. done_events.setFutureTime (t)
 
-            res, msg = self._selectSolver (solver)
+            res, msg = self._selectSolver (action)
             if not res:
                 return False, -1, msg
             print("{0}: Running pre action {1}\n{2}"
-                    .format(t, transitionName, solver.sot.display()))
+                    .format(t, transitionName, action.sot.display()))
             return True, t - 2, ""
         else:
             print ("No pre action", transitionName)
@@ -325,17 +339,17 @@ class Supervisor(object):
         if self.currentSot in self.postActions.keys():
             d = self.postActions[self.currentSot]
             if targetStateName in d.keys():
-                solver = d[targetStateName]
+                action = d[targetStateName]
 
                 self. done_events.setFutureTime (devicetime + 2)
 
-                res, msg = self._selectSolver (solver)
+                res, msg = self._selectSolver (action)
                 if not res:
                     return False, -1, msg
 
                 print("{0}: Running post action {1} --> {2}\n{3}"
                         .format(devicetime, self.currentSot, targetStateName,
-                            solver.sot.display()))
+                            action.sot.display()))
                 return True, devicetime, ""
         print ("No post action {0} --> {1}".format(self.currentSot, targetStateName))
         return True, -1, "no post action"
