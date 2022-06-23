@@ -50,14 +50,6 @@ class Supervisor(object):
     """
 
     ##
-    # Warn on use of deprecated sots attribute
-    def __getattr__(self, arg):
-        if arg == "sots":
-            print("Attribute Supervisor.sots is deprecated and replaced by supervisor.actions.")
-            return self.actions
-        return self.__dict__[arg]
-
-    ##
     # \param lpTasks list of low priority tasks. If None, a Posture task will be used.
     # \param hpTasks list of high priority tasks (like balance)
     def __init__ (self, sotrobot, lpTasks=None, hpTasks=None, prefix=None):
