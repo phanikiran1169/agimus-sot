@@ -57,8 +57,6 @@ class ControllerSwitch:
 
         self._event_up   = Event (name + "_event_up")
         self._event_down = Event (name + "_event_down")
-        self._event_up   .setOnlyUp(True);
-        self._event_down .setOnlyUp(True);
         self._latch = Latch(name + "_latch")
         self._latch.turnOff()
 

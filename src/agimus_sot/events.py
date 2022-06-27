@@ -71,6 +71,7 @@ class Events:
         # Setup entity that triggers the event.
         self.switch = SwitchBoolean (name + "_switch")
         self.event = Event (name + "_event")
+        self.event.repeat(5000)
         plug (self.switch.sout, self.event.condition)
         robot.device.after.addSignal (name + "_event.check")
 
