@@ -109,6 +109,12 @@ try:
     runCommandClient = rospy.ServiceProxy('/run_command', RunCommand)
     runCommandStartDynamicGraph = rospy.ServiceProxy('/start_dynamic_graph', Empty)
 
+    # read ROS param /demo and define dictionary in SoT since SoT is
+    # not allowed to import rospy
+    demo = rospy.get_param("/demo")
+    code = ["globalDemoDict = {}".format(demo)]
+    launchScript(code,'define dictionary demoDict')
+
     initCode = ["simulateTorqueFeedbackForEndEffector = "+str(simulateTorqueFeedbackForEndEffector),] \
             + open( input, "r").read().split("\n")
 
