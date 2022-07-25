@@ -33,7 +33,7 @@
 #  \li a controller of type SOT (stack of task) that is activated upon
 #      completion of the preactions,
 
-class Solver(object):
+class Action(object):
     maxControlSqrNorm = 10.
     def __init__ (self, name, dimension, damping = None, timer = False):
         from dynamic_graph.entity import VerbosityLevel
@@ -66,7 +66,7 @@ class Solver(object):
         projector: a signal of type matrix type
 
         A projector is a NxK matrix, where N is the number of DoF of the
-        robot and K the dimension of the solver search space. This matrix
+        robot and K the dimension of the action search space. This matrix
         computes a robot velocity from a vector in the search space.
         When not set, the search space is the robot velocity space.
         """

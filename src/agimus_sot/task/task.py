@@ -111,14 +111,14 @@ class Task(object):
         for t in self.tasks:
             t.controlSelec.value = selection
 
-    def pushTo (self, solver):
+    def pushTo (self, action):
         """
-        \param solver an object of type agimus_sot.solver.Solver
+        \param action an object of type agimus_sot.action.Action
         """
         for t in self.tasks:
-            solver.push(t)
+            action.push(t)
         if self.projector is not None:
-            solver.setProjector(self.projector)
+            action.setProjector(self.projector)
 
     def extendSignalGetters (self, topicName, signalGetters):
         """Add signal getters to a topic"""

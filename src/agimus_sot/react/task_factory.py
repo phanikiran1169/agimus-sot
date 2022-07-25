@@ -26,7 +26,7 @@
 
 from hpp.corbaserver.manipulation.constraint_graph_factory import ConstraintFactoryAbstract, GraphFactoryAbstract
 from agimus_sot.task import Task, Grasp, PreGraspPostAction, OpFrame, EndEffector
-from agimus_sot.solver import Solver
+from agimus_sot.action import Action
 from .pre_grasp import PreGrasp
 
 ## Create \ref task.Task s
@@ -135,4 +135,4 @@ def localizeObjectOnLoopTransition(supervisor, handles):
     for h in handles:
         if h[:12] == 'part/handle_':
             i = h[12:]
-            supervisor.sots['Loop | 0-'+i] = supervisor.sots['ur10e/gripper > part/handle_'+ i.zfill(2) +' | f_12']
+            supervisor.actions['Loop | 0-'+i] = supervisor.actions['ur10e/gripper > part/handle_'+ i.zfill(2) +' | f_12']
