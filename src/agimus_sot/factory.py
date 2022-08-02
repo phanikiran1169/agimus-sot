@@ -575,6 +575,10 @@ class Factory(GraphFactoryAbstract):
         else:
             otherGrasp = sf.objectsAlreadyGrasped.get(obj)
 
+        if not noPlace:
+            if len(self.contactsPerObjects[iobj]) == 0 or \
+            len(self.envContacts) == 0:
+                noPlace = True
         # The different cases:
         pregrasp = True
         intersec = not noPlace
