@@ -90,6 +90,9 @@ class AGIMUS_SOT_DLLAPI ContactAdmittance : public FeatureAbstract
     return res;
   }
 
+  // Get wrench offset by averaging over 20 iterations
+  void getOffset(const int& time);
+
  private:
   // Input signals
   // error of the feature controlling the end effector when there is no contact
@@ -106,10 +109,14 @@ class AGIMUS_SOT_DLLAPI ContactAdmittance : public FeatureAbstract
   SignalPtr<dynamicgraph::Vector, int> wrenchDesSIN;
   // stiffness
   SignalPtr<dynamicgraph::Matrix, int> stiffnessSIN;
+
   // Output signals
+  // Wrench offset corresponding to the weight of the end effector
+  Signal<dynamicgraph::Vector, int> wrenchOffsetSOUT;
+  // State of the contact
   SignalTimeDependent<int, int> contactSOUT;
 
-   // \brief Compute the error
+  // \brief Compute the error
   virtual dynamicgraph::Vector& computeError(dynamicgraph::Vector &res,
                                              int time);
 

@@ -25,6 +25,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <dynamic-graph/factory.h>
+#include <dynamic-graph/all-commands.h>
 #include "contact-admittance.hh"
 
 namespace dynamicgraph {
@@ -44,6 +45,19 @@ void ContactAdmittance::display(std::ostream& os) const
 
 void ContactAdmittance::addCommands()
 {
+  std::string docstring;
+  docstring=
+    "    \n"
+    "    Set wrench offset from current wrench input signal\n"
+    "    \n"
+    "      Input:\n"
+    "        time: time to recompute the wrench signal\n"
+    "    \n";
+
+
+  addCommand("getOffset", command::makeCommandVoid1
+    (*this, &ContactAdmittance::getOffset, docstring));
+
 }
 
 ContactAdmittance::ContactAdmittance(const std::string& name) :
@@ -55,6 +69,7 @@ ContactAdmittance::ContactAdmittance(const std::string& name) :
   thresholdSIN(0x0, "ContactAdmittance("+name+")::input(double)::threshold"),
   wrenchDesSIN(0x0, "ContactAdmittance("+name+")::input(vector)::wrenchDes"),
   stiffnessSIN(0x0, "ContactAdmittance("+name+")::input(matrix)::stiffness"),
+  wrenchOffsetSOUT("ContactAdmittance("+name+")::output(vector)::wrenchOffset"),
   contactSOUT(boost::bind(&ContactAdmittance::computeContact, this, _1, _2),
               errorSIN << thresholdSIN << wrenchSIN << stiffnessSIN <<
               ftJacobianSIN << jacobianSIN,
@@ -64,6 +79,14 @@ ContactAdmittance::ContactAdmittance(const std::string& name) :
   signalRegistration(errorSIN << jacobianSIN << wrenchSIN << ftJacobianSIN <<
                      contactSOUT << thresholdSIN << wrenchDesSIN <<
                      stiffnessSIN);
+  signalRegistration(wrenchOffsetSOUT);
+  dynamicgraph::Vector offset(6); offset.setZero();
+  wrenchOffsetSOUT.setConstant(offset);
+}
+
+void ContactAdmittance::getOffset(const int& time)
+{
+  wrenchOffsetSOUT.setConstant(wrenchSIN(time));
 }
 
 vector_t& ContactAdmittance::computeError
@@ -75,7 +98,7 @@ vector_t& ContactAdmittance::computeError
   } else {
     // in case of contact, the error is the difference between the measured
     // and desired wrenchs
-    res = wrenchSIN(time) - wrenchDesSIN(time);
+    res = wrenchSIN(time) - wrenchOffsetSOUT(time) - wrenchDesSIN(time);
   }
   return res;
 }
