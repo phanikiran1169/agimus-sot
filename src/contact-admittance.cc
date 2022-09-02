@@ -34,7 +34,6 @@ namespace agimus {
 DYNAMICGRAPH_FACTORY_ENTITY_PLUGIN(ContactAdmittance, "ContactAdmittance");
 
 typedef dynamicgraph::sot::MatrixHomogeneous MatrixHomogeneous;
-typedef dynamicgraph::Matrix matrix_t;
 typedef dynamicgraph::Vector vector_t;
 
 
@@ -73,7 +72,8 @@ ContactAdmittance::ContactAdmittance(const std::string& name) :
   contactSOUT(boost::bind(&ContactAdmittance::computeContact, this, _1, _2),
               errorSIN << thresholdSIN << wrenchSIN << stiffnessSIN <<
               ftJacobianSIN << jacobianSIN,
-              "ContactAdmittance("+name+")::output(int)::contact")
+              "ContactAdmittance("+name+")::output(int)::contact"),
+  contactCounter_(0), nContactIterations_(5), contactState_(NO_CONTACT)
 {
   addCommands();
   signalRegistration(errorSIN << jacobianSIN << wrenchSIN << ftJacobianSIN <<
@@ -92,8 +92,8 @@ void ContactAdmittance::getOffset(const int& time)
 vector_t& ContactAdmittance::computeError
 (vector_t &res, int time)
 {
-  ContactType contact((ContactType)contactSOUT(time));
-  if (contact == NO_CONTACT || contact == CONTACT_RELEASED){
+  ContactState contact((ContactState)contactSOUT(time));
+  if (contact == NO_CONTACT || contact == GOING_TO_CONTACT){
     res = errorSIN(time);
   } else {
     // in case of contact, the error is the difference between the measured
@@ -107,7 +107,7 @@ dynamicgraph::Matrix& ContactAdmittance::computeJacobian
 (dynamicgraph::Matrix &res, int time)
 {
   int contact(contactSOUT(time));
-  if (contact == NO_CONTACT || contact == CONTACT_RELEASED){
+  if (contact == NO_CONTACT || contact == GOING_TO_CONTACT){
     res = jacobianSIN(time);
   } else {
     res = -stiffnessSIN(time) * ftJacobianSIN(time);
@@ -119,20 +119,73 @@ int& ContactAdmittance::computeContact(int& res, int time)
 {
   vector_t wrench(wrenchSIN(time));
 
-  // If norm of wrench is below the threshold, there is no contact
-  if (wrench.norm() < thresholdSIN(time)){
-    res = (int)NO_CONTACT;
-    return res;
-  }
-  matrix_t JinPinv = jacobianSIN(time).completeOrthogonalDecomposition().
-    pseudoInverse();
-  matrix_t a = wrenchSIN(time).transpose()*stiffnessSIN(time)*
-    ftJacobianSIN(time)*JinPinv*errorSIN(time);
-  if (a(0,0) < 0) {
-    res = (int)CONTACT_RELEASED;
-  } else {
-    res = (int)ACTIVE_CONTACT;
-  }
+  // Compute state of contact
+  bool forceAboveThreshold(wrench.head<3>().norm() >= thresholdSIN(time));
+
+  switch(contactState_){
+  case NO_CONTACT:
+    if (forceAboveThreshold) {
+      // first detection, switch to next state and increase counter
+      contactCounter_=1;
+      res = GOING_TO_CONTACT;
+    } else{
+      // otherwise remain in state NO_CONTACT
+      res = NO_CONTACT;
+    }
+    break;
+  case GOING_TO_CONTACT:
+    if (forceAboveThreshold) {
+      // increase counter
+      ++contactCounter_;
+      if (contactCounter_ >= nContactIterations_){
+        // if number of iteration reached, switch to ACTIVE_CONTACT.
+        res = ACTIVE_CONTACT;
+        contactCounter_ = 0;
+      } else{
+        res = GOING_TO_CONTACT;
+      }
+     } else{
+      // Return to state NO_CONTACT
+      res = NO_CONTACT;
+      contactCounter_ = 0;
+     }
+    break;
+  case ACTIVE_CONTACT:
+    JinPinv_ = jacobianSIN(time).completeOrthogonalDecomposition().
+      pseudoInverse();
+    a_ = wrenchSIN(time).transpose()*stiffnessSIN(time)*ftJacobianSIN(time)*
+      JinPinv_*errorSIN(time);
+    if (a_(0,0) >= 0) {
+      // Stay in this state
+      res = ACTIVE_CONTACT;
+    } else{
+      // Go to state RELEASING_CONTACT
+      res = RELEASING_CONTACT;
+    }
+    break;
+  case RELEASING_CONTACT:
+    JinPinv_ = jacobianSIN(time).completeOrthogonalDecomposition().
+      pseudoInverse();
+    a_ = wrenchSIN(time).transpose()*stiffnessSIN(time)*ftJacobianSIN(time)*
+      JinPinv_*errorSIN(time);
+    if (a_(0,0) >= 0) {
+      // Return to state ACTIVE_CONTACT
+      res = ACTIVE_CONTACT;
+      contactCounter_ = 0;
+    } else{
+      // increase counter
+      ++contactCounter_;
+      if (contactCounter_ >= nContactIterations_){
+        // if number of iteration reached, switch to NO_CONTACT.
+        res = NO_CONTACT;
+        contactCounter_ = 0;
+      } else{
+        res = RELEASING_CONTACT;
+      }
+    }
+    break;
+  };
+  contactState_ = static_cast<ContactState>(res);
   return res;
 }
 

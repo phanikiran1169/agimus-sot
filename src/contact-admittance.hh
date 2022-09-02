@@ -40,6 +40,7 @@
 
 namespace dynamicgraph {
 namespace agimus {
+typedef dynamicgraph::Matrix matrix_t;
 
 /// Control of the contact of an end-effector by admittance
 ///
@@ -56,7 +57,7 @@ namespace agimus {
 ///  \li inputJacobian: corresponding Jacobian,
 ///  \li wrench: force and momentum measured by the force sensor,
 ///  \li ftJacobian: Jacobian of the pose of the force sensor,
-///  \li threshold: norm of the force/moment above which the contact is
+///  \li threshold: norm of the force above which the contact is
 ///      considered as active.
 ///  \li the desired wrench in the force sensor when there is contact
 ///  \li the stiffness matrix of the admittance control law.
@@ -66,16 +67,19 @@ namespace agimus {
 /// \li jacobian (from FeatureAbstract)
 /// \li contact integer signal providing the state of the contact:
 ///    0 no contact, 1 contact controlled, 2 contact released
-  
+///
+/// The contact is considered as active if the norm of the wrench is above
+/// the threshold for several iterations in a row.
 using dynamicgraph::sot::FeatureAbstract;
   
 class AGIMUS_SOT_DLLAPI ContactAdmittance : public FeatureAbstract
 {
  public:
-  enum ContactType{
+  enum ContactState{
     NO_CONTACT = 0,
+    GOING_TO_CONTACT,
     ACTIVE_CONTACT,
-    CONTACT_RELEASED
+    RELEASING_CONTACT
   };
   typedef dynamicgraph::sot::MatrixHomogeneous MatrixHomogeneous;
   static const std::string CLASS_NAME;
@@ -115,6 +119,16 @@ class AGIMUS_SOT_DLLAPI ContactAdmittance : public FeatureAbstract
   Signal<dynamicgraph::Vector, int> wrenchOffsetSOUT;
   // State of the contact
   SignalTimeDependent<int, int> contactSOUT;
+
+  // \brief Counter to handle contact
+  std::size_t contactCounter_;
+  // Number of consecutive iterations above threshold to switch to state
+  // ACTIVE_CONTACT.
+  std::size_t nContactIterations_;
+  // Keep contact state from previous iteration
+  ContactState contactState_;
+  // Temporary matrices to avoid memory allocation
+  matrix_t JinPinv_, a_;
 
   // \brief Compute the error
   virtual dynamicgraph::Vector& computeError(dynamicgraph::Vector &res,
