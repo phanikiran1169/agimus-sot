@@ -54,8 +54,8 @@ void ContactAdmittance::addCommands()
     "    \n";
 
 
-  addCommand("getOffset", command::makeCommandVoid1
-    (*this, &ContactAdmittance::getOffset, docstring));
+  addCommand("getWrenchOffset", command::makeCommandVoid1
+    (*this, &ContactAdmittance::getWrenchOffset, docstring));
 
 }
 
@@ -73,6 +73,8 @@ ContactAdmittance::ContactAdmittance(const std::string& name) :
               errorSIN << thresholdSIN << wrenchSIN << stiffnessSIN <<
               ftJacobianSIN << jacobianSIN,
               "ContactAdmittance("+name+")::output(int)::contact"),
+  releaseCriterionSOUT("ContactAdmittance("+name+")::output(double)::releaseCriterion"),
+  wrenchMinusOffsetSOUT("ContactAdmittance("+name+")::output(vector)::wrenchMinusOffset"),
   contactCounter_(0), nContactIterations_(5), contactState_(NO_CONTACT)
 {
   addCommands();
@@ -80,13 +82,18 @@ ContactAdmittance::ContactAdmittance(const std::string& name) :
                      contactSOUT << thresholdSIN << wrenchDesSIN <<
                      stiffnessSIN);
   signalRegistration(wrenchOffsetSOUT);
+  signalRegistration(releaseCriterionSOUT);
+  signalRegistration(wrenchMinusOffsetSOUT);
   dynamicgraph::Vector offset(6); offset.setZero();
   wrenchOffsetSOUT.setConstant(offset);
 }
 
-void ContactAdmittance::getOffset(const int& time)
+void ContactAdmittance::getWrenchOffset(const int& time)
 {
   wrenchOffsetSOUT.setConstant(wrenchSIN(time));
+  // Reset contact state since norm of force may have been above the threshold
+  // before this initialization.
+  contactState_ = NO_CONTACT;
 }
 
 vector_t& ContactAdmittance::computeError
@@ -100,6 +107,7 @@ vector_t& ContactAdmittance::computeError
     // and desired wrenchs
     res = wrenchSIN(time) - wrenchOffsetSOUT(time) - wrenchDesSIN(time);
   }
+  wrenchMinusOffsetSOUT.setConstant(wrenchSIN(time) - wrenchOffsetSOUT(time));
   return res;
 }
 
@@ -118,10 +126,12 @@ dynamicgraph::Matrix& ContactAdmittance::computeJacobian
 int& ContactAdmittance::computeContact(int& res, int time)
 {
   vector_t wrench(wrenchSIN(time));
+  vector_t wrenchOffset(wrenchOffsetSOUT(time));
 
   // Compute state of contact
-  bool forceAboveThreshold(wrench.head<3>().norm() >= thresholdSIN(time));
-
+  bool forceAboveThreshold((wrench-wrenchOffset).head<3>().norm() >=
+			   thresholdSIN(time));
+  releaseCriterionSOUT.setConstant(0);
   switch(contactState_){
   case NO_CONTACT:
     if (forceAboveThreshold) {
@@ -155,6 +165,7 @@ int& ContactAdmittance::computeContact(int& res, int time)
       pseudoInverse();
     a_ = wrenchSIN(time).transpose()*stiffnessSIN(time)*ftJacobianSIN(time)*
       JinPinv_*errorSIN(time);
+    releaseCriterionSOUT.setConstant(a_(0,0));
     if (a_(0,0) >= 0) {
       // Stay in this state
       res = ACTIVE_CONTACT;
@@ -168,6 +179,7 @@ int& ContactAdmittance::computeContact(int& res, int time)
       pseudoInverse();
     a_ = wrenchSIN(time).transpose()*stiffnessSIN(time)*ftJacobianSIN(time)*
       JinPinv_*errorSIN(time);
+    releaseCriterionSOUT.setConstant(a_(0,0));
     if (a_(0,0) >= 0) {
       // Return to state ACTIVE_CONTACT
       res = ACTIVE_CONTACT;

@@ -95,7 +95,7 @@ class AGIMUS_SOT_DLLAPI ContactAdmittance : public FeatureAbstract
   }
 
   // Get wrench offset by averaging over 20 iterations
-  void getOffset(const int& time);
+  void getWrenchOffset(const int& time);
 
  private:
   // Input signals
@@ -119,6 +119,10 @@ class AGIMUS_SOT_DLLAPI ContactAdmittance : public FeatureAbstract
   Signal<dynamicgraph::Vector, int> wrenchOffsetSOUT;
   // State of the contact
   SignalTimeDependent<int, int> contactSOUT;
+  // Criterion to release contact
+  Signal<double, int> releaseCriterionSOUT;
+  // Wrench minus offset
+  Signal<dynamicgraph::Vector, int> wrenchMinusOffsetSOUT;
 
   // \brief Counter to handle contact
   std::size_t contactCounter_;
