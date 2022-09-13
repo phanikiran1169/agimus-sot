@@ -15,8 +15,11 @@
 \newcommand\resultant{F}
 \newcommand\moment{M}
 \newcommand\wrenchdes{W^{*}}
+\newcommand\wrenchOffset{\bar{W}}
 \newcommand\resultantdes{F^{*}}
+\newcommand\resultantOffset{\bar{F}}
 \newcommand\momentdes{M^{*}}
+\newcommand\momentOffset{\bar{M}}
 \newcommand\conf{\mathbf{q}}
 \newcommand\dconf{\mathbf{\dot{q}}}
 \newcommand\error{\mathbf{e}}
@@ -110,11 +113,13 @@ The input signals are
 \item[-] \texttt{inputJacobian}: corresponding Jacobian,
 \item[-] \texttt{wrench}: wrench measured by the force sensor,
 \item[-] \texttt{ftJacobian}: Jacobian of the pose of the force sensor with respect to the robot configuration,
-\item[-] \texttt{threshold}: norm of the force/moment above which the contact is
-    considered as active.
+\item[-] \texttt{threshold}: norm of the force above which the contact is
+    considered as active,
 \item[-] \texttt{wrenchDes}: the desired wrench in the force sensor when
-  there is contact
-\item[-] \texttt{stiffness}: the stiffness matrix of the admittance control law.
+  there is contact,
+\item[-] \texttt{stiffness}: the stiffness matrix of the admittance control law,
+\item[-] \texttt{wrenchOffset}: offset that is deduced to the wrench measurement
+  in order to substract the gripper weight.
 \end{itemize}
 
 The output signals are
@@ -133,7 +138,8 @@ We denote by
 \item[-] $\wrench = (\resultant, \moment)$ the wrench applied by the environment (through contact) and by the gravity to the robot end-effector, measured at the force sensor position,
 \item[-] $\resultant$ the resultant force of $\wrench$ expressed in the sensor frame,
 \item[-] $\moment$ the moment at the force sensor of $\wrench$ expressed in the sensor frame,
-\item[-] $\wrenchdes = (\resultantdes, \momentdes)$ the desired value of $\wrench$ when the end-effector is in contact,
+\item[-] $\wrenchOffset = (\resultantOffset,\momentOffset)$ an offset that is substracted to the measured wrench to balance the gripper weight,
+\item[-] $\wrenchdes = (\resultantdes, \momentdes)$ the desired value of $\wrench-\wrenchOffset$ when the end-effector is in contact,
 \item[-] $\oM{w}{sensor}\in SE(3)$ the pose of the end-effector in the world frame,
 \item[-] $\oM{w\ *}{sensor}\in SE(3)$ the pose of the end-effector that yields the desired wrench. We assume that such a pose exists.
 \item[-] $J_{sensor}$, the Jacobian of the force sensor pose with respect to the
@@ -143,11 +149,8 @@ We denote by
 
 \subsection{Contact detection}
 
-A contact is assumed to be detected when the following measured value is above
-the input threshold:
-$$
-\sqrt{\|\resultant\|^2 + \|\moment\|^2}.
-$$
+A contact is assumed to be detected when $|\resultant - \resultantOffset\|$ is above the input threshold:
+
 Note that the above expression is not homogeneous and that the force norm should
 be multiplyed by a length.
 
@@ -162,11 +165,11 @@ When no contact is detected, the entity simply forwards to output signal
 
 When a contact is detected, the output error is defined as the difference between the measured and desired wrench:
 $$
-\bm{e} = \wrench - \wrenchdes
+\bm{e} = \wrench - \wrenchOffset - \wrenchdes
 $$
 We assume that the deviation of the force with respect to the desired value follows the following law:
 $$
-\wrench - \wrenchdes = -S\nu,
+\wrench - \wrenchOffset - \wrenchdes = -S\nu,
 $$
 where
 \begin{eqnarray*}
@@ -192,7 +195,7 @@ $$
 this value is sent to output signal \texttt{jacobian}.
 
 Note that for the contact control to be stable, we should make sure that
-$\|\wrenchdes\|$ is above the detection threshold.
+$\|\resultantdes\|$ is above the detection threshold.
 
 \subsection{Releasing contact}
 
