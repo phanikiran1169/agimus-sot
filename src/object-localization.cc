@@ -52,6 +52,19 @@ void ObjectLocalization::addCommands()
     "        reads and store cMo, set signal done to True.\n";
   addCommand("trigger", makeCommandVoid1(*this, &ObjectLocalization::trigger,
 					 docstring));
+
+  docstring = "    \n"
+    "    Select control mode\n"
+    "    \n"
+    "      Input: boolean\n"
+    "    \n"
+    "        If true the pose of the object in the world frame will be updated\n"
+    "        continuously as long as signal cMoMeasured is available.\n";
+    "        If false the pose of the object in the world frame is updated only\n"
+    "        when calling command trigger.\n";
+  addCommand("setVisualServoingMode", makeCommandVoid1(*this, &ObjectLocalization::setVisualServoingMode,
+            docstring));
+
 }
 
 ObjectLocalization::ObjectLocalization(const std::string& name) :
@@ -65,7 +78,8 @@ ObjectLocalization::ObjectLocalization(const std::string& name) :
   cMoSOUT(boost::bind(&ObjectLocalization::compute_cMo, this, _1, _2),
 	  wMcSIN,
 	  "ObjectLocalization("+name+")::output(MatrixHomo)::cMo"),
-  doneSOUT("ObjectLocalization("+name+")::output(bool)::done")
+  doneSOUT("ObjectLocalization("+name+")::output(bool)::done"),
+  wMoInitialized_(false), visualServoingMode_(true)
 {
   addCommands();
   doneSOUT.setConstant(false);
@@ -89,12 +103,21 @@ void ObjectLocalization::trigger(const int& t)
     wMo = wMc*cMo;
     wMoSOUT.setConstant(wMo);
     doneSOUT.setConstant(true);
+    wMoInitialized_ = true;
   }
 }
 
 MatrixHomogeneous& ObjectLocalization::compute_cMo
 (MatrixHomogeneous& res, int t)
 {
+  if(visualServoingMode_){
+    trigger(t);
+  }
+  if(!wMoInitialized_){
+    throw std::runtime_error("ObjectLocalization::compute_cMo :"
+    " Position of object in world frame not intialized, please call"
+    " trigger. Make sure the signal \"done\" is true.");
+  }
   wMcSIN.recompute(t);
   MatrixHomogeneous cMw = wMcSIN.access(t).inverse();
   res = cMw * wMoSOUT.access(t);
