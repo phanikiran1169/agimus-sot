@@ -90,6 +90,7 @@ class AGIMUS_SOT_DLLAPI ObjectLocalization : public Entity
   void addCommands();
   MatrixHomogeneous& compute_cMo(MatrixHomogeneous& res, int t);
   void trigger(const int&);
+  bool wMoInitialized_;
 }; // class PartLocalization
 } // namespace agimus
 } // namespace dynamicgraph

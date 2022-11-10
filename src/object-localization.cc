@@ -65,7 +65,8 @@ ObjectLocalization::ObjectLocalization(const std::string& name) :
   cMoSOUT(boost::bind(&ObjectLocalization::compute_cMo, this, _1, _2),
 	  wMcSIN,
 	  "ObjectLocalization("+name+")::output(MatrixHomo)::cMo"),
-  doneSOUT("ObjectLocalization("+name+")::output(bool)::done")
+  doneSOUT("ObjectLocalization("+name+")::output(bool)::done"),
+  wMoInitialized_(false)
 {
   addCommands();
   doneSOUT.setConstant(false);
@@ -95,6 +96,11 @@ void ObjectLocalization::trigger(const int& t)
 MatrixHomogeneous& ObjectLocalization::compute_cMo
 (MatrixHomogeneous& res, int t)
 {
+  if(!wMoInitialized_){
+    throw std::runtime_error("ObjectLocalization::compute_cMo :"
+    " Position of object in world frame not intialized, please call"
+    " trigger. Make sure the signal \"done\" is true.");
+  }
   wMcSIN.recompute(t);
   MatrixHomogeneous cMw = wMcSIN.access(t).inverse();
   res = cMw * wMoSOUT.access(t);
