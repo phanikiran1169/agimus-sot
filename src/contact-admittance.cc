@@ -125,11 +125,9 @@ dynamicgraph::Matrix& ContactAdmittance::computeJacobian
 
 int& ContactAdmittance::computeContact(int& res, int time)
 {
-  vector_t wrench(wrenchSIN(time));
-  vector_t wrenchOffset(wrenchOffsetSOUT(time));
-
+  vector_t w(wrenchSIN(time)-wrenchOffsetSOUT(time));
   // Compute state of contact
-  bool forceAboveThreshold((wrench-wrenchOffset).head<3>().norm() >=
+  bool forceAboveThreshold(w.head<3>().norm() >=
 			   thresholdSIN(time));
   releaseCriterionSOUT.setConstant(0);
   switch(contactState_){
@@ -163,7 +161,7 @@ int& ContactAdmittance::computeContact(int& res, int time)
   case ACTIVE_CONTACT:
     JinPinv_ = jacobianSIN(time).completeOrthogonalDecomposition().
       pseudoInverse();
-    a_ = wrenchSIN(time).transpose()*stiffnessSIN(time)*ftJacobianSIN(time)*
+    a_ = w.transpose()*stiffnessSIN(time)*ftJacobianSIN(time)*
       JinPinv_*errorSIN(time);
     releaseCriterionSOUT.setConstant(a_(0,0));
     if (a_(0,0) >= 0) {
@@ -177,7 +175,7 @@ int& ContactAdmittance::computeContact(int& res, int time)
   case RELEASING_CONTACT:
     JinPinv_ = jacobianSIN(time).completeOrthogonalDecomposition().
       pseudoInverse();
-    a_ = wrenchSIN(time).transpose()*stiffnessSIN(time)*ftJacobianSIN(time)*
+    a_ = w.transpose()*stiffnessSIN(time)*ftJacobianSIN(time)*
       JinPinv_*errorSIN(time);
     releaseCriterionSOUT.setConstant(a_(0,0));
     if (a_(0,0) >= 0) {
