@@ -364,6 +364,7 @@ class Supervisor(object):
 def _defaultHandler(name,topic_info,rosSubscribe,rosTf):
     topic = topic_info["topic"]
     rosSubscribe.add (topic_info["type"], name, topic)
+    rosSubscribe.signal(name).setRecomputeFromPy(True)
     for s in topic_info['signalGetters']:
         from dynamic_graph.signal_base import SignalBase
         plug (rosSubscribe.signal(name), s if isinstance(s, SignalBase) else s())
