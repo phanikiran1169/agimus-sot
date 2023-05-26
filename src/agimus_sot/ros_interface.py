@@ -26,7 +26,7 @@
 
 import rospy
 from std_srvs.srv import Trigger, TriggerResponse, SetBool, SetBoolResponse, Empty, EmptyResponse
-from agimus_sot_msgs.srv import PlugSot, PlugSotResponse, GetJointNames, ReadQueue, WaitForMinQueueSize, WaitForMinQueueSizeResponse, SetPose
+from agimus_sot_msgs.srv import PlugSot, PlugSotResponse, GetJointNames, ReadQueue, SetPose, WaitForQueueRecData, SetQueueRecData
 from dynamic_graph_bridge_msgs.srv import RunCommand
 
 def wait_for_service (srv, time = 0.2):
@@ -57,12 +57,13 @@ class RosInterface(object):
         rospy.Service('run_pre_action', PlugSot, self.runPreAction)
         rospy.Service('request_hpp_topics', Trigger, self.requestHppTopics)
         rospy.Service('clear_queues', Trigger, self.clearQueues)
-        rospy.Service('wait_for_min_queue_size', WaitForMinQueueSize, self.waitForMinQueueSize)
         rospy.Service('read_queue', ReadQueue, self.readQueue)
         rospy.Service('stop_reading_queue', Empty, self.stopReadingQueue)
         rospy.Service('publish_state', Empty, self.publishState)
         rospy.Service('set_base_pose', SetPose, self.setBasePose)
         rospy.Service('get_joint_names', GetJointNames, self.getJointNames)
+        rospy.Service('wait_for_queue_rec_data', WaitForQueueRecData, self.waitForQueueRecData)
+        rospy.Service('set_queue_rec_data', SetQueueRecData, self.setQueueRecData)
         wait_for_service ("/run_command")
         self._runCommand = rospy.ServiceProxy ('/run_command', RunCommand)
         self.supervisor = supervisor
@@ -181,19 +182,28 @@ class RosInterface(object):
             rsp.message = "Timeout reached"
         return rsp
 
-    def waitForMinQueueSize(self, req):
-        from agimus_sot_msgs.srv import WaitForMinQueueSizeResponse
-        rsp = WaitForMinQueueSizeResponse()
+    def waitForQueueRecData(self, req):
+        from agimus_sot_msgs.srv import WaitForQueueRecDataResponse
+        rsp = WaitForQueueRecDataResponse()
         if self.supervisor is not None:
-            rsp.success, rsp.message = self.supervisor.waitForQueue(req.minQueueSize, req.timeout)
+            rsp.success, rsp.message = self.supervisor.queueRecData(req.timeout)
         else:
-            cmd = "supervisor.waitForQueue({},{})".format(req.minQueueSize, req.timeout)
+            cmd = "supervisor.queueRecData({})".format(req.timeout)
             answer = self.runCommand (cmd)
             rospy.loginfo(answer.standarderror)
             rsp.success, rsp.message = self._isNotError (answer)
             if rsp.success:
                 rsp.success, rsp.message = eval(answer.result)
         return rsp
+    
+    def setQueueRecData(self, req):
+        from agimus_sot_msgs.srv import SetQueueRecDataResponse
+        if self.supervisor is not None:
+            self.supervisor.setQueueRecData(req.status)
+        else:
+            cmd = "supervisor.resetQueueRecData({})".format(req.status)
+            answer = self.runCommand (cmd)
+        return SetQueueRecDataResponse()
 
     def stopReadingQueue(self, req):
         if self.supervisor is not None:

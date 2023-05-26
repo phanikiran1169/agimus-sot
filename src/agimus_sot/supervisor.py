@@ -229,6 +229,28 @@ class Supervisor(object):
                     return False, "Queue {} has received {} points.".format(queue, self.rosSubscribe.queueSize(queue))
                 sleep(ts)
         return True, ""
+    
+    ## Wait for the queue to receive atleast one data point
+    # \param timeout time in seconds after which to return a failure.
+    # \return True on success, False on timeout.
+    def queueRecData(self, timeout):
+        ts = self.sotrobot.device.getTimeStep()
+        to = int(timeout / self.sotrobot.device.getTimeStep())
+        from time import sleep
+        start_it = self.sotrobot.device.control.time
+        for queue in self.rosSubscribe.list():
+            while self.rosSubscribe.queueReceivedData(queue) != True:
+                if self.sotrobot.device.control.time > start_it + to:
+                    return False, "Queue {} has not received any data points.".format(queue)
+                sleep(ts)
+        return True, ""
+    
+    ## Set the data reception status of the queue according to the input status
+    # \param status boolean (True to indicate that queue has received atleast one data point)
+    def setQueueRecData(self, status):
+        for queue in self.rosSubscribe.list():
+            print('Setting the data reception status of the {} queue to {}'.format(queue, status))
+            self.rosSubscribe.setQueueReceviedData(queue, status)
 
     ## Start reading values received by the RosQueuedSubscribe entity.
     # \param delay (integer) how many periods to wait before reading.
